@@ -1,4 +1,5 @@
 .venv-live/
+node_modules/
 .env
 *.env
 !*.env.example

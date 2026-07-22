@@ -5,7 +5,7 @@ on:
     paths:
       - 'terminal/**'
       - 'scripts/check-pro-terminal.mjs'
-      - 'scripts/test-final-sw-transform.mjs'
+      - 'scripts/test-final-source-integration.mjs'
       - 'scripts/test-galka-store.mjs'
       - 'scripts/test-paper-engine.mjs'
       - 'scripts/test-paper-recovery.mjs'
@@ -21,24 +21,24 @@ jobs:
         with:
           node-version: 20
       - run: node scripts/check-pro-terminal.mjs
-      - name: Capture transformed terminal test
+      - name: Capture first-load source integration test
         shell: bash
         run: |
           set +e
-          node scripts/test-final-sw-transform.mjs > transform-test.log 2>&1
-          echo "$?" > transform-test.exit
+          node scripts/test-final-source-integration.mjs > source-test.log 2>&1
+          echo "$?" > source-test.exit
           exit 0
       - uses: actions/upload-artifact@v4
         with:
-          name: galka-transform-test-log
+          name: galka-source-integration-test-log
           path: |
-            transform-test.log
-            transform-test.exit
-      - name: Enforce transformed terminal result
+            source-test.log
+            source-test.exit
+      - name: Enforce first-load source result
         shell: bash
         run: |
-          cat transform-test.log
-          test "$(cat transform-test.exit)" = "0"
+          cat source-test.log
+          test "$(cat source-test.exit)" = "0"
 
   store-migration:
     runs-on: ubuntu-latest

@@ -211,7 +211,6 @@ try {
     if (!localStorage.getItem('galka-pro-v1')) {
       localStorage.setItem('galka-pro-v1', JSON.stringify(snapshot));
     }
-    Object.defineProperty(navigator, 'serviceWorker', { value: { register: () => Promise.resolve() } });
     class RecoveryWebSocket {
       constructor() {
         this.readyState = 0;
@@ -229,7 +228,11 @@ try {
   }, { snapshot: seed });
 
   let recoveryRequests = 0;
-  await context.route('https://unpkg.com/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: fakeCharts }));
+  let externalChartRequests = 0;
+  await context.route('https://unpkg.com/**', (route) => {
+    externalChartRequests += 1;
+    return route.fulfill({ status: 200, contentType: 'application/javascript', body: fakeCharts });
+  });
   await context.route('https://fapi.binance.com/**', async (route) => {
     const url = new URL(route.request().url());
     const isRecovery = url.searchParams.get('interval') === '1m' && url.searchParams.has('startTime');
@@ -257,15 +260,23 @@ try {
   const recovered = await page.evaluate(() => ({
     state: JSON.parse(localStorage.getItem('galka-pro-v1')),
     note: document.querySelector('#sessionRecovery')?.textContent,
+    simpleTradeBar: !!document.querySelector('#simpleTradeBar'),
   }));
   assert.equal(recovered.state.paper.trades.length, 1);
   assert.equal(recovered.state.paper.trades[0].executionSource, 'recovery');
   assert.equal(recovered.state.paper.trades[0].levelsFilled, 4);
   assert.equal(recovered.state.paper.recovery.gapStartedAt, null);
   assert.match(recovered.note, /Восстановлено 3 закрытых 1m свечей/);
+  assert.equal(recovered.simpleTradeBar, true, 'the final UI must exist on the first clean page load');
+  assert.equal(externalChartRequests, 0, 'the production page must use the vendored chart runtime');
   assert.equal(recoveryRequests, 1);
 
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration.active) throw new Error('service worker did not become active');
+  });
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 10_000 });
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 10_000 });
   await page.waitForTimeout(300);
   const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('galka-pro-v1')));
   assert.equal(afterReload.paper.trades.length, 1, 'reloading after recovery must not duplicate a trade');

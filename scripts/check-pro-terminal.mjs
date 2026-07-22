@@ -15,6 +15,8 @@ const paths = {
   stats: 'terminal/modules/galka-stats.js',
   shadow: 'terminal/modules/shadow-engine.js',
   statsAsset: 'terminal/data/galka-stats-v1.json.gz',
+  chartVendor: 'terminal/vendor/lightweight-charts.standalone.production.js',
+  chartLicense: 'terminal/vendor/LICENSE.lightweight-charts',
   sw: 'terminal/sw.js',
   manifest: 'terminal/manifest.webmanifest',
 };
@@ -35,6 +37,7 @@ const stats = fs.readFileSync(paths.stats, 'utf8');
 const shadow = fs.readFileSync(paths.shadow, 'utf8');
 const sw = fs.readFileSync(paths.sw, 'utf8');
 const statsAsset = fs.readFileSync(paths.statsAsset);
+const chartVendor = fs.readFileSync(paths.chartVendor);
 const statsPack = JSON.parse(gunzipSync(statsAsset));
 const manifest = JSON.parse(fs.readFileSync(paths.manifest, 'utf8'));
 const clientSource = [html, app, store, paper, radar, backup, stats, shadow, sw].join('\n');
@@ -55,7 +58,8 @@ for (const id of requiredIds) {
 }
 
 const checks = [
-  ['module entrypoint', /<script type="module" src="pro\.js\?v=8"><\/script>/.test(html)],
+  ['module entrypoint', /<script type="module" src="pro\.js\?v=9"><\/script>/.test(html)],
+  ['vendored chart runtime', /vendor\/lightweight-charts\.standalone\.production\.js/.test(html) && !/<script[^>]+https?:\/\//.test(html) && createHash('sha256').update(chartVendor).digest('hex') === 'c0992580867c4912cc9385b3c2728315bcc1a76c7f1087dca908430fccdf31d7'],
   ['three paper symbols', /export const SYMBOLS = \['BTCUSDT', 'ETHUSDT', 'SOLUSDT'\]/.test(store)],
   ['storage key unchanged', /export const STORAGE_KEY = 'galka-pro-v1'/.test(store)],
   ['additive migration', /migrateStore/.test(store) && /deepMerge\(createDefaultStore\(\), source\)/.test(store)],
@@ -69,11 +73,11 @@ const checks = [
   ['trailing floor', /Math\.max\(campaign\.vLow, nextHigh \* \(1 - distance\)\)/.test(paper)],
   ['idempotent fills', /level\.status !== 'pending'/.test(paper)],
   ['safe pre-trade preview', /previewCampaign/.test(app) && /PAPER PREVIEW/.test(html)],
-  ['simple bottom entry UI', /simpleTradeBar/.test(sw) && /simpleGalkaPrice/.test(sw) && /simpleGalkaLaunch/.test(sw)],
-  ['essential drawing UI', sw.includes('[data-tool="ray"]') && sw.includes('[data-tool="measure"]') && sw.includes('#deleteBtn') && sw.includes('#clearBtn')],
-  ['two-tap mobile drawing', /drawingAwaitSecond/.test(sw) && sw.includes('Луч: коснись начала, потом направления') && sw.includes('Линейка: коснись начала, потом конца')],
-  ['manual marker hidden', sw.includes("if(p&&p.source!=='manual')")],
-  ['target mode hides reclaim', sw.includes("if(c.exitMode!=='target'&&c.reclaimPrice)")],
+  ['simple bottom entry UI', /simpleTradeBar/.test(app) && /simpleGalkaPrice/.test(app) && /simpleGalkaLaunch/.test(app)],
+  ['essential drawing UI', app.includes('[data-tool="ray"]') && app.includes('[data-tool="measure"]') && app.includes('#deleteBtn') && app.includes('#clearBtn')],
+  ['two-tap mobile drawing', /drawingAwaitSecond/.test(app) && app.includes('Луч: коснись начала, потом направления') && app.includes('Линейка: коснись начала, потом конца')],
+  ['manual marker hidden', app.includes("if(p&&p.source!=='manual')")],
+  ['target mode hides reclaim', app.includes("if(c.exitMode!=='target'&&c.reclaimPrice)")],
   ['Radar visual only', !/createCampaign|paper\.symbols/.test(radar) && /EXPLAINABLE SCORE/.test(html)],
   ['positive and negative labels', /labelRadarCandidate\('positive'\)/.test(app) && /labelRadarCandidate\('negative'\)/.test(app)],
   ['Radar filters', ['all', 'strong', 'mine', 'profitable', 'losing'].every((value) => html.includes(`data-radar-filter="${value}"`))],
@@ -88,11 +92,13 @@ const checks = [
   ['session health and paper replay', /catchUpAfterReconnect/.test(app) && /fetchClosedMinuteRange/.test(app) && /replayCampaignCandles/.test(app) && /sessionQuoteAge/.test(html)],
   ['full backup restore', /createBackupSnapshot/.test(app) && /validateBackupSnapshot/.test(app) && /PRE_RESTORE_BACKUP_KEY/.test(app)],
   ['installable PWA', manifest.display === 'standalone' && manifest.icons.length >= 2 && /serviceWorker\.register/.test(app)],
-  ['service worker is patch-only', /service worker never runs the paper engine/i.test(sw) && !/importScripts\(|from ['"]\.\/modules\/paper-engine/.test(sw)],
+  ['service worker is cache-only', /Market data is never served from an application cache/.test(sw) && !/patchProSource|servePatchedPro|importScripts\(|from ['"]\.\/modules\/paper-engine/.test(sw)],
   ['large stats pack stays lazy', !/data\/galka-stats-v1\.json\.gz/.test(sw) && /loadGalkaStatsPack/.test(app)],
   ['onboarding retained but disabled by default', /onboardingSteps/.test(app) && /ШАГ 1 ИЗ 5/.test(html) && /completed: true/.test(store)],
   ['training replay retained', /markReplayGalka/.test(app) && /replayExamples/.test(store) && /future=replay\.source/.test(app)],
   ['legacy navigation retained behind simple UI', ['chart','paper','radar','lab','more'].every((panel) => html.includes(`data-mobile-panel="${panel}"`))],
+  ['advanced panels remain reachable', !app.includes('.mobile-nav,.side-tabs') && !app.includes('#radarBtn,#toggleSidebar') && app.includes('.side-panel.active{display:block!important}') && app.includes('#toggleSidebar{display:inline-flex!important}')],
+  ['desktop chart remains visible', app.includes('.workspace{grid-column:1!important}') && app.includes('.drawing-pill{display:flex!important')],
   ['bottom sheet snaps retained', /\.sidebar\.snap-low/.test(css) && /\.sidebar\.snap-high/.test(css) && /beginSheetGesture/.test(app)],
   ['chart-first shell', /\.chart-main-wrap[\s\S]*height: 100%/.test(css) && /translateY\(calc\(100% \+ 12px\)\)/.test(css)],
   ['no chart grid', /vertLines:\{visible:false\}/.test(app) && /horzLines:\{visible:false\}/.test(app)],

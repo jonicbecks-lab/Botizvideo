@@ -164,8 +164,11 @@ async function preparePage(browser, baseUrl, viewport) {
 async function openAndVerifyLab(page, viewport) {
   const mobileLab = page.locator('[data-mobile-panel="lab"]');
   const openSheet = await page.locator('.sidebar.open').count();
-  if (openSheet || !(await mobileLab.isVisible())) await page.locator('.side-tabs [data-panel="lab"]').click();
-  else await mobileLab.click();
+  if (await mobileLab.isVisible()) await mobileLab.click();
+  else {
+    if (!openSheet) await page.locator('#toggleSidebar').click();
+    await page.locator('.side-tabs [data-panel="lab"]').click();
+  }
   await page.waitForFunction(() => document.querySelector('#labPackStatus')?.textContent === 'Verified', null, { timeout: 15_000 });
   await page.waitForFunction(() => /Candidates/.test(document.querySelector('#labOosMetrics')?.textContent || ''), null, { timeout: 5_000 });
   await page.waitForTimeout(450);
@@ -257,7 +260,9 @@ try {
 
   const after = await preparePage(browser, 'http://127.0.0.1:4175', { width: 390, height: 844 });
   await after.page.screenshot({ path: path.join(outputRoot, 'after-s24-chart.png') });
-  await after.page.locator('[data-mobile-panel="paper"]').click();
+  const simplePaper = after.page.locator('#simpleTradeStatus');
+  if (await simplePaper.isVisible()) await simplePaper.click();
+  else await after.page.locator('[data-mobile-panel="paper"]').click();
   await after.page.waitForTimeout(450);
   await after.page.screenshot({ path: path.join(outputRoot, 'after-s24-paper.png') });
   await openAndVerifyLab(after.page, { width: 390, height: 844 });

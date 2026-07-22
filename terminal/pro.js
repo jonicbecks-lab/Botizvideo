@@ -124,7 +124,7 @@ const runtime={
   candles:new Map(),botCandles:Object.fromEntries(SYMBOLS.map(s=>[s,[]])),
   quotes:Object.fromEntries(SYMBOLS.map(s=>[s,{bid:null,ask:null,last:null,open24:null,change24:null,updated:null,marketAt:null}])),
   ws:null,reconnect:null,wsAttempt:0,loading:new Set(),syncing:false,connectionState:'idle',lastQuoteAt:null,lastEngineAt:null,disconnectedAt:null,recovering:false,lastCatchupAt:null,recoveryPromise:null,recoveryQuoteBuffer:[],recoveryBufferOverflow:false,recoveryOverflowAt:null,lastRecoverySummary:null,lastRecoveryPersistAt:0,
-  tool:'cursor',drawingStart:null,drawingPreview:null,selectedDrawing:null,drawingEdit:null,longPressTimer:null,undo:[],redo:[],
+  tool:'cursor',drawingStart:null,drawingPreview:null,drawingAwaitSecond:false,selectedDrawing:null,drawingEdit:null,longPressTimer:null,undo:[],redo:[],
   dpr:window.devicePixelRatio||1,toastTimer:null,lastCrosshair:null,
   replay:{active:false,index:0,playing:false,timer:null,source:null,pendingLabel:null,revealed:false},
   hiddenLiveUpdates:false,manualDrag:false,manualDragOriginal:null,pendingManual:null,pendingRestore:null,radarCandidates:[],radarSelected:null,radarRangeTimer:null,onboardingIndex:0,sheetGesture:null,
@@ -347,7 +347,7 @@ function logRecoveredPaperEvents(symbol,result){
 async function recoverMissedPaperTrading(reason,nowMs=Date.now()){
   const recovery=paperRecovery(),endMs=lastClosedMinute(nowMs),symbols=activeCampaignSymbols();
   const gapSequence=num(recovery.gapSequence);
-  const summary={reason,policy:RECOVERY_PATH_POLICY,symbols:symbols.length,candles:0,boundaryCandles:0,fills:0,trailingArmed:0,trailingRaised:0,closed:0,expired:0,truncated:0,failures:[]};
+  const summary={reason,policy:RECOVERY_PATH_POLICY,symbols:symbols.length,candles:0,boundaryCandles:0,fills:0,l1Cycles:0,trailingArmed:0,trailingRaised:0,closed:0,expired:0,truncated:0,failures:[]};
   recovery.lastRecoveryStatus='running';
   const fetched=await Promise.all(symbols.map(async symbol=>{
     const start=recoveryStartForSymbol(symbol,nowMs),state=paperRecoverySymbol(symbol);state.lastRecoveryStatus='running';
@@ -361,6 +361,7 @@ async function recoverMissedPaperTrading(reason,nowMs=Date.now()){
     const result=replayCampaignCandles(campaign,item.candles,store.paper.settings,{afterMs:start.afterMs});
     summary.candles+=result.candlesReplayed;summary.boundaryCandles+=result.boundaryCandles;summary.truncated+=start.truncated?1:0;
     summary.fills+=result.events.filter(event=>event.type==='level_filled').length;
+    const recoveredCycles=result.events.filter(event=>event.type==='l1_cycle_closed');summary.l1Cycles+=recoveredCycles.length;for(const event of recoveredCycles)recordL1Cycle(symbol,event,{atMs:event.atMs,recovered:true,deferRender:true});
     summary.trailingArmed+=result.events.filter(event=>event.type==='trailing_armed').length;
     summary.trailingRaised+=result.events.filter(event=>event.type==='trailing_raised').length;
     if(result.lastCloseTime!=null)state.lastRecoveredCloseAt=Math.max(num(state.lastRecoveredCloseAt,0),num(result.lastCloseTime));
@@ -373,7 +374,7 @@ async function recoverMissedPaperTrading(reason,nowMs=Date.now()){
   recovery.lastRecoveryAt=nowMs;recovery.lastRecoveryStatus=summary.failures.length?'partial':summary.truncated?'truncated':'ok';
   if(!summary.failures.length&&num(recovery.gapSequence)===gapSequence&&!document.hidden){recovery.gapStartedAt=null;recovery.gapReason=null;}
   recovery.checkpointAt=nowMs;runtime.lastCatchupAt=nowMs;runtime.lastRecoverySummary=summary;
-  const message=`Paper replay: ${summary.candles} × 1m, fills ${summary.fills}, exits ${summary.closed}, boundary ${summary.boundaryCandles}`;
+  const message=`Paper replay: ${summary.candles} × 1m, fills ${summary.fills}, L1 cycles ${summary.l1Cycles}, exits ${summary.closed}, boundary ${summary.boundaryCandles}`;
   logActivity(summary.failures.length?'risk':'connection',summary.failures.length?'Paper replay завершён частично':message,{...summary});
   save();runtime.lastRecoveryPersistAt=nowMs;
   return summary;
@@ -705,7 +706,7 @@ function drawShape(ctx,d,preview=false){
   else if(d.type==='text'){ctx.fillStyle=d.color||COLORS.blue;ctx.font=(d.fontSize||14)+'px system-ui';ctx.fillText(d.text||'Текст',a.x,a.y);}
   else if(b&&b.x!=null&&b.y!=null){
     if(d.type==='trend')line(ctx,a,b);
-    else if(d.type==='ray'){const dx=b.x-a.x,dy=b.y-a.y,t=dx===0?0:(w-a.x)/dx;line(ctx,a,{x:w,y:a.y+dy*t});}
+    else if(d.type==='ray'){const dx=b.x-a.x,dy=b.y-a.y,t=dx===0?0:(w-a.x)/dx,end={x:w,y:a.y+dy*t};line(ctx,a,end);label(ctx,`GALKA ${price(d.p1.price)}`,Math.max(0,Math.min(a.x,w-112)),a.y,d.color||COLORS.blue);}
     else if(d.type==='rect'){ctx.beginPath();ctx.rect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));ctx.fill();ctx.stroke();}
     else if(d.type==='channel'){
       const off=(d.offsetPct||1)/100*((d.p1.price+d.p2.price)/2),a2=coord({time:d.p1.time,price:d.p1.price+off}),b2=coord({time:d.p2.time,price:d.p2.price+off});
@@ -737,7 +738,7 @@ function drawAll(){
   for(const d of drawingStore())drawShape(ctx,d);if(runtime.drawingPreview)drawShape(ctx,runtime.drawingPreview,true);
 }
 function setTool(tool){
-  runtime.tool=tool;runtime.drawingStart=null;runtime.drawingPreview=null;
+  runtime.tool=tool;runtime.drawingStart=null;runtime.drawingPreview=null;runtime.drawingAwaitSecond=false;
   if(tool!=='cursor')runtime.selectedDrawing=null;
   els.leftbar.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
   const manualTool=tool==='manualGalka'||tool==='manualMove';
@@ -759,6 +760,10 @@ function drawingDown(e){
   if(runtime.tool==='manualMove'){beginManualMove(p,e);return;}
   if(runtime.tool==='horizontal'||runtime.tool==='vertical'){addDrawing({type:runtime.tool,p1:p});return;}
   if(runtime.tool==='text'){const text=prompt('Текст на графике:');if(text)addDrawing({type:'text',p1:p,text,fontSize:14});return;}
+  if(runtime.tool==='ray'||runtime.tool==='measure'){
+    if(!runtime.drawingAwaitSecond){runtime.drawingStart=p;runtime.drawingAwaitSecond=true;runtime.drawingPreview={type:runtime.tool,p1:p,p2:p,color:els.drawingColor?.value||COLORS.blue,width:num(els.drawingWidth?.value,2)};drawAll();toast(runtime.tool==='ray'?'Луч: коснись второй точки направления':'Линейка: коснись второй точки','alert');return;}
+    const type=runtime.tool,start=runtime.drawingStart;runtime.drawingAwaitSecond=false;runtime.drawingStart=null;runtime.drawingPreview=null;if(start)addDrawing({type,p1:start,p2:p});setTool('cursor');toast(type==='ray'?'Луч добавлен':'Измерение добавлено','alert');return;
+  }
   runtime.drawingStart=p;runtime.drawingPreview={type:runtime.tool,p1:p,p2:p,color:els.drawingColor?.value||COLORS.blue,width:num(els.drawingWidth?.value,2)};els.drawingCanvas.setPointerCapture(e.pointerId);
 }
 function drawingMove(e){
@@ -788,6 +793,7 @@ function drawingUp(e){
     const ok=p&&updateManualLevel(p.price,true);if(!ok&&fallback)updateManualLevel(fallback,true,true);
     runtime.manualDragOriginal=null;try{els.drawingCanvas.releasePointerCapture(e.pointerId);}catch(_){}setTool('cursor');return;
   }
+  if(runtime.drawingAwaitSecond)return;
   if(!runtime.drawingStart)return;const p=eventPoint(e);
   if(p)addDrawing({type:runtime.tool,p1:runtime.drawingStart,p2:p});
   runtime.drawingStart=null;runtime.drawingPreview=null;try{els.drawingCanvas.releasePointerCapture(e.pointerId);}catch(_){}
@@ -1105,7 +1111,7 @@ function confirmManualGalka(){
   const rows=chartRows(),idx=nearestIndex(rows,p.time),id='M-'+symbol+'-'+Date.now(),context=rows.slice(Math.max(0,idx-39),idx+1).map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume}));
   const pattern={patternId:id,source:'manual',trainingExampleId:id,vLow:p.price,vLowTime:p.time,confirmedTime:p.time,atr:atrValue(rows,idx,14)||Math.max(p.price*.001,1e-9),dropAtr:0,recovery:0,status:'trading',createdAt:nowIso()};
   store.training.manualExamples.push({id,symbol,interval:p.interval,level:p.price,selectedCandleTime:p.time,selectedAt:nowIso(),status:'active',context,features:computeRadarFeatureAt(rows,idx)});
-  ss.pattern=pattern;ss.campaign=createCampaign(symbol,pattern);logActivity('paper',`${symbol.replace('USDT','')}: GALKA установлена`,{level:p.price,levels:ss.campaign.levels.length,notional:store.paper.settings.symbolNotional});save();closePretrade();renderPaper();renderActivity();updateMarkers();setTool('cursor');showMobilePanel('paper');
+  ss.pattern=pattern;ss.campaign=createCampaign(symbol,pattern);logActivity('paper',`${symbol.replace('USDT','')}: GALKA установлена`,{level:p.price,levels:ss.campaign.levels.length,notional:store.paper.settings.symbolNotional});save();closePretrade();renderPaper();renderActivity();updateMarkers();setTool('cursor');renderSimpleTradeBar();closeMobileOverlays();
   toast(`${symbol}: уровень галки ${price(p.price,symbol)}, лимитки выставлены`,'alert');
 }
 function closePretrade(){runtime.pendingManual=null;els.pretradeModal.classList.add('hidden');}
@@ -1122,15 +1128,21 @@ function exportManualExamples(){
 function recalcCampaign(c){
   recalculateCampaign(c);
 }
+function recordL1Cycle(symbol,event,{atMs=Date.now(),recovered=false,deferRender=false}={}){
+  const ss=store.paper.symbols[symbol],c=ss.campaign;if(!c||!event)return null;
+  const cycle=num(event.cycle,num(c.l1Cycles,1)),cycleKey=c.campaignId+':L1:'+cycle;if(store.paper.trades.some(trade=>trade.cycleKey===cycleKey))return null;
+  const exitTime=new Date(num(atMs,Date.now())).toISOString(),fees=num(event.entryFees)+num(event.exitFee),net=num(event.netPnl);
+  const trade={tradeId:'P'+String(store.paper.trades.length+1).padStart(6,'0'),campaignId:c.campaignId,patternId:c.patternId,cycleKey,cycleOnly:true,finalCampaign:false,l1Cycle:cycle,symbol,side:'long',entryTime:event.fillTime||c.createdAt,exitTime,averageEntry:event.averageEntry,exitPrice:event.price,qty:event.qty,filledNotional:event.filledNotional,levelsFilled:1,levelsTotal:c.levels.length,grossPnl:event.grossPnl,fees,netPnl:net,reason:'l1_cycle_target',vLow:c.vLow,exitMode:'target',executionSource:recovered?'recovery':'live',recoveryPolicy:recovered?RECOVERY_PATH_POLICY:null};
+  if(c.trainingExampleId){const x=store.training.manualExamples.find(v=>v.id===c.trainingExampleId);if(x){x.l1Cycles=cycle;x.l1CyclePnl=num(x.l1CyclePnl)+net;x.updatedAt=exitTime;}}
+  store.paper.trades.push(trade);store.paper.realizedPnl+=net;store.paper.fees+=fees;logActivity('paper',`${symbol.replace('USDT','')}: L1 цикл ${cycle} закрыт ${signedMoney(net)} и перезаряжен`,{reason:trade.reason,tradeId:trade.tradeId,recovered,cycle},trade.exitTime);save();if(!deferRender){renderPaper();renderActivity();updateMarkers();renderSimpleTradeBar();}return trade;
+}
 function closeCampaign(symbol,rawExit,reason,{atMs=Date.now(),recovered=false,deferRender=false}={}){
   const ss=store.paper.symbols[symbol],c=ss.campaign;if(!c?.qty)return;
-  if(store.paper.trades.some(trade=>trade.campaignId===c.campaignId)){ss.campaign=null;save();return;}
-  const st=store.paper.settings,exit=reason==='v_low_target'?rawExit:rawExit*(1-st.slippage),exitNotional=c.qty*exit,exitFee=exitNotional*(reason==='v_low_target'?st.makerFee:st.takerFee),gross=c.qty*(exit-c.averageEntry),net=gross-c.entryFees-exitFee;
-  const exitTime=new Date(num(atMs,Date.now())).toISOString();
-  const trade={tradeId:'P'+String(store.paper.trades.length+1).padStart(6,'0'),campaignId:c.campaignId,patternId:c.patternId,symbol,side:'long',entryTime:c.levels.find(x=>x.status==='filled')?.fillTime||c.createdAt,exitTime,averageEntry:c.averageEntry,exitPrice:exit,qty:c.qty,filledNotional:c.filledNotional,levelsFilled:c.levels.filter(x=>x.status==='filled').length,levelsTotal:c.levels.length,grossPnl:gross,fees:c.entryFees+exitFee,netPnl:net,reason,vLow:c.vLow,exitMode:c.exitMode||'target',trailActivatedAt:c.trailActivatedAt||null,trailHigh:c.trailHigh||null,trailStop:c.trailStop||null,executionSource:recovered?'recovery':'live',recoveryPolicy:recovered?RECOVERY_PATH_POLICY:null};
-  if(c.trainingExampleId){const x=store.training.manualExamples.find(v=>v.id===c.trainingExampleId);if(x)Object.assign(x,{status:'closed',exitTime:trade.exitTime,exitPrice:trade.exitPrice,netPnl:trade.netPnl,reason:trade.reason,levelsFilled:trade.levelsFilled,levelsTotal:trade.levelsTotal,trailHigh:trade.trailHigh});}
-  store.paper.trades.push(trade);store.paper.realizedPnl+=net;store.paper.fees+=trade.fees;ss.campaign=null;if(ss.pattern?.patternId===c.patternId)ss.pattern.status=reason;
-  logActivity(net>=0?'paper':'risk',`${symbol.replace('USDT','')}: paper-сделка закрыта ${signedMoney(net)}`,{reason,tradeId:trade.tradeId,recovered},trade.exitTime);save();if(!deferRender){renderPaper();renderActivity();updateMarkers();}
+  if(store.paper.trades.some(trade=>trade.campaignId===c.campaignId&&trade.finalCampaign===true)){ss.campaign=null;save();return;}
+  const st=store.paper.settings,exit=reason==='v_low_target'?rawExit:rawExit*(1-st.slippage),exitNotional=c.qty*exit,exitFee=exitNotional*(reason==='v_low_target'?st.makerFee:st.takerFee),gross=c.qty*(exit-c.averageEntry),net=gross-c.entryFees-exitFee;const exitTime=new Date(num(atMs,Date.now())).toISOString();
+  const trade={tradeId:'P'+String(store.paper.trades.length+1).padStart(6,'0'),campaignId:c.campaignId,patternId:c.patternId,cycleOnly:false,finalCampaign:true,symbol,side:'long',entryTime:c.levels.find(x=>x.status==='filled')?.fillTime||c.createdAt,exitTime,averageEntry:c.averageEntry,exitPrice:exit,qty:c.qty,filledNotional:c.filledNotional,levelsFilled:c.levels.filter(x=>x.status==='filled').length,levelsTotal:c.levels.length,grossPnl:gross,fees:c.entryFees+exitFee,netPnl:net,reason,vLow:c.vLow,exitMode:c.exitMode||'target',l1Cycles:num(c.l1Cycles),l1CycleRealizedPnl:num(c.l1CycleRealizedPnl),trailActivatedAt:c.trailActivatedAt||null,trailHigh:c.trailHigh||null,trailStop:c.trailStop||null,executionSource:recovered?'recovery':'live',recoveryPolicy:recovered?RECOVERY_PATH_POLICY:null};
+  if(c.trainingExampleId){const x=store.training.manualExamples.find(v=>v.id===c.trainingExampleId);if(x)Object.assign(x,{status:'closed',exitTime:trade.exitTime,exitPrice:trade.exitPrice,netPnl:num(x.l1CyclePnl)+trade.netPnl,reason:trade.reason,levelsFilled:trade.levelsFilled,levelsTotal:trade.levelsTotal,l1Cycles:trade.l1Cycles,trailHigh:trade.trailHigh});}
+  store.paper.trades.push(trade);store.paper.realizedPnl+=net;store.paper.fees+=trade.fees;ss.campaign=null;if(ss.pattern?.patternId===c.patternId)ss.pattern.status=reason;logActivity(net>=0?'paper':'risk',`${symbol.replace('USDT','')}: GALKA завершена ${signedMoney(net)} · L1 циклов ${num(c.l1Cycles)}`,{reason,tradeId:trade.tradeId,recovered,l1Cycles:num(c.l1Cycles)},trade.exitTime);save();if(!deferRender){renderPaper();renderActivity();updateMarkers();renderSimpleTradeBar();}
 }
 function accountSnapshot(){
   let unreal=0,notional=0,maintenance=0;
@@ -1154,6 +1166,7 @@ function processBotQuote(symbol,{quote=runtime.quotes[symbol],nowMs=Date.now(),s
     const restored=source==='buffered',eventAt=new Date(nowMs).toISOString();
     for(const event of result.events){
       if(event.type==='level_filled')logActivity('paper',`${symbol.replace('USDT','')}: L${event.level} исполнена`,{price:event.price,recovered:restored},eventAt);
+      if(event.type==='l1_cycle_closed'){recordL1Cycle(symbol,event,{atMs:nowMs,recovered:restored,deferRender:true});if(symbol===runtime.symbol&&!suppressRender)toast(`${symbol.replace('USDT','')}: L1 закрыта ${signedMoney(event.netPnl)} и поставлена снова`,'alert');}
       if(event.type==='trailing_armed'){logActivity('paper',`${symbol.replace('USDT','')}: trailing активирован`,{stop:event.stop,recovered:restored},eventAt);if(symbol===runtime.symbol&&!suppressRender)toast(`${symbol}: trailing активирован, стоп ${price(event.stop,symbol)}`,'alert');}
       if(event.type==='trailing_raised')logActivity('paper',`${symbol.replace('USDT','')}: stop поднят`,{stop:event.stop,recovered:restored},eventAt);
     }
@@ -1171,7 +1184,7 @@ function durationUntil(timestamp){if(!timestamp)return'—';const ms=timestamp-D
 function renderPaper(){
   renderPaperHeader();const symbol=runtime.symbol,ss=store.paper.symbols[symbol],p=ss.pattern,c=ss.campaign;
   els.manualExamplesCount.textContent=store.training.manualExamples.length;
-  els.paperPortfolioCards.innerHTML=SYMBOLS.map(item=>{const state=store.paper.symbols[item],campaign=state.campaign,quote=runtime.quotes[item],filled=campaign?.levels?.filter(level=>level.status==='filled').length||0,total=campaign?.levels?.length||0,pnl=campaign?.qty&&quote.bid?campaign.qty*(quote.bid-campaign.averageEntry)-campaign.entryFees:0,status=campaign?(campaign.status==='trailing'?'TRAILING':campaign.qty?'OPEN':'WAITING'):'IDLE',level=campaign?.vLow||state.pattern?.vLow;return `<article class="portfolio-card ${item===symbol?'active':''}" data-paper-symbol="${item}" tabindex="0"><span class="coin-mark">${item.replace('USDT','')}</span><span class="portfolio-main"><span><b>${level?price(level,item):'Без GALKA'}</b><small>${filled}/${total||'—'} fills</small></span><span class="portfolio-progress"><i style="width:${total?filled/total*100:0}%"></i></span><small>${campaign?.trailArmed?`Stop ${price(campaign.trailStop,item)}`:campaign?`Reclaim ${price(campaign.reclaimPrice,item)}`:'Можно поставить уровень'}</small></span><span class="portfolio-side"><span class="status-label ${campaign?.status||''}">${status}</span><b class="${pnl>=0?'up':'down'}">${campaign?.qty?signedMoney(pnl):price(quote.last,item)}</b><small>${campaign?durationUntil(campaign.expiresAt):'поток '+(quote.updated?'есть':'—')}</small></span></article>`;}).join('');
+  els.paperPortfolioCards.innerHTML=SYMBOLS.map(item=>{const state=store.paper.symbols[item],campaign=state.campaign,quote=runtime.quotes[item],filled=campaign?.levels?.filter(level=>level.status==='filled').length||0,total=campaign?.levels?.length||0,pnl=campaign?.qty&&quote.bid?campaign.qty*(quote.bid-campaign.averageEntry)-campaign.entryFees:0,status=campaign?(campaign.status==='trailing'?'TRAILING':campaign.qty?'OPEN':'WAITING'):'IDLE',level=campaign?.vLow||state.pattern?.vLow;return `<article class="portfolio-card ${item===symbol?'active':''}" data-paper-symbol="${item}" tabindex="0"><span class="coin-mark">${item.replace('USDT','')}</span><span class="portfolio-main"><span><b>${level?price(level,item):'Без GALKA'}</b><small>${filled}/${total||'—'} fills</small></span><span class="portfolio-progress"><i style="width:${total?filled/total*100:0}%"></i></span><small>${campaign?`Цель ${price(campaign.vLow,item)}${num(campaign.l1Cycles)?` · L1×${num(campaign.l1Cycles)}`:''}`:'Можно поставить уровень'}</small></span><span class="portfolio-side"><span class="status-label ${campaign?.status||''}">${status}</span><b class="${pnl>=0?'up':'down'}">${campaign?.qty?signedMoney(pnl):price(quote.last,item)}</b><small>${campaign?durationUntil(campaign.expiresAt):'поток '+(quote.updated?'есть':'—')}</small></span></article>`;}).join('');
   els.paperNavBadge.classList.toggle('visible',SYMBOLS.some(item=>!!store.paper.symbols[item].campaign));
   const editable=editableManualCampaign(symbol),shownLevel=c?.vLow||(p?.source==='manual'?p.vLow:null);
   if(document.activeElement!==els.manualGalkaPrice)els.manualGalkaPrice.value=shownLevel?price(shownLevel,symbol):'';
@@ -1227,11 +1240,11 @@ function updateMarkers(){
       }
       if(clustered.length){els.levelCluster.textContent='Сгруппированы '+clustered.join(' · ');els.levelCluster.classList.remove('hidden');}
       if(c.averageEntry)addPaperLine(c.averageEntry,COLORS.cyan,'AVG',true,LWC.LineStyle.Solid);
-      if(c.reclaimPrice)addPaperLine(c.reclaimPrice,COLORS.purple,'RECLAIM');
+      if(c.exitMode!=='target'&&c.reclaimPrice)addPaperLine(c.reclaimPrice,COLORS.purple,'RECLAIM');
       if(c.trailArmed&&c.trailStop)addPaperLine(c.trailStop,COLORS.red,'TRAIL STOP',true,LWC.LineStyle.Solid);
     }
   }
-  if(p)markers.push({time:p.vLowTime,position:'belowBar',color:p.source==='manual'?COLORS.orange:COLORS.blue,shape:'circle',text:p.source==='manual'?'GALKA':'V-low'});
+  if(p&&p.source!=='manual')markers.push({time:p.vLowTime,position:'belowBar',color:COLORS.blue,shape:'circle',text:'V-low'});
   for(const t of store.paper.trades.filter(x=>x.symbol===symbol).slice(-100)){
     const a=Math.floor(Date.parse(t.entryTime)/1000),b=Math.floor(Date.parse(t.exitTime)/1000);
     if(a)markers.push({time:a,position:'belowBar',color:COLORS.green,shape:'arrowUp',text:'BUY'});
@@ -1326,18 +1339,90 @@ function renderOnboarding(){const step=onboardingSteps[runtime.onboardingIndex];
 function startOnboarding(){runtime.onboardingIndex=0;renderOnboarding();openModal(els.onboardingModal);}
 function finishOnboarding(){store.ui.onboarding.completed=true;store.ui.onboarding.version=1;save();els.onboardingModal.classList.add('hidden');}
 
+
+function renderSimpleTradeBar(){
+  const root=document.getElementById('simpleTradeBar');if(!root)return;
+  const input=document.getElementById('simpleGalkaPrice'),status=document.getElementById('simpleTradeStatus'),launch=document.getElementById('simpleGalkaLaunch');
+  const symbol=runtime.symbol,ss=store.paper.symbols[symbol],c=ss?.campaign,filled=c?.levels?.filter(level=>level.status==='filled').length||0,total=c?.levels?.length||8,q=runtime.quotes[symbol],pnl=c?.qty&&q?.bid?c.qty*(q.bid-c.averageEntry)-c.entryFees:0,cycles=num(c?.l1Cycles),cyclePnl=num(c?.l1CycleRealizedPnl);
+  if(document.activeElement!==input)input.value=c?.vLow?price(c.vLow,symbol):'';
+  input.placeholder=symbol.replace('USDT','')+' · цена GALKA';
+  if(!c){status.textContent=symbol.replace('USDT','')+' · нет GALKA';status.className='simple-trade-status idle';launch.textContent='Запустить';launch.disabled=false;input.disabled=false;return;}
+  const cycleText=cycles?' · L1×'+cycles+' '+signedMoney(cyclePnl):'';
+  if(c.qty||filled){status.textContent=symbol.replace('USDT','')+' · '+filled+'/'+total+' · '+signedMoney(pnl)+cycleText;status.className='simple-trade-status '+(pnl>=0?'up-state':'down-state');launch.textContent='Активна';launch.disabled=true;input.disabled=true;return;}
+  status.textContent=symbol.replace('USDT','')+' · ждём 0/'+total+cycleText;status.className='simple-trade-status waiting';launch.textContent='Перенести';launch.disabled=false;input.disabled=false;
+}
+function installSimpleGalkaUi(){
+  if(document.getElementById('simpleTradeBar'))return;
+  const style=document.createElement('style');style.id='simpleGalkaStyle';style.textContent=`
+    :root{--simple-bar:74px;--bottom-nav:0px}
+    .mobile-nav,#radarBtn,.chart-actions,.chart-health,.ohlc,.radar-legend,.chart-attribution{display:none!important}
+    #connectionText{display:none!important}.connection-button{width:36px!important;padding:0!important}
+    .terminal-grid{height:calc(100dvh - var(--top) - var(--safe-top) - var(--simple-bar) - var(--safe-bottom))!important;grid-template-columns:1fr!important}
+    .workspace{grid-column:1!important}
+    #toggleSidebar{display:inline-flex!important}
+    .drawing-pill{display:flex!important;bottom:10px!important}
+    .sidebar{display:none!important}
+    .sidebar.open{display:flex!important;position:fixed!important;z-index:180!important;left:8px!important;right:8px!important;top:auto!important;bottom:calc(var(--simple-bar) + var(--safe-bottom) + 8px)!important;width:auto!important;height:min(68dvh,680px)!important;max-height:calc(100dvh - var(--top) - var(--simple-bar) - 20px)!important;transform:none!important;border:1px solid var(--line)!important;border-radius:20px!important;box-shadow:var(--shadow)!important;background:var(--panel)!important}
+    .sidebar .side-panel{display:none!important}.sidebar .side-panel.active{display:block!important}
+    .sidebar [data-panel-id="paper"] .training-row{display:none!important}
+    .sidebar label:has(#signalMode),.sidebar label:has(#ladderStepPct),.sidebar label:has(#manualDepthPct),.sidebar label:has(#exitMode),.sidebar label:has(#reclaimBufferPct),.sidebar label:has(#trailDistancePct){display:none!important}
+    .campaign-metrics span:nth-child(4),.campaign-metrics span:nth-child(5){display:none!important}
+    .leftbar{display:none!important;position:fixed!important;z-index:190!important;left:max(8px,var(--safe-left))!important;top:calc(var(--top) + var(--safe-top) + 8px)!important;width:92px!important;height:auto!important;max-height:calc(100dvh - var(--top) - var(--simple-bar) - 24px)!important;padding:6px!important;border:1px solid var(--line)!important;border-radius:16px!important;background:var(--panel-glass)!important;box-shadow:var(--shadow)!important;overflow:auto!important}
+    .leftbar.open{display:flex!important}.leftbar button{display:none!important}
+    .leftbar [data-tool="cursor"],.leftbar [data-tool="ray"],.leftbar [data-tool="measure"],.leftbar #deleteBtn,.leftbar #clearBtn{display:flex!important;flex-direction:column!important;gap:1px!important;min-height:52px!important;font-size:16px!important}
+    .leftbar button small{font-size:9px!important;color:var(--muted)!important;font-weight:750!important}
+    .leftbar .tool-separator,.leftbar #magnetBtn,.leftbar #lockBtn,.leftbar #hideDrawingsBtn,.leftbar #undoBtn,.leftbar #redoBtn{display:none!important}
+    #simpleTradeBar{position:fixed;z-index:170;left:0;right:0;bottom:0;height:calc(var(--simple-bar) + var(--safe-bottom));padding:8px max(8px,var(--safe-right)) calc(8px + var(--safe-bottom)) max(8px,var(--safe-left));display:grid;grid-template-columns:minmax(96px,.8fr) minmax(118px,1.25fr) minmax(100px,.9fr);gap:7px;align-items:center;border-top:1px solid var(--line);background:color-mix(in srgb,var(--panel) 96%,transparent);backdrop-filter:blur(22px);box-shadow:0 -12px 32px rgba(0,0,0,.28)}
+    #simpleTradeBar input,#simpleTradeBar button{height:50px;min-height:50px;border-radius:13px}
+    #simpleGalkaPrice{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+    #simpleGalkaLaunch{border-color:color-mix(in srgb,var(--galka) 62%,var(--line));background:var(--galka);color:#231504;font-weight:900}
+    #simpleGalkaLaunch:disabled{background:var(--panel-2);color:var(--muted)}
+    .simple-trade-status{padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:11px;font-weight:850}
+    .simple-trade-status.idle{color:var(--muted)}.simple-trade-status.waiting{color:var(--galka);background:var(--galka-dim)}.simple-trade-status.up-state{color:var(--green);background:var(--green-dim)}.simple-trade-status.down-state{color:var(--red);background:var(--red-dim)}
+    @media(max-width:480px){.brand-copy{display:none!important}.brand{min-width:auto!important}.live-price{font-size:10px}.simple-trade-status{font-size:9px;padding:0 5px}#simpleTradeBar{grid-template-columns:minmax(82px,.72fr) minmax(108px,1.2fr) minmax(92px,.82fr)}}
+  `;document.head.append(style);
+  document.body.insertAdjacentHTML('beforeend','<div id="simpleTradeBar" aria-label="Быстрый запуск GALKA"><button id="simpleTradeStatus" class="simple-trade-status idle" type="button">Нет GALKA</button><input id="simpleGalkaPrice" type="number" step="any" inputmode="decimal" placeholder="Цена GALKA" aria-label="Цена GALKA"><button id="simpleGalkaLaunch" type="button">Запустить</button></div>');
+  const input=document.getElementById('simpleGalkaPrice'),launch=document.getElementById('simpleGalkaLaunch'),status=document.getElementById('simpleTradeStatus');
+  const submit=()=>{const value=num(input.value);if(!(value>0))return toast('Введи цену GALKA','error');els.manualGalkaPrice.value=String(value);applyManualPrice();};
+  launch.onclick=submit;input.onkeydown=event=>{if(event.key==='Enter')submit();};status.onclick=()=>showMobilePanel('paper');
+  const toolLabel=els.toggleTools?.querySelector('span:last-child');if(toolLabel)toolLabel.textContent='Инструменты';
+  const toolHead=els.leftbar?.querySelector('.tool-rail-head > span');if(toolHead)toolHead.textContent='TOOLS';
+  const cursor=els.leftbar?.querySelector('[data-tool="cursor"]');if(cursor)cursor.innerHTML='<span>⌖</span><small>Курсор</small>';
+  const ray=els.leftbar?.querySelector('[data-tool="ray"]');if(ray){ray.title='Луч от GALKA';ray.setAttribute('aria-label','Луч от GALKA');ray.innerHTML='<span>↗</span><small>Луч</small>';}
+  const measure=els.leftbar?.querySelector('[data-tool="measure"]');if(measure){measure.title='Линейка процентов';measure.setAttribute('aria-label','Линейка процентов');measure.innerHTML='<span>%</span><small>Проценты</small>';}
+  if(els.deleteBtn)els.deleteBtn.innerHTML='<span>⌫</span><small>Удалить</small>';
+  if(els.clearBtn)els.clearBtn.innerHTML='<span>×</span><small>Очистить</small>';
+  renderSimpleTradeBar();
+}
+
 /* Rendering and UI */
 function renderDiagnostics(){
   const s=accountSnapshot();
   els.diagnostics.textContent=JSON.stringify({version:VERSION,storageKey:STORAGE_KEY,symbol:runtime.symbol,interval:runtime.interval,chartType:runtime.chartType,ws:runtime.ws?.readyState,quoteAge:ageText(runtime.lastQuoteAt),tabVisible:!document.hidden,recovering:runtime.recovering,recoveryPolicy:PAPER_RECOVERY_POLICY,lastRecovery:runtime.lastRecoverySummary,lastCatchup:runtime.lastCatchupAt?new Date(runtime.lastCatchupAt).toISOString():null,galkaStats:runtime.galkaStats?.modelVersion||runtime.galkaStatsError?.message||'not-loaded',shadow:summarizeShadow(store.shadow),rows:chartRows().length,botRows:Object.fromEntries(SYMBOLS.map(x=>[x,botRows(x).length])),drawings:drawingStore().length,alerts:store.ui.alerts.filter(x=>x.active).length,equity:s.equity},null,2);
 }
-function renderAll(){renderWatchlist();renderPaper();renderObjects();renderAlerts();renderTemplates();renderRadar();renderLab();renderActivity();renderDiagnostics();renderSessionHealth();renderTicker();}
-function changeSymbol(symbol){
+function renderAll(){renderWatchlist();renderPaper();renderObjects();renderAlerts();renderTemplates();renderRadar();renderLab();renderActivity();renderDiagnostics();renderSessionHealth();renderTicker();renderSimpleTradeBar();}
+function autoCenterActiveMarket({fitTime=false}={}){
+  const chart=runtime.mainChart;if(!chart)return;
+  const scale=chart.priceScale('right');
+  scale.applyOptions({autoScale:true});
+  els.autoScaleBtn?.classList.add('active');
+  if(fitTime)chart.timeScale().fitContent();else chart.timeScale().scrollToRealTime();
+  requestAnimationFrame(()=>{scale.applyOptions({autoScale:true});if(!fitTime)chart.timeScale().scrollToRealTime();});
+  setTimeout(()=>scale.applyOptions({autoScale:true}),120);
+}
+async function changeSymbol(symbol){
   runtime.selectedDrawing=null;syncDrawingInteraction();runtime.radarSelected=null;runtime.symbol=symbol;store.ui.symbol=symbol;els.symbolSelect.value=symbol;els.watermark.textContent=symbol+' · '+runtime.interval;save();
-  loadCurrent(false);renderAll();runtime.mainChart.timeScale().scrollToRealTime();
+  try{runtime.priceSeries?.setData([]);}catch(_){}
+  await loadCurrent(false);
+  renderAll();
+  autoCenterActiveMarket();
 }
 async function changeInterval(interval){
-  runtime.selectedDrawing=null;syncDrawingInteraction();runtime.radarSelected=null;runtime.interval=interval;store.ui.interval=interval;els.intervalSelect.value=interval;save();connectWs();await loadCurrent();renderAll();
+  runtime.selectedDrawing=null;syncDrawingInteraction();runtime.radarSelected=null;runtime.interval=interval;store.ui.interval=interval;els.intervalSelect.value=interval;save();connectWs();
+  try{runtime.priceSeries?.setData([]);}catch(_){}
+  await loadCurrent(false);
+  renderAll();
+  autoCenterActiveMarket();
 }
 function changeChartType(type){runtime.chartType=type;store.ui.chartType=type;save();createPriceSeries();loadCurrent(false);}
 function openPanel(name){
@@ -1384,7 +1469,7 @@ els.themeBtn.onclick=()=>{store.ui.theme=store.ui.theme==='dark'?'light':'dark';
 els.radarBtn.onclick=()=>showMobilePanel('radar');
 els.connectionButton.onclick=()=>showMobilePanel('more');els.chartHealth.onclick=()=>showMobilePanel('more');
 els.zoomIn.onclick=()=>zoom(.72);els.zoomOut.onclick=()=>zoom(1.38);
-els.fitBtn.onclick=()=>runtime.mainChart.timeScale().fitContent();els.latestBtn.onclick=()=>runtime.mainChart.timeScale().scrollToRealTime();
+els.fitBtn.onclick=()=>autoCenterActiveMarket({fitTime:true});els.latestBtn.onclick=()=>autoCenterActiveMarket();
 els.autoScaleBtn.onclick=()=>{const active=!els.autoScaleBtn.classList.contains('active');els.autoScaleBtn.classList.toggle('active',active);runtime.mainChart.priceScale('right').applyOptions({autoScale:active});};
 els.scaleMode.onchange=e=>{store.ui.scaleMode=e.target.value;save();applyScaleMode();};
 document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>setRange(b.dataset.range));
@@ -1397,7 +1482,7 @@ els.createAlert.onclick=async()=>{const p=num(els.alertPrice.value);if(!p)return
 els.alertsList.onclick=e=>{const tid=e.target.dataset.alertToggle,did=e.target.dataset.alertDelete;if(tid){const a=store.ui.alerts.find(x=>x.id===tid);if(a)a.active=!a.active;}if(did)store.ui.alerts=store.ui.alerts.filter(x=>x.id!==did);save();renderAlerts();};
 els.watchlist.onclick=e=>{const r=e.target.closest('[data-symbol]');if(r)changeSymbol(r.dataset.symbol);};
 els.refreshBtn.onclick=()=>Promise.all(SYMBOLS.map(s=>ensureData(s,'15m',true))).then(()=>{scanRecentPatterns();renderAll();});
-els.leftbar.onclick=e=>{const b=e.target.closest('[data-tool]');if(b)setTool(b.dataset.tool);};
+els.leftbar.onclick=e=>{const b=e.target.closest('[data-tool]');if(!b)return;const tool=b.dataset.tool;setTool(tool);if(tool==='ray'||tool==='measure'){els.leftbar.classList.remove('open');syncMobileOverlay();toast(tool==='ray'?'Луч: коснись начала, потом направления':'Линейка: коснись начала, потом конца','alert');}};
 els.manualGalkaBtn.onclick=()=>{setTool('manualGalka');closeMobileOverlays();toast('Коснись точной цены уровня на графике');};
 els.applyManualGalkaPrice.onclick=applyManualPrice;els.manualGalkaPrice.onkeydown=e=>{if(e.key==='Enter')applyManualPrice();};els.manualGalkaPrice.onfocus=()=>{if(matchMedia('(max-width:700px) and (orientation:portrait)').matches){els.sidebar.classList.remove('snap-low');els.sidebar.classList.add('snap-high');}};els.moveManualGalka.onclick=startManualMove;
 els.cancelManualGalka.onclick=cancelManualSelection;els.exportManualExamples.onclick=exportManualExamples;
@@ -1430,7 +1515,7 @@ els.goDateApply.onclick=()=>{const t=Date.parse(els.goDateInput.value)/1000;if(!
 document.querySelectorAll('[data-close-modal]').forEach(b=>b.onclick=closeModals);document.querySelectorAll('.modal').forEach(m=>m.onclick=e=>{if(e.target===m)closeModals();});
 document.querySelector('.side-tabs').onclick=e=>{const b=e.target.closest('[data-panel]');if(b)openPanel(b.dataset.panel);};
 document.querySelectorAll('[data-back-panel]').forEach(button=>button.onclick=()=>openPanel(button.dataset.backPanel));
-els.savePaperSettings.onclick=()=>{const s=store.paper.settings;s.startingBalance=Math.max(100,num(els.startingBalance.value,1000));s.leverage=clamp(num(els.leverage.value,10),1,20);s.symbolNotional=clamp(num(els.symbolNotional.value,400),50,10000);s.maxHours=clamp(num(els.maxHours.value,72),1,336);s.signalMode=els.signalMode.value==='auto'?'auto':'manual';s.ladderStepPct=clamp(num(els.ladderStepPct.value,.15),.05,2);s.manualDepthPct=clamp(num(els.manualDepthPct.value,1.5),s.ladderStepPct,10);s.exitMode=els.exitMode.value==='target'?'target':'trail';s.reclaimBufferPct=clamp(num(els.reclaimBufferPct.value,.10),0,5);s.trailDistancePct=clamp(num(els.trailDistancePct.value,.75),.05,10);logActivity('paper','Paper-настройки сохранены');save();renderPaper();renderActivity();updateMarkers();toast('Paper-настройки сохранены');};
+els.savePaperSettings.onclick=()=>{const s=store.paper.settings;s.startingBalance=Math.max(100,num(els.startingBalance.value,1000));s.leverage=clamp(num(els.leverage.value,10),1,20);s.symbolNotional=clamp(num(els.symbolNotional.value,400),50,10000);s.maxHours=clamp(num(els.maxHours.value,72),1,336);s.signalMode='manual';s.ladderStepPct=.15;s.manualDepthPct=2;s.exitMode='target';s.reclaimBufferPct=0;s.trailDistancePct=clamp(num(els.trailDistancePct.value,.75),.05,10);logActivity('paper','Paper-настройки сохранены');save();renderPaper();renderActivity();updateMarkers();toast('Paper-настройки сохранены');};
 els.resetPaper.onclick=()=>{if(!confirm('Удалить все paper-позиции, лимитки, сделки и PnL по BTC, ETH и SOL? Это действие нельзя отменить.'))return;const settings=store.paper.settings,recovery=store.paper.recovery;store.paper=defaultStore().paper;store.paper.settings=settings;store.paper.recovery=recovery;logActivity('risk','Paper-счёт сброшен после подтверждения');save();renderPaper();renderActivity();updateMarkers();};
 els.exportTrades.onclick=exportTradesCsv;
 els.exportWorkspace.onclick=()=>download(`galka-workspace-${Date.now()}.json`,new Blob([JSON.stringify(workspacePayload(),null,2)],{type:'application/json'}));
@@ -1465,6 +1550,9 @@ document.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='f')els.fitBtn.click();if(e.key.toLowerCase()==='l')setTool('trend');
 });
 setInterval(()=>{els.clock.textContent=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});if(runtime.shadowDirty&&Date.now()-runtime.lastShadowPersistAt>=5000){save();runtime.shadowDirty=false;runtime.lastShadowPersistAt=Date.now();}renderDiagnostics();renderPaperHeader();renderSessionHealth();},1000);
+
+installSimpleGalkaUi();
+setInterval(renderSimpleTradeBar,1000);
 
 /* Init */
 document.body.dataset.theme=store.ui.theme;
