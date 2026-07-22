@@ -27,4 +27,3 @@ assert.match(serviceWorker, /MARKET_HOSTS/);
 assert.match(serviceWorker, /Market data is never served from an application cache/);
 
 console.log('Final source integration: first-load app and cache-only service worker verified');
-

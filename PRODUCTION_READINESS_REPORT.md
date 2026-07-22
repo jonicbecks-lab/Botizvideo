@@ -1,8 +1,8 @@
 # GalkaLive production readiness report
 
-Дата аудита: 2026-07-22  
-Ветка: `agent/galka-live-hardening-v3`  
-Проверенный кодовый диапазон: `d5a5256..4cf2603`
+- Дата аудита: 2026-07-22
+- Ветка: `agent/galka-live-hardening-v3`
+- Проверенный кодовый диапазон: `d5a5256..4cf2603`
 
 ## Итоговое решение
 
