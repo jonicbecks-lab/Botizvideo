@@ -166,6 +166,12 @@ const recoveryRows = [
   kline(firstMinute + 120_000, { open: 99.6, high: 100.4, low: 99.5, close: 100.3 }),
   kline(firstMinute + 180_000, { open: 101.5, high: 102, low: 100.5, close: 100.8 }),
 ];
+const portfolioRows = [
+  kline(firstMinute, { open: 100, high: 101, low: 99, close: 100 }),
+  kline(firstMinute + 60_000, { open: 100, high: 101, low: 80, close: 100 }),
+  kline(firstMinute + 120_000, { open: 100, high: 101, low: 99, close: 100 }),
+  kline(firstMinute + 180_000, { open: 100, high: 101, low: 99, close: 100 }),
+];
 const chartRows = Array.from({ length: 240 }, (_, index) => {
   const openTime = currentMinute - (240 - index) * 900_000;
   const open = 100 + Math.sin(index / 12) * 0.4;
@@ -283,9 +289,94 @@ try {
   assert.equal(recoveryRequests, 1, 'a cleared durable cursor must not replay the same range again');
   assert.deepEqual(runtimeErrors, []);
   await context.close();
+
+  const filledCampaign = (symbol) => ({
+    ...structuredClone(campaign),
+    campaignId: `C-${symbol}-portfolio-recovery`,
+    symbol,
+    patternId: `M-${symbol}-portfolio-recovery`,
+    source: 'auto',
+    status: 'open',
+    exitMode: 'trail',
+    reclaimPrice: 110,
+    levels: [{
+      index: 1, depthPct: 0, weight: 1, price: 100, notional: 400,
+      status: 'filled', fillPrice: 100, fillTime: new Date(gapStartedAt - 20_000).toISOString(),
+      qty: 4, fee: 0.08,
+    }],
+    qty: 4,
+    filledNotional: 400,
+    averageEntry: 100,
+    entryFees: 0.08,
+  });
+  const portfolioSeed = structuredClone(seed);
+  portfolioSeed.paper.settings.startingBalance = 100;
+  portfolioSeed.paper.symbols.BTCUSDT = {
+    pattern: { patternId: 'M-BTCUSDT-portfolio-recovery', source: 'auto', vLow: 100, status: 'trading' },
+    campaign: filledCampaign('BTCUSDT'),
+  };
+  portfolioSeed.paper.symbols.ETHUSDT = {
+    pattern: { patternId: 'M-ETHUSDT-portfolio-recovery', source: 'auto', vLow: 100, status: 'trading' },
+    campaign: filledCampaign('ETHUSDT'),
+  };
+  const portfolioContext = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
+  await portfolioContext.addInitScript(({ snapshot }) => {
+    localStorage.setItem('galka-pro-v1', JSON.stringify(snapshot));
+    class PortfolioRecoveryWebSocket {
+      constructor() {
+        this.readyState = 0;
+        setTimeout(() => {
+          this.readyState = 1;
+          this.onopen?.();
+          for (const symbol of ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']) {
+            this.onmessage?.({ data: JSON.stringify({ data: { e: 'bookTicker', E: Date.now(), s: symbol, b: '100', a: '100.01', u: 1 } }) });
+          }
+        }, 20);
+      }
+      close() { this.readyState = 3; }
+    }
+    window.WebSocket = PortfolioRecoveryWebSocket;
+  }, { snapshot: portfolioSeed });
+  let portfolioRecoveryRequests = 0;
+  await portfolioContext.route('https://fapi.binance.com/**', async (route) => {
+    const url = new URL(route.request().url());
+    const isRecovery = url.searchParams.get('interval') === '1m' && url.searchParams.has('startTime');
+    if (isRecovery) portfolioRecoveryRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+      body: JSON.stringify(isRecovery ? portfolioRows : chartRows),
+    });
+  });
+  const portfolioPage = await portfolioContext.newPage();
+  const portfolioErrors = [];
+  portfolioPage.on('pageerror', (error) => portfolioErrors.push(error.message));
+  await portfolioPage.goto(`${BASE_URL}/terminal/pro.html`, { waitUntil: 'domcontentloaded', timeout: 10_000 });
+  try {
+    await portfolioPage.waitForFunction(() => {
+      const state = JSON.parse(localStorage.getItem('galka-pro-v1'));
+      return state?.paper?.trades?.length === 2
+        && state.paper.symbols.BTCUSDT.campaign == null
+        && state.paper.symbols.ETHUSDT.campaign == null;
+    }, null, { timeout: 10_000 });
+  } catch (error) {
+    const diagnostic = await portfolioPage.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('galka-pro-v1'));
+      return { trades: state?.paper?.trades, recovery: state?.paper?.recovery, activity: state?.activity?.slice(-5) };
+    });
+    throw new Error(`Portfolio recovery did not finish: ${JSON.stringify({ diagnostic, portfolioErrors })}`, { cause: error });
+  }
+  const portfolioState = await portfolioPage.evaluate(() => JSON.parse(localStorage.getItem('galka-pro-v1')));
+  assert.equal(portfolioRecoveryRequests, 2, 'both active symbols require a closed-minute range');
+  assert.deepEqual(portfolioState.paper.trades.map((trade) => trade.reason), ['paper_liquidation', 'paper_liquidation']);
+  assert.ok(portfolioState.paper.trades.every((trade) => trade.executionSource === 'recovery'));
+  assert.equal(new Set(portfolioState.paper.trades.map((trade) => trade.exitTime)).size, 1, 'portfolio positions liquidate at one synchronized replay timestamp');
+  assert.deepEqual(portfolioErrors, []);
+  await portfolioContext.close();
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
 }
 
-console.log('Paper recovery browser: persisted background replay and duplicate-trade guard passed');
+console.log('Paper recovery browser: durable replay, duplicate guard and synchronized portfolio liquidation passed');

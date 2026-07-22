@@ -15,9 +15,10 @@ import {
   campaignLadder as buildCampaignLadder,
   createCampaign as createPaperCampaign,
   moveManualCampaign,
+  paperPortfolioSnapshot,
   previewCampaign,
   processCampaignQuote,
-  replayCampaignCandles,
+  recoveryCandlePath,
   recalculateCampaign,
   validateRecoveryCandleRange,
 } from './modules/paper-engine.js';
@@ -354,22 +355,43 @@ async function recoverMissedPaperTrading(reason,nowMs=Date.now()){
     try{return{symbol,start,candles:await fetchClosedMinuteRange(symbol,start.afterMs,endMs)};}
     catch(error){return{symbol,start,error};}
   }));
+  const contexts=new Map(),timeline=[],recoveryPrices={};
   for(const item of fetched){
     const {symbol,start}=item,state=paperRecoverySymbol(symbol),ss=store.paper.symbols[symbol],campaign=ss.campaign;
     if(item.error){state.lastRecoveryStatus='error';summary.failures.push({symbol,message:item.error.message});continue;}
     if(!campaign){state.lastRecoveryStatus='ok';continue;}
-    const result=replayCampaignCandles(campaign,item.candles,store.paper.settings,{afterMs:start.afterMs});
+    const result={events:[],candlesReplayed:0,boundaryCandles:0,lastCloseTime:null,lastEventAt:null,close:null,expiredWithoutFill:false,liquidated:false};
+    const context={symbol,start,state,ss,campaign,result,seenCandles:new Set(),terminal:false};contexts.set(symbol,context);
+    for(const candle of item.candles){for(const point of recoveryCandlePath(candle,start.afterMs))timeline.push({...point,symbol});}
+  }
+  timeline.sort((a,b)=>a.atMs-b.atMs||String(a.symbol).localeCompare(String(b.symbol))||a.candleOpenTime-b.candleOpenTime);
+  for(let index=0;index<timeline.length;){
+    const atMs=timeline[index].atMs,batch=[];while(index<timeline.length&&timeline[index].atMs===atMs)batch.push(timeline[index++]);
+    for(const point of batch){
+      const context=contexts.get(point.symbol);if(!context||context.terminal)continue;
+      const {campaign,result}=context,seenKey=String(point.candleOpenTime);recoveryPrices[point.symbol]=point.price;
+      if(!context.seenCandles.has(seenKey)){context.seenCandles.add(seenKey);result.candlesReplayed+=1;result.boundaryCandles+=point.boundary?1:0;result.lastCloseTime=point.candleCloseTime;}
+      const stopBefore=num(campaign.trailStop),step=processCampaignQuote(campaign,{bid:point.price,ask:point.price},store.paper.settings,point.atMs);result.lastEventAt=point.atMs;
+      result.events.push(...step.events.map(event=>({...event,atMs:point.atMs,recovered:true,phase:point.phase,candleOpenTime:point.candleOpenTime})));
+      for(const event of step.events){if(event.type==='l1_cycle_closed')recordL1Cycle(point.symbol,{...event,atMs:point.atMs},{atMs:point.atMs,recovered:true,deferRender:true});}
+      if(step.close){const exitPrice=step.close.reason==='reclaim_trailing_stop'&&stopBefore>0?stopBefore:step.close.price;result.close={...step.close,price:exitPrice,atMs:point.atMs};context.terminal=true;closeCampaign(point.symbol,exitPrice,step.close.reason,{atMs:point.atMs,recovered:true,deferRender:true});summary.closed+=1;}
+      else if(step.expiredWithoutFill){result.expiredWithoutFill=true;context.terminal=true;context.ss.campaign=null;if(context.ss.pattern)context.ss.pattern.status='expired';summary.expired+=1;logActivity('paper',`${point.symbol.replace('USDT','')}: кампания истекла во время reconnect`,{recovered:true,policy:RECOVERY_PATH_POLICY},new Date(point.atMs).toISOString());}
+    }
+    const openSymbols=[...contexts.values()].filter(context=>!context.terminal&&context.ss.campaign?.qty).map(context=>context.symbol);
+    if(openSymbols.length&&openSymbols.every(symbol=>num(recoveryPrices[symbol])>0)){
+      const liquidated=checkGlobalLiquidation({atMs,recovered:true,deferRender:true,prices:recoveryPrices});
+      for(const symbol of liquidated){const context=contexts.get(symbol);if(context){context.terminal=true;context.result.liquidated=true;context.result.lastEventAt=atMs;}summary.closed+=1;}
+    }
+  }
+  for(const context of contexts.values()){
+    const {symbol,start,state,result}=context;
     summary.candles+=result.candlesReplayed;summary.boundaryCandles+=result.boundaryCandles;summary.truncated+=start.truncated?1:0;
     summary.fills+=result.events.filter(event=>event.type==='level_filled').length;
-    const recoveredCycles=result.events.filter(event=>event.type==='l1_cycle_closed');summary.l1Cycles+=recoveredCycles.length;for(const event of recoveredCycles)recordL1Cycle(symbol,event,{atMs:event.atMs,recovered:true,deferRender:true});
-    summary.trailingArmed+=result.events.filter(event=>event.type==='trailing_armed').length;
-    summary.trailingRaised+=result.events.filter(event=>event.type==='trailing_raised').length;
+    const recoveredCycles=result.events.filter(event=>event.type==='l1_cycle_closed');summary.l1Cycles+=recoveredCycles.length;
+    summary.trailingArmed+=result.events.filter(event=>event.type==='trailing_armed').length;summary.trailingRaised+=result.events.filter(event=>event.type==='trailing_raised').length;
     if(result.lastCloseTime!=null)state.lastRecoveredCloseAt=Math.max(num(state.lastRecoveredCloseAt,0),num(result.lastCloseTime));
-    state.lastMarketAt=Math.max(num(state.lastMarketAt,0),num(result.lastEventAt,endMs));
-    state.lastRecoveryAt=nowMs;state.lastRecoveryStatus=start.truncated?'truncated':'ok';state.recoveredCandles=num(state.recoveredCandles)+result.candlesReplayed;state.boundaryCandles=num(state.boundaryCandles)+result.boundaryCandles;
+    state.lastMarketAt=Math.max(num(state.lastMarketAt,0),num(result.lastEventAt,endMs));state.lastRecoveryAt=nowMs;state.lastRecoveryStatus=start.truncated?'truncated':'ok';state.recoveredCandles=num(state.recoveredCandles)+result.candlesReplayed;state.boundaryCandles=num(state.boundaryCandles)+result.boundaryCandles;
     logRecoveredPaperEvents(symbol,result);
-    if(result.close){summary.closed+=1;closeCampaign(symbol,result.close.price,result.close.reason,{atMs:result.close.atMs,recovered:true,deferRender:true});}
-    else if(result.expiredWithoutFill){summary.expired+=1;ss.campaign=null;if(ss.pattern)ss.pattern.status='expired';logActivity('paper',`${symbol.replace('USDT','')}: кампания истекла во время reconnect`,{recovered:true,policy:RECOVERY_PATH_POLICY},new Date(result.lastEventAt).toISOString());}
   }
   recovery.lastRecoveryAt=nowMs;recovery.lastRecoveryStatus=summary.failures.length?'partial':summary.truncated?'truncated':'ok';
   if(!summary.failures.length&&num(recovery.gapSequence)===gapSequence&&!document.hidden){recovery.gapStartedAt=null;recovery.gapReason=null;}
@@ -1144,14 +1166,14 @@ function closeCampaign(symbol,rawExit,reason,{atMs=Date.now(),recovered=false,de
   if(c.trainingExampleId){const x=store.training.manualExamples.find(v=>v.id===c.trainingExampleId);if(x)Object.assign(x,{status:'closed',exitTime:trade.exitTime,exitPrice:trade.exitPrice,netPnl:num(x.l1CyclePnl)+trade.netPnl,reason:trade.reason,levelsFilled:trade.levelsFilled,levelsTotal:trade.levelsTotal,l1Cycles:trade.l1Cycles,trailHigh:trade.trailHigh});}
   store.paper.trades.push(trade);store.paper.realizedPnl+=net;store.paper.fees+=trade.fees;ss.campaign=null;if(ss.pattern?.patternId===c.patternId)ss.pattern.status=reason;logActivity(net>=0?'paper':'risk',`${symbol.replace('USDT','')}: GALKA завершена ${signedMoney(net)} · L1 циклов ${num(c.l1Cycles)}`,{reason,tradeId:trade.tradeId,recovered,l1Cycles:num(c.l1Cycles)},trade.exitTime);save();if(!deferRender){renderPaper();renderActivity();updateMarkers();renderSimpleTradeBar();}
 }
-function accountSnapshot(){
-  let unreal=0,notional=0,maintenance=0;
-  for(const s of SYMBOLS){const c=store.paper.symbols[s].campaign,q=runtime.quotes[s];if(c?.qty&&q.bid){const gross=c.qty*(q.bid-c.averageEntry);c.unrealizedPnl=gross-c.entryFees;unreal+=c.unrealizedPnl;notional+=c.filledNotional;maintenance+=c.filledNotional*store.paper.settings.maintenanceMargin;}}
-  return{unreal,notional,maintenance,equity:store.paper.settings.startingBalance+store.paper.realizedPnl+unreal,margin:notional/store.paper.settings.leverage};
+function accountSnapshot(prices=null){
+  const campaigns={},marketPrices={};for(const symbol of SYMBOLS){campaigns[symbol]=store.paper.symbols[symbol].campaign;marketPrices[symbol]=prices?.[symbol]??runtime.quotes[symbol].bid;}
+  return paperPortfolioSnapshot(campaigns,marketPrices,store.paper.settings,store.paper.realizedPnl);
 }
-function checkGlobalLiquidation({atMs=Date.now(),recovered=false,deferRender=false}={}){
-  const snap=accountSnapshot();if(!snap.notional||snap.equity>snap.maintenance)return;
-  for(const s of SYMBOLS){const c=store.paper.symbols[s].campaign,q=runtime.quotes[s];if(c?.qty&&q.bid)closeCampaign(s,q.bid,'paper_liquidation',{atMs,recovered,deferRender});}
+function checkGlobalLiquidation({atMs=Date.now(),recovered=false,deferRender=false,prices=null}={}){
+  const snap=accountSnapshot(prices);if(!snap.notional||snap.equity>snap.maintenance)return[];
+  const closed=[];for(const symbol of SYMBOLS){const c=store.paper.symbols[symbol].campaign,bid=num(prices?.[symbol]??runtime.quotes[symbol].bid);if(c?.qty&&bid>0){closed.push(symbol);closeCampaign(symbol,bid,'paper_liquidation',{atMs,recovered,deferRender});}}
+  return closed;
 }
 function processBotQuote(symbol,{quote=runtime.quotes[symbol],nowMs=Date.now(),source='live',suppressRender=false}={}){
   const q=quote;if(!q.bid||!q.ask)return;

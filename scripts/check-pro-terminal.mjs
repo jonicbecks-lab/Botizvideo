@@ -89,7 +89,7 @@ const checks = [
   ['shadow does not authorize auto-paper', /Shadow-only; auto-paper остаётся выключен/.test(app) && statsPack.safety.historicalScreenIsNotAuthorization === true],
   ['drawing tool set retained', ['cursor','crosshair','trend','ray','horizontal','vertical','rect','channel','fib','measure','longPosition','text'].every((tool) => html.includes(`data-tool="${tool}"`))],
   ['drawing selection and handles', /drawingHitAt/.test(app) && /openSelectedDrawingProperties/.test(app) && /editing-object/.test(css)],
-  ['session health and paper replay', /catchUpAfterReconnect/.test(app) && /fetchClosedMinuteRange/.test(app) && /replayCampaignCandles/.test(app) && /sessionQuoteAge/.test(html)],
+  ['session health and chronological portfolio replay', /catchUpAfterReconnect/.test(app) && /fetchClosedMinuteRange/.test(app) && /recoveryCandlePath/.test(app) && /checkGlobalLiquidation\(\{atMs,recovered:true/.test(app) && /sessionQuoteAge/.test(html)],
   ['full backup restore', /createBackupSnapshot/.test(app) && /validateBackupSnapshot/.test(app) && /PRE_RESTORE_BACKUP_KEY/.test(app)],
   ['installable PWA', manifest.display === 'standalone' && manifest.icons.length >= 2 && /serviceWorker\.register/.test(app)],
   ['service worker is cache-only', /Market data is never served from an application cache/.test(sw) && !/patchProSource|servePatchedPro|importScripts\(|from ['"]\.\/modules\/paper-engine/.test(sw)],

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {
   RECOVERY_PATH_POLICY,
   createCampaign,
+  paperPortfolioSnapshot,
+  processCampaignQuote,
   recoveryCandlePath,
   replayCampaignCandles,
   validateRecoveryCandleRange,
@@ -143,5 +145,34 @@ const expiryReplay = replayCampaignCandles(
 );
 assert.equal(expiryReplay.expiredWithoutFill, true);
 assert.equal(expiring.qty, 0);
+
+const riskSettings = {
+  ...settings,
+  startingBalance: 100,
+  leverage: 4,
+  maintenanceMargin: 0.005,
+};
+const btcRisk = createCampaign('BTCUSDT', pattern, { ...riskSettings, symbolNotional: 400 }, BASE);
+const ethRisk = createCampaign('ETHUSDT', pattern, { ...riskSettings, symbolNotional: 400 }, BASE);
+for (const campaign of [btcRisk, ethRisk]) {
+  processCampaignQuote(campaign, { bid: 98, ask: 98 }, riskSettings, BASE + 1);
+}
+const healthy = paperPortfolioSnapshot(
+  { BTCUSDT: btcRisk, ETHUSDT: ethRisk },
+  { BTCUSDT: 98, ETHUSDT: 98 },
+  riskSettings,
+);
+const liquidating = paperPortfolioSnapshot(
+  { BTCUSDT: btcRisk, ETHUSDT: ethRisk },
+  { BTCUSDT: 80, ETHUSDT: 80 },
+  riskSettings,
+);
+assert.ok(healthy.equity > healthy.maintenance, 'portfolio is healthy at the recovery boundary');
+assert.ok(liquidating.equity <= liquidating.maintenance, 'synchronized recovered prices detect global liquidation');
+assert.equal(
+  liquidating.notional,
+  (btcRisk.qty + ethRisk.qty) * 80,
+  'maintenance and margin use current recovered notional',
+);
 
 console.log('Paper recovery: repeating L1, deep target finish, legacy trailing and cursor checks passed');

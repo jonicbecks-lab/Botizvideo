@@ -79,6 +79,43 @@ export function recalculateCampaign(campaign) {
   return campaign;
 }
 
+export function paperPortfolioSnapshot(
+  campaignsBySymbol,
+  pricesBySymbol,
+  settings,
+  realizedPnl = 0,
+) {
+  let unreal = 0;
+  let notional = 0;
+  let maintenance = 0;
+  const campaigns = campaignsBySymbol && typeof campaignsBySymbol === 'object'
+    ? campaignsBySymbol
+    : {};
+  const prices = pricesBySymbol && typeof pricesBySymbol === 'object' ? pricesBySymbol : {};
+
+  for (const [symbol, campaign] of Object.entries(campaigns)) {
+    const bid = number(prices[symbol]);
+    if (!campaign?.qty || !(bid > 0)) continue;
+    const currentNotional = number(campaign.qty) * bid;
+    const campaignUnreal = number(campaign.qty) * (bid - number(campaign.averageEntry))
+      - number(campaign.entryFees);
+    campaign.unrealizedPnl = campaignUnreal;
+    unreal += campaignUnreal;
+    notional += currentNotional;
+    maintenance += currentNotional * number(settings?.maintenanceMargin);
+  }
+
+  const startingBalance = number(settings?.startingBalance);
+  const leverage = Math.max(1, number(settings?.leverage, 1));
+  return {
+    unreal,
+    notional,
+    maintenance,
+    equity: startingBalance + number(realizedPnl) + unreal,
+    margin: notional / leverage,
+  };
+}
+
 function closeAndRearmL1(campaign, settings, nowMs) {
   const level = campaign.levels.find((item) => item.status === 'filled');
   if (!level || level.index !== 1) return null;
