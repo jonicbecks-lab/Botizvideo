@@ -230,7 +230,7 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         except (LiveEngineError, GatewayError, ValueError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
         except Exception as exc:  # do not expose secrets or tracebacks to the browser
-            sys.stderr.write(f"LIVE API error: {type(exc).__name__}: {exc}\n")
+            sys.stderr.write(f"LIVE API error: {type(exc).__name__}\n")
             sys.stderr.flush()
             self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": "Внутренняя ошибка LIVE-сервера"})
 

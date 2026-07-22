@@ -54,9 +54,7 @@
       this.options = options || {};
       this.canvas = document.createElement('canvas');
       this.canvas.setAttribute('aria-label', 'График свечей');
-      this.canvas.style.width = '100%';
-      this.canvas.style.height = '100%';
-      this.canvas.style.display = 'block';
+      this.canvas.className = 'galka-live-canvas';
       this.container.replaceChildren(this.canvas);
       this.ctx = this.canvas.getContext('2d');
       this.series = null;
@@ -114,8 +112,6 @@
       const height = Math.max(1, Math.floor(rect.height));
       this.canvas.width = Math.floor(width * dpr);
       this.canvas.height = Math.floor(height * dpr);
-      this.canvas.style.width = `${width}px`;
-      this.canvas.style.height = `${height}px`;
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.draw();
     }

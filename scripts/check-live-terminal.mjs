@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 
 const html = fs.readFileSync('terminal/live.html', 'utf8');
 const css = fs.readFileSync('terminal/live.css', 'utf8');
+const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
@@ -27,7 +28,8 @@ const checks = [
   ['local API', js.includes('/api/live/preview') && js.includes('/api/live/campaign')],
   ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
-  ['local chart dependency', html.includes('vendor/galka-chart.js') && chartShim.includes('LightweightCharts')],
+  ['local chart dependency', html.includes('vendor/galka-chart.js') && html.includes('live-chart.css') && chartShim.includes('LightweightCharts')],
+  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
