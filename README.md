@@ -52,29 +52,29 @@ First installation:
 ```bash
 pkg update -y
 pkg install git python -y
-git clone https://github.com/CryptoJonic/MeteoraAgent.git ~/Galka
-cd ~/Galka
+git clone --branch agent/galka-live-hardening-v3 --single-branch \
+  https://github.com/jonicbecks-lab/Botizvideo.git ~/GalkaLive
+cd ~/GalkaLive
 bash scripts/start-termux.sh
 ```
 
-Existing installation after changes reach `main`:
+Existing installation on the audited hardening branch:
 
 ```bash
-cd ~/Galka
-git pull --ff-only origin main
+cd ~/GalkaLive
+git pull --ff-only origin agent/galka-live-hardening-v3
 bash scripts/start-termux.sh
 ```
 
 The launcher chooses a free port from 8080–8089 and opens a cache-busted `terminal/pro.html` URL.
-It never switches branches, resets files, or touches browser data.
+It never switches branches, resets files, or touches browser data. Its local HTTP server exposes
+only `terminal/` and the reviewed `results/` packs, never the repository, Git metadata, or ignored
+local files.
 
 ## Desktop / DeX launch
 
-```bash
-python -m http.server 8080
-```
-
-Open `http://127.0.0.1:8080/terminal/pro.html`.
+Run `bash scripts/start-termux.sh 8080`, then open the printed localhost URL. The same isolated
+web root is used on desktop and DeX.
 
 ## Architecture
 

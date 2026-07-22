@@ -38,6 +38,7 @@ const shadow = fs.readFileSync(paths.shadow, 'utf8');
 const sw = fs.readFileSync(paths.sw, 'utf8');
 const statsAsset = fs.readFileSync(paths.statsAsset);
 const chartVendor = fs.readFileSync(paths.chartVendor);
+const termuxLauncher = fs.readFileSync('scripts/start-termux.sh', 'utf8');
 const statsPack = JSON.parse(gunzipSync(statsAsset));
 const manifest = JSON.parse(fs.readFileSync(paths.manifest, 'utf8'));
 const clientSource = [html, app, store, paper, radar, backup, stats, shadow, sw].join('\n');
@@ -104,7 +105,8 @@ const checks = [
   ['chart-first shell', /\.chart-main-wrap[\s\S]*height: 100%/.test(css) && /translateY\(calc\(100% \+ 12px\)\)/.test(css)],
   ['no chart grid', /vertLines:\{visible:false\}/.test(app) && /horzLines:\{visible:false\}/.test(app)],
   ['TradingView attribution retained', /TradingView/.test(html) && /attributionLogo:true/.test(app)],
-  ['Termux direct launch remains', /terminal\/pro\.html/.test(fs.readFileSync('scripts/start-termux.sh', 'utf8'))],
+  ['Termux direct launch remains', /terminal\/pro\.html/.test(termuxLauncher)],
+  ['Termux web root is isolated', /--directory "\$SERVE_ROOT"/.test(termuxLauncher) && /cp -R "\$ROOT_DIR\/terminal" "\$ROOT_DIR\/results" "\$SERVE_ROOT\/"/.test(termuxLauncher) && !/--directory "\$ROOT_DIR"/.test(termuxLauncher)],
   ['no exchange credentials', !/(?:api|secret)[_-]?key\s*[:=]/i.test(clientSource)],
 ];
 

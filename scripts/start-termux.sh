@@ -44,6 +44,7 @@ if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
 fi
 
 LOG_FILE="${TMPDIR:-/tmp}/galka-terminal-${PORT}.log"
+SERVE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/galka-terminal-root.XXXXXX")"
 VERSION="$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
 URL="http://127.0.0.1:${PORT}/terminal/pro.html?v=${VERSION}"
 umask 077
@@ -57,10 +58,14 @@ cleanup() {
     wait "$SERVER_PID" 2>/dev/null || true
   fi
   rm -f "$LOG_FILE"
+  rm -rf -- "$SERVE_ROOT"
 }
 trap cleanup EXIT INT TERM
 
-python -m http.server "$PORT" --bind 127.0.0.1 --directory "$ROOT_DIR" >"$LOG_FILE" 2>&1 &
+# Expose only browser assets and reviewed result packs. Serving the repository root would also
+# expose Git metadata and any unrelated untracked files to other local processes or browser tabs.
+cp -R "$ROOT_DIR/terminal" "$ROOT_DIR/results" "$SERVE_ROOT/"
+python -m http.server "$PORT" --bind 127.0.0.1 --directory "$SERVE_ROOT" >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 sleep 1
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/CryptoJonic/MeteoraAgent/research/galka_lab/dataset.schema.json",
+  "$id": "https://github.com/jonicbecks-lab/Botizvideo/research/galka_lab/dataset.schema.json",
   "title": "Galka Lab candidate and outcome row",
   "type": "object",
   "required": [
