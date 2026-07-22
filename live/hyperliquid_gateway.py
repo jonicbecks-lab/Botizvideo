@@ -89,6 +89,14 @@ def _unified_usdc_values(spot_state: dict[str, Any]) -> tuple[float, float]:
     return account_value, available
 
 
+def _validate_agent_wallet(account_address: str, signer_address: str) -> None:
+    """Reject the main account key; LIVE must use a separately approved API wallet."""
+    if account_address.strip().lower() == signer_address.strip().lower():
+        raise GatewayError(
+            "HL_API_SECRET_KEY belongs to the main account. Use a separate approved API wallet"
+        )
+
+
 @dataclass(frozen=True)
 class PlacedOrder:
     oid: int
@@ -127,6 +135,7 @@ class HyperliquidGateway:
         self._account_mode_checked_at = 0.0
         self.base_url = constants.MAINNET_API_URL if config.mainnet else constants.TESTNET_API_URL
         self.signer = eth_account.Account.from_key(config.api_secret_key)
+        _validate_agent_wallet(config.account_address, self.signer.address)
         self.info = Info(self.base_url, skip_ws=True, timeout=config.request_timeout)
         self.exchange = Exchange(
             self.signer,

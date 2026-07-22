@@ -9,6 +9,27 @@ from pathlib import Path
 
 ADDRESS_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
 SECRET_RE = re.compile(r"^0x[a-fA-F0-9]{64}$")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+MAX_CONFIG_BYTES = 64_000
+ALLOWED_KEYS = {
+    "HL_ACCOUNT_ADDRESS",
+    "HL_API_SECRET_KEY",
+    "HL_MAINNET",
+    "HL_LIVE_ENABLED",
+    "HL_LIVE_CONFIRM",
+    "HL_LEVERAGE",
+    "HL_ISOLATED",
+    "HL_TOTAL_NOTIONAL",
+    "HL_REQUEST_TIMEOUT",
+    "HL_MAX_MARGIN_FRACTION",
+    "HL_MAKER_FEE_RATE",
+    "HL_TAKER_FEE_RATE",
+    "HL_MONITOR_INTERVAL",
+    "HL_GLOBAL_CHECK_INTERVAL",
+    "GALKA_HOST",
+    "GALKA_PORT",
+    "GALKA_DATA_DIR",
+}
 
 
 class ConfigError(RuntimeError):
@@ -44,23 +65,78 @@ class LiveConfig:
         return f"{self.account_address[:6]}…{self.account_address[-4:]}"
 
 
-def _parse_env(path: Path) -> dict[str, str]:
+def _is_inside_repo(path: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(REPO_ROOT)
+    except ValueError:
+        return False
+    return True
+
+
+def _read_private_config(path: Path) -> str:
+    if _is_inside_repo(path):
+        raise ConfigError("The LIVE config must remain outside the Git repository")
+    if path.is_symlink():
+        raise ConfigError("The LIVE config must be a regular file, not a symlink")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError as exc:
+        raise ConfigError(f"Config file not found: {path}. Run bash scripts/setup-galka-live.sh") from exc
+    except OSError as exc:
+        raise ConfigError(f"Cannot securely open LIVE config: {path}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ConfigError("The LIVE config must be a regular file")
+        mode = stat.S_IMODE(metadata.st_mode)
+        if mode & (stat.S_IRWXG | stat.S_IRWXO):
+            raise ConfigError(
+                f"Unsafe permissions on {path}: run chmod 600 {path} before starting live trading"
+            )
+        if hasattr(os, "getuid") and metadata.st_uid != os.getuid():
+            raise ConfigError("The LIVE config must be owned by the current user")
+        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+            descriptor = -1
+            contents = handle.read(MAX_CONFIG_BYTES + 1)
+        if len(contents.encode("utf-8")) > MAX_CONFIG_BYTES:
+            raise ConfigError("The LIVE config is unexpectedly large")
+        return contents
+    except UnicodeDecodeError as exc:
+        raise ConfigError("The LIVE config must be valid UTF-8") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _parse_env(contents: str) -> dict[str, str]:
     values: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in contents.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
         if "=" not in line:
             raise ConfigError(f"Invalid config line: {raw_line}")
         key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
+        key = key.strip()
+        if key in values:
+            raise ConfigError(f"Duplicate config key: {key}")
+        if key not in ALLOWED_KEYS:
+            raise ConfigError(f"Unknown config key: {key}")
+        values[key] = value.strip().strip('"').strip("'")
     return values
 
 
-def _bool(value: str | None, default: bool = False) -> bool:
+def _bool(values: dict[str, str], key: str, default: bool = False) -> bool:
+    value = values.get(key)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ConfigError(f"{key} must be true or false")
 
 
 def _finite_float(values: dict[str, str], key: str, default: str) -> float:
@@ -73,24 +149,13 @@ def _finite_float(values: dict[str, str], key: str, default: str) -> float:
     return value
 
 
-def _check_permissions(path: Path) -> None:
-    if not path.exists():
-        raise ConfigError(f"Config file not found: {path}. Run bash scripts/setup-galka-live.sh")
-    mode = stat.S_IMODE(path.stat().st_mode)
-    if mode & (stat.S_IRWXG | stat.S_IRWXO):
-        raise ConfigError(
-            f"Unsafe permissions on {path}: run chmod 600 {path} before starting live trading"
-        )
-
-
 def load_config(path: str | Path | None = None) -> LiveConfig:
     config_path = Path(
         path
         or os.environ.get("GALKA_LIVE_CONFIG")
         or Path.home() / ".config" / "galka-live.env"
-    ).expanduser()
-    _check_permissions(config_path)
-    values = _parse_env(config_path)
+    ).expanduser().absolute()
+    values = _parse_env(_read_private_config(config_path))
 
     account_address = values.get("HL_ACCOUNT_ADDRESS", "").strip()
     api_secret_key = values.get("HL_API_SECRET_KEY", "").strip()
@@ -132,12 +197,15 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     if global_check_interval < 10 or global_check_interval > 300:
         raise ConfigError("HL_GLOBAL_CHECK_INTERVAL must be between 10 and 300 seconds")
 
-    isolated = _bool(values.get("HL_ISOLATED"), True)
+    isolated = _bool(values, "HL_ISOLATED", True)
     if not isolated:
         raise ConfigError("HL_ISOLATED must remain true for the hardened LIVE engine")
 
+    live_flag = values.get("HL_LIVE_ENABLED", "NO").strip().upper()
+    if live_flag not in {"YES", "NO"}:
+        raise ConfigError("HL_LIVE_ENABLED must be YES or NO")
     live_enabled = (
-        values.get("HL_LIVE_ENABLED", "NO").strip().upper() == "YES"
+        live_flag == "YES"
         and values.get("HL_LIVE_CONFIRM", "").strip() == "I_UNDERSTAND_REAL_MONEY"
     )
     host = values.get("GALKA_HOST", "127.0.0.1").strip()
@@ -152,8 +220,14 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
 
     data_dir = Path(
         values.get("GALKA_DATA_DIR", str(Path.home() / ".local" / "share" / "galka-live"))
-    ).expanduser()
+    ).expanduser().absolute()
+    if _is_inside_repo(data_dir):
+        raise ConfigError("GALKA_DATA_DIR must remain outside the Git repository")
+    if data_dir.is_symlink():
+        raise ConfigError("GALKA_DATA_DIR must not be a symlink")
     data_dir.mkdir(parents=True, exist_ok=True)
+    if not data_dir.is_dir():
+        raise ConfigError("GALKA_DATA_DIR must be a directory")
     try:
         data_dir.chmod(0o700)
     except OSError:
@@ -162,7 +236,7 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     return LiveConfig(
         account_address=account_address.lower(),
         api_secret_key=api_secret_key,
-        mainnet=_bool(values.get("HL_MAINNET"), True),
+        mainnet=_bool(values, "HL_MAINNET", True),
         live_enabled=live_enabled,
         leverage=leverage,
         isolated=isolated,

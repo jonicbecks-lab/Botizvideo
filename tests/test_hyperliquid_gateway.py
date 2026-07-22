@@ -10,6 +10,7 @@ from live.hyperliquid_gateway import (
     _finite_number,
     _parse_user_abstraction,
     _unified_usdc_values,
+    _validate_agent_wallet,
 )
 
 
@@ -112,6 +113,12 @@ class HyperliquidGatewayTests(unittest.TestCase):
         for value in ("nan", "inf", "-inf"):
             with self.subTest(value=value), self.assertRaises(GatewayError):
                 _finite_number(value, "test")
+
+    def test_main_account_private_key_is_rejected(self):
+        address = "0x" + "12" * 20
+        with self.assertRaisesRegex(GatewayError, "main account"):
+            _validate_agent_wallet(address.upper(), address)
+        _validate_agent_wallet(address, "0x" + "34" * 20)
 
     def test_leverage_rejection_is_not_treated_as_success(self):
         gateway = self.make_gateway()

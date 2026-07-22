@@ -3,8 +3,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from uuid import uuid4
 
-from live.config import ConfigError, load_config
+from live.config import REPO_ROOT, ConfigError, load_config
 
 
 BASE = """\
@@ -22,11 +23,19 @@ GALKA_PORT=8098
 
 
 class LiveConfigTests(unittest.TestCase):
-    def write_config(self, extra=""):
-        root = tempfile.TemporaryDirectory()
+    def write_config(self, overrides=None, extra_lines="", parent=None):
+        root = tempfile.TemporaryDirectory(dir=parent)
         path = Path(root.name) / "galka-live.env"
         data_dir = Path(root.name) / "data"
-        path.write_text(BASE + f"GALKA_DATA_DIR={data_dir}\n" + extra, encoding="utf-8")
+        values = {}
+        for line in BASE.splitlines():
+            if line:
+                key, value = line.split("=", 1)
+                values[key] = value
+        values["GALKA_DATA_DIR"] = str(data_dir)
+        values.update(overrides or {})
+        contents = "".join(f"{key}={value}\n" for key, value in values.items()) + extra_lines
+        path.write_text(contents, encoding="utf-8")
         path.chmod(0o600)
         self.addCleanup(root.cleanup)
         return path
@@ -48,7 +57,7 @@ class LiveConfigTests(unittest.TestCase):
             ("HL_MAKER_FEE_RATE", "nan"),
             ("HL_MONITOR_INTERVAL", "inf"),
         ]:
-            path = self.write_config(f"\n{key}={value}\n")
+            path = self.write_config({key: value})
             with self.subTest(key=key), self.assertRaises(ConfigError):
                 load_config(path)
 
@@ -59,14 +68,50 @@ class LiveConfigTests(unittest.TestCase):
             load_config(path)
 
     def test_notional_cap_is_1000(self):
-        config = load_config(self.write_config("\nHL_TOTAL_NOTIONAL=1000\n"))
+        config = load_config(self.write_config({"HL_TOTAL_NOTIONAL": "1000"}))
         self.assertEqual(config.total_notional, 1000)
         with self.assertRaises(ConfigError):
-            load_config(self.write_config("\nHL_TOTAL_NOTIONAL=1000.01\n"))
+            load_config(self.write_config({"HL_TOTAL_NOTIONAL": "1000.01"}))
 
     def test_cross_margin_is_rejected(self):
         with self.assertRaisesRegex(ConfigError, "HL_ISOLATED"):
-            load_config(self.write_config("\nHL_ISOLATED=false\n"))
+            load_config(self.write_config({"HL_ISOLATED": "false"}))
+
+    def test_duplicate_and_unknown_keys_are_rejected(self):
+        with self.assertRaisesRegex(ConfigError, "Duplicate config key"):
+            load_config(self.write_config(extra_lines="HL_LEVERAGE=9\n"))
+        with self.assertRaisesRegex(ConfigError, "Unknown config key"):
+            load_config(self.write_config(extra_lines="HL_LIVE_ENABELD=NO\n"))
+
+    def test_boolean_values_are_strict(self):
+        with self.assertRaisesRegex(ConfigError, "HL_MAINNET"):
+            load_config(self.write_config({"HL_MAINNET": "treu"}))
+        with self.assertRaisesRegex(ConfigError, "HL_LIVE_ENABLED"):
+            load_config(self.write_config({"HL_LIVE_ENABLED": "MAYBE"}))
+
+    def test_config_and_data_must_remain_outside_repository(self):
+        repo_config = self.write_config(parent=REPO_ROOT)
+        with self.assertRaisesRegex(ConfigError, "outside the Git repository"):
+            load_config(repo_config)
+
+        repo_data = REPO_ROOT / f".galka-live-test-{uuid4().hex}"
+        with self.assertRaisesRegex(ConfigError, "outside the Git repository"):
+            load_config(self.write_config({"GALKA_DATA_DIR": str(repo_data)}))
+        self.assertFalse(repo_data.exists())
+
+    def test_config_and_data_symlinks_are_rejected(self):
+        target = self.write_config()
+        link = target.parent / "linked.env"
+        link.symlink_to(target)
+        with self.assertRaisesRegex(ConfigError, "not a symlink"):
+            load_config(link)
+
+        real_data = target.parent / "real-data"
+        real_data.mkdir()
+        linked_data = target.parent / "linked-data"
+        linked_data.symlink_to(real_data, target_is_directory=True)
+        with self.assertRaisesRegex(ConfigError, "must not be a symlink"):
+            load_config(self.write_config({"GALKA_DATA_DIR": str(linked_data)}))
 
 
 if __name__ == "__main__":
