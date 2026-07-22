@@ -127,8 +127,12 @@ def main() -> int:
         fail("Galka Lab publishing must consume verified artifacts in an isolated write job", failures)
 
     visual = (WORKFLOW_DIR / "galka-visual-regression.yml").read_text(encoding="utf-8")
-    if "lightweight-charts@" in visual or "test-paper-recovery-browser.mjs" not in visual:
-        fail("visual workflow must use the vendored chart runtime and browser recovery gate", failures)
+    if (
+        "lightweight-charts@" in visual
+        or "test-paper-recovery-browser.mjs" not in visual
+        or "test-legacy-viewers-browser.mjs" not in visual
+    ):
+        fail("visual workflow must use vendored runtimes and both browser recovery/security gates", failures)
 
     if (WORKFLOW_DIR / "apply-reclaim-trailing.yml").exists() or (ROOT / "scripts" / "apply_reclaim_trail.py").exists():
         fail("obsolete main-mutating reclaim patch automation still exists", failures)

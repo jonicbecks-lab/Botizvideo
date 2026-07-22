@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
   <title>Galka Research Terminal</title>
   <link rel="stylesheet" href="./styles.css" />
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="../terminal/vendor/lightweight-charts.standalone.production.js" defer></script>
+  <script src="../terminal/vendor/jszip-3.10.1.min.js" defer></script>
 </head>
 <body>
   <header>

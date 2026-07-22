@@ -34,6 +34,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify background paper recovery in Chromium
         run: node scripts/test-paper-recovery-browser.mjs
+      - name: Verify offline legacy viewers in Chromium
+        run: node scripts/test-legacy-viewers-browser.mjs
       - name: Prepare visual baseline
         run: |
           git fetch origin agent/galka-pro-redesign:refs/remotes/origin/agent/galka-pro-redesign

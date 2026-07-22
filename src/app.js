@@ -1,1 +1,328 @@
-const $=id=>document.getElementById(id);let chart,candles,lines=[];const toTs=v=>typeof v==='number'?v:Math.floor(new Date(v).getTime()/1000);function init(){chart=LightweightCharts.createChart($('chart'),{layout:{background:{color:'#0b1117'},textColor:'#aebbc7'},grid:{vertLines:{color:'#18232d'},horzLines:{color:'#18232d'}},timeScale:{timeVisible:true,secondsVisible:false},rightPriceScale:{borderColor:'#30404d'}});candles=chart.addCandlestickSeries?chart.addCandlestickSeries({upColor:'#26a69a',downColor:'#ef5350',wickUpColor:'#26a69a',wickDownColor:'#ef5350',borderVisible:false}):chart.addSeries(LightweightCharts.CandlestickSeries,{});new ResizeObserver(()=>chart.resize($('chart').clientWidth,$('chart').clientHeight)).observe($('chart'))}function validate(d){for(const k of ['meta','candles','trades'])if(!(k in d))throw new Error(`Отсутствует поле ${k}`);if(!Array.isArray(d.candles)||!Array.isArray(d.trades))throw new Error('candles и trades должны быть массивами');return d}async function loadFile(file){if(file.name.endsWith('.zip')){const z=await JSZip.loadAsync(file);const names=['package.json','galka.json','result.json'];const f=names.map(n=>z.file(n)).find(Boolean)||Object.values(z.files).find(x=>x.name.endsWith('.json')&&!x.dir);if(!f)throw new Error('В архиве нет JSON-пакета');return validate(JSON.parse(await f.async('text')))}return validate(JSON.parse(await file.text()))}function clearLines(){lines.forEach(x=>candles.removePriceLine(x));lines=[]}function addLine(price,title,color){if(price==null)return;lines.push(candles.createPriceLine({price,title,color,lineWidth:1,lineStyle:LightweightCharts.LineStyle.Dashed,axisLabelVisible:true}))}function show(d){candles.setData(d.candles.map(x=>({time:toTs(x.time),open:+x.open,high:+x.high,low:+x.low,close:+x.close})));const markers=[];for(const t of d.trades){if(t.v_low_time)markers.push({time:toTs(t.v_low_time),position:'belowBar',color:'#f5c451',shape:'circle',text:`V ${t.id}`});if(t.break_time)markers.push({time:toTs(t.break_time),position:'aboveBar',color:'#ef6b73',shape:'arrowDown',text:'Пробой'});for(const f of t.fills||[])markers.push({time:toTs(f.time),position:'belowBar',color:'#62c987',shape:'arrowUp',text:`L${f.level??''}`});if(t.exit_time)markers.push({time:toTs(t.exit_time),position:'aboveBar',color:t.pnl>=0?'#62c987':'#ef6b73',shape:'arrowDown',text:`Exit ${Number(t.pnl).toFixed(2)}`})}markers.sort((a,b)=>a.time-b.time);if(candles.setMarkers)candles.setMarkers(markers);else LightweightCharts.createSeriesMarkers(candles,markers);renderSummary(d);const s=$('tradeSelect');s.innerHTML='';d.trades.forEach((t,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${t.id} | ${t.pnl>=0?'+':''}${Number(t.pnl).toFixed(2)} | ${t.status||'closed'}`;s.append(o)});s.onchange=()=>focusTrade(d.trades[+s.value]);if(d.trades.length){s.value=0;focusTrade(d.trades[0])}else chart.timeScale().fitContent()}function renderSummary(d){const s=d.summary||{};$('summary').innerHTML=`<h2>Сводка</h2>${[['Инструмент',d.meta.symbol],['Таймфрейм',d.meta.timeframe],['Сделок',s.trades??d.trades.length],['Win rate',s.win_rate==null?'—':(s.win_rate*100).toFixed(1)+'%'],['PnL',s.net_pnl??'—'],['Max DD',s.max_drawdown??'—'],['Модель',d.meta.model_id??'—']].map(([a,b])=>`<div class="metric"><span>${a}</span><strong>${b??'—'}</strong></div>`).join('')}`}function focusTrade(t){clearLines();addLine(t.v_low,'V-low','#f5c451');addLine(t.last_limit,'Последняя лимитка','#ef6b73');addLine(t.avg_entry,'Средний вход','#62c987');addLine(t.exit_price,'Выход','#8aa8ff');$('tradeDetails').innerHTML=`<h2>Детали сделки</h2>${[['ID',t.id],['V-low',t.v_low],['Пробой',t.break_price],['Исполнено лимиток',(t.fills||[]).length],['Риск, деньги',t.risk_money],['Средний вход',t.avg_entry],['Выход',t.exit_price],['PnL',t.pnl],['Причина выхода',t.exit_reason]].map(([a,b])=>`<div class="metric"><span>${a}</span><strong>${b??'—'}</strong></div>`).join('')}<p class="muted">Параметры: ${JSON.stringify(t.parameters||{})}</p>`;const times=[t.v_low_time,t.break_time,...(t.fills||[]).map(x=>x.time),t.exit_time].filter(Boolean).map(toTs);if(times.length)chart.timeScale().setVisibleRange({from:Math.min(...times)-3600,to:Math.max(...times)+3600})}init();$('fileInput').addEventListener('change',async e=>{try{const f=e.target.files[0];if(f)show(await loadFile(f))}catch(err){$('summary').innerHTML=`<h2>Ошибка файла</h2><div class="error">${err.message}</div>`}});
+export const LEGACY_VIEWER_LIMITS = Object.freeze({
+  archiveBytes: 32 * 1024 * 1024,
+  jsonBytes: 64 * 1024 * 1024,
+  candles: 500_000,
+  trades: 100_000,
+  fills: 500_000,
+  zipEntries: 100,
+});
+
+const $ = (id) => document.getElementById(id);
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const cleanText = (value, maxLength = 240) => String(value ?? '—')
+  .replace(/[\u0000-\u001f\u007f]/g, ' ')
+  .slice(0, maxLength);
+
+export function toTimestamp(value, label = 'time') {
+  const raw = typeof value === 'number' ? value : Date.parse(String(value));
+  const seconds = raw > 1_000_000_000_000 ? raw / 1_000 : raw;
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > 8_640_000_000) {
+    throw new Error(`Некорректное время ${label}`);
+  }
+  return Math.floor(seconds);
+}
+
+function finiteNumber(value, label, { positive = false } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || (positive && !(parsed > 0))) {
+    throw new Error(`Некорректное число ${label}`);
+  }
+  return parsed;
+}
+
+function optionalTimestamp(value, label) {
+  return value == null || value === '' ? null : toTimestamp(value, label);
+}
+
+function optionalNumber(value, label) {
+  return value == null || value === '' ? null : finiteNumber(value, label);
+}
+
+export function validatePackage(source) {
+  if (!isRecord(source) || !isRecord(source.meta)) {
+    throw new Error('Пакет должен содержать объект meta');
+  }
+  if (!Array.isArray(source.candles) || !Array.isArray(source.trades)) {
+    throw new Error('candles и trades должны быть массивами');
+  }
+  if (!source.candles.length || source.candles.length > LEGACY_VIEWER_LIMITS.candles) {
+    throw new Error(`Недопустимое количество свечей: ${source.candles.length}`);
+  }
+  if (source.trades.length > LEGACY_VIEWER_LIMITS.trades) {
+    throw new Error(`Слишком много сделок: ${source.trades.length}`);
+  }
+
+  const candles = source.candles.map((item, index) => {
+    if (!isRecord(item)) throw new Error(`Свеча ${index + 1} должна быть объектом`);
+    const candle = {
+      ...item,
+      time: toTimestamp(item.time, `candles[${index}].time`),
+      open: finiteNumber(item.open, `candles[${index}].open`, { positive: true }),
+      high: finiteNumber(item.high, `candles[${index}].high`, { positive: true }),
+      low: finiteNumber(item.low, `candles[${index}].low`, { positive: true }),
+      close: finiteNumber(item.close, `candles[${index}].close`, { positive: true }),
+    };
+    if (candle.high < Math.max(candle.open, candle.close)
+      || candle.low > Math.min(candle.open, candle.close)
+      || candle.low > candle.high) {
+      throw new Error(`Некорректный OHLC candles[${index}]`);
+    }
+    return candle;
+  }).sort((left, right) => left.time - right.time);
+  for (let index = 1; index < candles.length; index += 1) {
+    if (candles[index].time === candles[index - 1].time) {
+      throw new Error(`Дублирующая свеча ${candles[index].time}`);
+    }
+  }
+
+  let fillCount = 0;
+  const trades = source.trades.map((item, index) => {
+    if (!isRecord(item)) throw new Error(`Сделка ${index + 1} должна быть объектом`);
+    const fills = item.fills == null ? [] : item.fills;
+    if (!Array.isArray(fills)) throw new Error(`trades[${index}].fills должен быть массивом`);
+    fillCount += fills.length;
+    if (fillCount > LEGACY_VIEWER_LIMITS.fills) throw new Error('Слишком много исполнений в пакете');
+    const normalizedFills = fills.map((fill, fillIndex) => {
+      if (!isRecord(fill)) throw new Error(`trades[${index}].fills[${fillIndex}] должен быть объектом`);
+      return {
+        ...fill,
+        time: optionalTimestamp(fill.time, `trades[${index}].fills[${fillIndex}].time`),
+        price: optionalNumber(fill.price, `trades[${index}].fills[${fillIndex}].price`),
+      };
+    });
+    return {
+      ...item,
+      id: cleanText(item.id ?? `trade-${index + 1}`, 120),
+      pnl: optionalNumber(item.pnl, `trades[${index}].pnl`) ?? 0,
+      v_low: optionalNumber(item.v_low, `trades[${index}].v_low`),
+      break_price: optionalNumber(item.break_price, `trades[${index}].break_price`),
+      last_limit: optionalNumber(item.last_limit, `trades[${index}].last_limit`),
+      risk_money: optionalNumber(item.risk_money, `trades[${index}].risk_money`),
+      avg_entry: optionalNumber(item.avg_entry, `trades[${index}].avg_entry`),
+      exit_price: optionalNumber(item.exit_price, `trades[${index}].exit_price`),
+      v_low_time: optionalTimestamp(item.v_low_time, `trades[${index}].v_low_time`),
+      break_time: optionalTimestamp(item.break_time, `trades[${index}].break_time`),
+      exit_time: optionalTimestamp(item.exit_time, `trades[${index}].exit_time`),
+      fills: normalizedFills,
+    };
+  });
+  return { ...source, candles, trades };
+}
+
+function byteLength(input) {
+  if (typeof input?.size === 'number') return input.size;
+  if (typeof input?.byteLength === 'number') return input.byteLength;
+  return NaN;
+}
+
+function zipEntrySize(entry) {
+  return Number(entry?._data?.uncompressedSize);
+}
+
+export async function loadPackageFile(file, jszip = globalThis.JSZip) {
+  const compressedBytes = byteLength(file);
+  if (!Number.isFinite(compressedBytes) || compressedBytes < 0
+    || compressedBytes > LEGACY_VIEWER_LIMITS.archiveBytes) {
+    throw new Error('Файл слишком большой или его размер неизвестен');
+  }
+  const lowerName = String(file.name || '').toLowerCase();
+  if (!lowerName.endsWith('.zip')) {
+    if (compressedBytes > LEGACY_VIEWER_LIMITS.jsonBytes) throw new Error('JSON-файл слишком большой');
+    const text = await file.text();
+    if (new TextEncoder().encode(text).byteLength > LEGACY_VIEWER_LIMITS.jsonBytes) {
+      throw new Error('JSON-файл превышает безопасный лимит');
+    }
+    return validatePackage(JSON.parse(text));
+  }
+  if (!jszip) throw new Error('Локальный ZIP-модуль не загрузился');
+  const archive = await jszip.loadAsync(file, { createFolders: false });
+  const entries = Object.values(archive.files).filter((entry) => !entry.dir);
+  if (!entries.length || entries.length > LEGACY_VIEWER_LIMITS.zipEntries) {
+    throw new Error('Недопустимое количество файлов в архиве');
+  }
+  let totalUncompressedBytes = 0;
+  for (const candidate of entries) {
+    const candidateBytes = zipEntrySize(candidate);
+    if (!Number.isFinite(candidateBytes) || candidateBytes < 0
+      || candidateBytes > LEGACY_VIEWER_LIMITS.jsonBytes) {
+      throw new Error('Файл в архиве превышает безопасный лимит');
+    }
+    totalUncompressedBytes += candidateBytes;
+  }
+  if (totalUncompressedBytes > LEGACY_VIEWER_LIMITS.jsonBytes * 2) {
+    throw new Error('Распакованный архив превышает безопасный лимит');
+  }
+  const preferred = ['package.json', 'galka.json', 'result.json']
+    .map((name) => archive.file(name))
+    .find(Boolean);
+  const jsonEntries = entries.filter((entry) => entry.name.toLowerCase().endsWith('.json'));
+  const entry = preferred || (jsonEntries.length === 1 ? jsonEntries[0] : null);
+  if (!entry) throw new Error('В архиве нет однозначного JSON-пакета');
+  const uncompressedBytes = zipEntrySize(entry);
+  if (!Number.isFinite(uncompressedBytes) || uncompressedBytes < 0
+    || uncompressedBytes > LEGACY_VIEWER_LIMITS.jsonBytes) {
+    throw new Error('Распакованный JSON превышает безопасный лимит');
+  }
+  const text = await entry.async('text');
+  if (new TextEncoder().encode(text).byteLength > LEGACY_VIEWER_LIMITS.jsonBytes) {
+    throw new Error('Распакованный JSON превышает безопасный лимит');
+  }
+  return validatePackage(JSON.parse(text));
+}
+
+let chart;
+let candleSeries;
+let priceLines = [];
+
+function createElement(tag, { className = '', text = '' } = {}) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = cleanText(text, 2_000);
+  return node;
+}
+
+function metricRow(label, value) {
+  const row = createElement('div', { className: 'metric' });
+  row.append(createElement('span', { text: label }), createElement('strong', { text: value ?? '—' }));
+  return row;
+}
+
+function initChart() {
+  const library = globalThis.LightweightCharts;
+  if (!library) throw new Error('Локальный графический модуль не загрузился');
+  chart = library.createChart($('chart'), {
+    layout: { background: { color: '#0b1117' }, textColor: '#aebbc7' },
+    grid: { vertLines: { color: '#18232d' }, horzLines: { color: '#18232d' } },
+    timeScale: { timeVisible: true, secondsVisible: false },
+    rightPriceScale: { borderColor: '#30404d' },
+  });
+  candleSeries = chart.addCandlestickSeries
+    ? chart.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350', wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350', borderVisible: false,
+    })
+    : chart.addSeries(library.CandlestickSeries, {});
+  new ResizeObserver(() => chart.resize($('chart').clientWidth, $('chart').clientHeight))
+    .observe($('chart'));
+}
+
+function clearLines() {
+  for (const line of priceLines) candleSeries.removePriceLine(line);
+  priceLines = [];
+}
+
+function addLine(value, title, color) {
+  if (!(value > 0)) return;
+  priceLines.push(candleSeries.createPriceLine({
+    price: value,
+    title,
+    color,
+    lineWidth: 1,
+    lineStyle: globalThis.LightweightCharts.LineStyle.Dashed,
+    axisLabelVisible: true,
+  }));
+}
+
+function renderSummary(data) {
+  const summary = data.summary || {};
+  const container = $('summary');
+  container.replaceChildren(createElement('h2', { text: 'Сводка' }));
+  const rows = [
+    ['Инструмент', data.meta.symbol],
+    ['Таймфрейм', data.meta.timeframe],
+    ['Сделок', summary.trades ?? data.trades.length],
+    ['Win rate', summary.win_rate == null ? '—' : `${(finiteNumber(summary.win_rate, 'summary.win_rate') * 100).toFixed(1)}%`],
+    ['PnL', summary.net_pnl ?? '—'],
+    ['Max DD', summary.max_drawdown ?? '—'],
+    ['Модель', data.meta.model_id ?? '—'],
+  ];
+  container.append(...rows.map(([label, value]) => metricRow(label, value)));
+}
+
+function focusTrade(trade) {
+  clearLines();
+  addLine(trade.v_low, 'V-low', '#f5c451');
+  addLine(trade.last_limit, 'Последняя лимитка', '#ef6b73');
+  addLine(trade.avg_entry, 'Средний вход', '#62c987');
+  addLine(trade.exit_price, 'Выход', '#8aa8ff');
+  const container = $('tradeDetails');
+  container.replaceChildren(createElement('h2', { text: 'Детали сделки' }));
+  const rows = [
+    ['ID', trade.id], ['V-low', trade.v_low], ['Пробой', trade.break_price],
+    ['Исполнено лимиток', trade.fills.length], ['Риск, деньги', trade.risk_money],
+    ['Средний вход', trade.avg_entry], ['Выход', trade.exit_price], ['PnL', trade.pnl],
+    ['Причина выхода', trade.exit_reason],
+  ];
+  container.append(...rows.map(([label, value]) => metricRow(label, value)));
+  container.append(createElement('p', {
+    className: 'muted',
+    text: `Параметры: ${JSON.stringify(trade.parameters || {})}`,
+  }));
+  const times = [trade.v_low_time, trade.break_time, ...trade.fills.map((fill) => fill.time), trade.exit_time]
+    .filter((value) => value != null);
+  if (times.length) {
+    chart.timeScale().setVisibleRange({ from: Math.min(...times) - 3_600, to: Math.max(...times) + 3_600 });
+  }
+}
+
+function show(data) {
+  candleSeries.setData(data.candles);
+  const markers = [];
+  for (const trade of data.trades) {
+    if (trade.v_low_time != null) markers.push({ time: trade.v_low_time, position: 'belowBar', color: '#f5c451', shape: 'circle', text: `V ${cleanText(trade.id, 48)}` });
+    if (trade.break_time != null) markers.push({ time: trade.break_time, position: 'aboveBar', color: '#ef6b73', shape: 'arrowDown', text: 'Пробой' });
+    for (const fill of trade.fills) {
+      if (fill.time != null) markers.push({ time: fill.time, position: 'belowBar', color: '#62c987', shape: 'arrowUp', text: `L${cleanText(fill.level ?? '', 12)}` });
+    }
+    if (trade.exit_time != null) markers.push({ time: trade.exit_time, position: 'aboveBar', color: trade.pnl >= 0 ? '#62c987' : '#ef6b73', shape: 'arrowDown', text: `Exit ${trade.pnl.toFixed(2)}` });
+  }
+  markers.sort((left, right) => left.time - right.time);
+  if (candleSeries.setMarkers) candleSeries.setMarkers(markers);
+  else globalThis.LightweightCharts.createSeriesMarkers(candleSeries, markers);
+  renderSummary(data);
+  const select = $('tradeSelect');
+  select.replaceChildren();
+  data.trades.forEach((trade, index) => {
+    const option = createElement('option', {
+      text: `${trade.id} | ${trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)} | ${cleanText(trade.status || 'closed', 32)}`,
+    });
+    option.value = String(index);
+    select.append(option);
+  });
+  select.onchange = () => focusTrade(data.trades[Number(select.value)]);
+  if (data.trades.length) {
+    select.value = '0';
+    focusTrade(data.trades[0]);
+  } else {
+    chart.timeScale().fitContent();
+  }
+}
+
+function renderError(error) {
+  const container = $('summary');
+  container.replaceChildren(
+    createElement('h2', { text: 'Ошибка файла' }),
+    createElement('div', { className: 'error', text: error?.message || String(error) }),
+  );
+}
+
+function bootstrap() {
+  try {
+    initChart();
+  } catch (error) {
+    renderError(error);
+    return;
+  }
+  $('fileInput').addEventListener('change', async (event) => {
+    try {
+      const file = event.target.files?.[0];
+      if (file) show(await loadPackageFile(file));
+    } catch (error) {
+      renderError(error);
+    } finally {
+      event.target.value = '';
+    }
+  });
+}
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') bootstrap();
