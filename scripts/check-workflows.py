@@ -88,7 +88,11 @@ def main() -> int:
             if "branches: [main]" not in event_block or "github.repository == 'jonicbecks-lab/Botizvideo'" not in text:
                 fail(f"{path.name}: top-level write token is not constrained to trusted main", failures)
         if "contents: write" in text and "contents: write" not in permissions:
-            if "pull_request:" in event_block or "github.repository == 'jonicbecks-lab/Botizvideo'" not in text:
+            if (
+                "pull_request:" in event_block
+                or "github.repository == 'jonicbecks-lab/Botizvideo'" not in text
+                or "github.ref_name == 'agent/galka-statistics-engine'" not in text
+            ):
                 fail(f"{path.name}: job-level write token lacks a trusted-event guard", failures)
         if re.search(r"git push[^\n]*main", text):
             if "branches: [main]" not in event_block or "github.repository == 'jonicbecks-lab/Botizvideo'" not in text:
@@ -142,6 +146,17 @@ def main() -> int:
         fail("full historical dataset must not run from untrusted pull requests", failures)
     if "needs: dataset" not in lab or "actions/download-artifact@" not in lab:
         fail("Galka Lab publishing must consume verified artifacts in an isolated write job", failures)
+    if "github.ref_name == 'agent/galka-statistics-engine'" not in lab:
+        fail("Galka Lab publishing must be restricted to its non-production research branch", failures)
+
+    rebuild = (WORKFLOW_DIR / "rebuild-btc-history.yml").read_text(encoding="utf-8")
+    if (
+        "contents: write" in rebuild
+        or "git push" in rebuild
+        or "actions/upload-artifact@" not in rebuild
+        or "workflow_dispatch:" not in top_level_block(rebuild, "on")
+    ):
+        fail("BTC history rebuild must be manual, read-only, and artifact-only", failures)
 
     visual = (WORKFLOW_DIR / "galka-visual-regression.yml").read_text(encoding="utf-8")
     if (

@@ -175,7 +175,7 @@ jobs:
 
   publish:
     needs: dataset
-    if: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.commit_results)) && github.repository == 'jonicbecks-lab/Botizvideo' }}
+    if: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.commit_results)) && github.repository == 'jonicbecks-lab/Botizvideo' && github.ref_name == 'agent/galka-statistics-engine' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
