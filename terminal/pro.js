@@ -10,6 +10,7 @@ import {
   saveStore,
 } from './modules/store.js';
 import {
+  ACTIVE_CAMPAIGN_STATUSES,
   RECOVERY_PATH_POLICY,
   campaignLadder as buildCampaignLadder,
   createCampaign as createPaperCampaign,
@@ -18,6 +19,7 @@ import {
   processCampaignQuote,
   replayCampaignCandles,
   recalculateCampaign,
+  validateRecoveryCandleRange,
 } from './modules/paper-engine.js';
 import {
   filterRadarCandidates,
@@ -224,7 +226,7 @@ function nearestIndex(rows,time){
 function paperRecovery(){return store.paper.recovery;}
 function paperRecoverySymbol(symbol){return paperRecovery().symbols[symbol];}
 function lastClosedMinute(nowMs=Date.now()){return Math.floor(nowMs/RECOVERY_CANDLE_MS)*RECOVERY_CANDLE_MS-1;}
-function activeCampaignSymbols(){return SYMBOLS.filter(symbol=>!!store.paper.symbols[symbol]?.campaign);}
+function activeCampaignSymbols(){return SYMBOLS.filter(symbol=>ACTIVE_CAMPAIGN_STATUSES.has(store.paper.symbols[symbol]?.campaign?.status));}
 function initializePaperRecovery(nowMs=Date.now()){
   const recovery=paperRecovery();
   recovery.policy=PAPER_RECOVERY_POLICY;
@@ -283,7 +285,7 @@ async function fetchClosedMinuteRange(symbol,startMs,endMs){
     const next=num(data.at(-1)?.[0],cursor)+RECOVERY_CANDLE_MS;if(next<=cursor)break;cursor=next;
     if(data.length<1500)break;
   }
-  return output;
+  return validateRecoveryCandleRange(output,startMs,endMs);
 }
 async function ensureData(symbol,interval,force=false){
   const k=symbol+'|'+interval;
@@ -361,7 +363,7 @@ async function recoverMissedPaperTrading(reason,nowMs=Date.now()){
     summary.fills+=result.events.filter(event=>event.type==='level_filled').length;
     summary.trailingArmed+=result.events.filter(event=>event.type==='trailing_armed').length;
     summary.trailingRaised+=result.events.filter(event=>event.type==='trailing_raised').length;
-    state.lastRecoveredCloseAt=Math.max(num(state.lastRecoveredCloseAt,0),num(result.lastCloseTime,endMs));
+    if(result.lastCloseTime!=null)state.lastRecoveredCloseAt=Math.max(num(state.lastRecoveredCloseAt,0),num(result.lastCloseTime));
     state.lastMarketAt=Math.max(num(state.lastMarketAt,0),num(result.lastEventAt,endMs));
     state.lastRecoveryAt=nowMs;state.lastRecoveryStatus=start.truncated?'truncated':'ok';state.recoveredCandles=num(state.recoveredCandles)+result.candlesReplayed;state.boundaryCandles=num(state.boundaryCandles)+result.boundaryCandles;
     logRecoveredPaperEvents(symbol,result);
@@ -383,8 +385,10 @@ function bufferRecoveryQuote(quote){
 function flushRecoveryQuotes(){
   const buffered=runtime.recoveryQuoteBuffer.splice(0).sort((a,b)=>a.eventTime-b.eventTime||num(a.updateId)-num(b.updateId)||String(a.symbol).localeCompare(b.symbol));
   for(const quote of buffered)processQuote(quote.symbol,quote.bid,quote.ask,{eventTime:quote.eventTime,updateId:quote.updateId,source:'buffered',silent:true});
-  if(runtime.recoveryBufferOverflow){const overflowAt=runtime.recoveryOverflowAt??Date.now();logActivity('risk','Буфер live-котировок переполнился во время paper replay',{limit:RECOVERY_MAX_BUFFER,overflowAt});runtime.recoveryBufferOverflow=false;runtime.recoveryOverflowAt=null;markPaperGap('buffer-overflow',overflowAt);}
+  const overflowed=runtime.recoveryBufferOverflow;
+  if(overflowed){const overflowAt=runtime.recoveryOverflowAt??Date.now();logActivity('risk','Буфер live-котировок переполнился во время paper replay',{limit:RECOVERY_MAX_BUFFER,overflowAt});runtime.recoveryBufferOverflow=false;runtime.recoveryOverflowAt=null;markPaperGap('buffer-overflow',overflowAt);}
   if(buffered.length){renderWatchlist();renderPaper();renderActivity();renderTicker();updateMarkers();}
+  return overflowed;
 }
 async function catchUpAfterReconnect(reason='reconnect'){
   if(runtime.recoveryPromise)return runtime.recoveryPromise;
@@ -402,7 +406,7 @@ async function catchUpAfterReconnect(reason='reconnect'){
   })();
   try{return await runtime.recoveryPromise;}
   catch(error){console.error(error);logActivity('risk','Не удалось восстановить paper-события',{message:error.message});save();return null;}
-  finally{runtime.recovering=false;runtime.recoveryPromise=null;flushRecoveryQuotes();renderSessionHealth();}
+  finally{runtime.recovering=false;runtime.recoveryPromise=null;const overflowed=flushRecoveryQuotes();renderSessionHealth();if(overflowed)setTimeout(()=>catchUpAfterReconnect('buffer-overflow'),0);}
 }
 function updateCandleMap(symbol,interval,c){
   const k=symbol+'|'+interval,rows=runtime.candles.get(k)||[];
@@ -428,7 +432,7 @@ function connectWs(){
   ws.onopen=()=>{
     const wasDisconnected=!!runtime.disconnectedAt;
     setConnection('Онлайн · Binance USD-M Futures','ok');
-    if(wasDisconnected||runtime.wsAttempt>1)catchUpAfterReconnect(wasDisconnected?'reconnect':'socket-restart');
+    if(wasDisconnected||runtime.wsAttempt>1||needsPaperRecovery())catchUpAfterReconnect(wasDisconnected?'reconnect':runtime.wsAttempt>1?'socket-restart':'startup-retry');
     runtime.disconnectedAt=null;
   };
   ws.onerror=()=>setConnection('Ошибка WebSocket','error');

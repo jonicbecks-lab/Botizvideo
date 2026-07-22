@@ -122,4 +122,24 @@ assert.ok(preview.first.price > preview.last.price);
 assert.ok(preview.averageEntry < 100);
 assert.ok(preview.estimatedPnlAtGalka > 0);
 
+const expiredBeforeFill = createCampaign(
+  'BTCUSDT',
+  { ...pattern, patternId: 'M-expired-before-fill' },
+  { ...settings, maxHours: 1 },
+  1_000,
+);
+const expiredResult = processCampaignQuote(
+  expiredBeforeFill,
+  { bid: 98, ask: 98 },
+  settings,
+  expiredBeforeFill.expiresAt,
+);
+assert.equal(expiredResult.expiredWithoutFill, true);
+assert.equal(expiredBeforeFill.qty, 0, 'an expired ladder must not fill before its time exit');
+assert.equal(
+  expiredBeforeFill.levels.some((level) => level.status === 'filled'),
+  false,
+  'no level may fill at or after expiresAt',
+);
+
 console.log('Paper engine: repeating L1, deep target finish, dense ladder and legacy trailing checks passed');

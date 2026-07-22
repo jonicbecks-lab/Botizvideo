@@ -149,6 +149,11 @@ export function processCampaignQuote(campaign, quote, settings, nowMs = Date.now
   const result = { changed: false, events: [], close: null, expiredWithoutFill: false };
   if (!campaign || !ACTIVE_CAMPAIGN_STATUSES.has(campaign.status)) return result;
   if (!(quote?.bid > 0) || !(quote?.ask > 0)) return result;
+  if (nowMs >= number(campaign.expiresAt, Infinity)) {
+    if (campaign.qty) result.close = { price: quote.bid, reason: 'time_exit' };
+    else result.expiredWithoutFill = true;
+    return result;
+  }
   const fillTime = new Date(nowMs).toISOString();
 
   if (!campaign.trailArmed) {
@@ -220,10 +225,6 @@ export function processCampaignQuote(campaign, quote, settings, nowMs = Date.now
     }
   }
 
-  if (!result.close && nowMs >= campaign.expiresAt) {
-    if (campaign.qty) result.close = { price: quote.bid, reason: 'time_exit' };
-    else result.expiredWithoutFill = true;
-  }
   return result;
 }
 
@@ -245,6 +246,42 @@ function normalizedRecoveryCandle(candle) {
     return null;
   }
   return { openTime, closeTime, open, high, low, close };
+}
+
+export function validateRecoveryCandleRange(candles, startMs, endMs) {
+  if (!(endMs > startMs)) return [];
+  let firstOpen = Math.floor(startMs / RECOVERY_CANDLE_INTERVAL_MS) * RECOVERY_CANDLE_INTERVAL_MS;
+  if (firstOpen + RECOVERY_CANDLE_INTERVAL_MS - 1 <= startMs) {
+    firstOpen += RECOVERY_CANDLE_INTERVAL_MS;
+  }
+  const lastOpen = Math.floor(endMs / RECOVERY_CANDLE_INTERVAL_MS) * RECOVERY_CANDLE_INTERVAL_MS;
+  if (lastOpen < firstOpen) return [];
+
+  const byOpenTime = new Map();
+  for (const source of Array.isArray(candles) ? candles : []) {
+    const candle = normalizedRecoveryCandle(source);
+    if (!candle || candle.closeTime <= startMs || candle.closeTime > endMs) continue;
+    const previous = byOpenTime.get(candle.openTime);
+    if (previous && JSON.stringify(previous) !== JSON.stringify(candle)) {
+      throw new Error(`Conflicting recovery candle at ${candle.openTime}`);
+    }
+    byOpenTime.set(candle.openTime, candle);
+  }
+
+  const expected = Math.floor((lastOpen - firstOpen) / RECOVERY_CANDLE_INTERVAL_MS) + 1;
+  if (byOpenTime.size !== expected) {
+    throw new Error(`Incomplete recovery candles: expected ${expected}, received ${byOpenTime.size}`);
+  }
+  const output = [];
+  for (let openTime = firstOpen; openTime <= lastOpen; openTime += RECOVERY_CANDLE_INTERVAL_MS) {
+    const candle = byOpenTime.get(openTime);
+    if (!candle) throw new Error(`Missing recovery candle at ${openTime}`);
+    if (candle.closeTime !== openTime + RECOVERY_CANDLE_INTERVAL_MS - 1) {
+      throw new Error(`Invalid recovery close time at ${openTime}`);
+    }
+    output.push(candle);
+  }
+  return output;
 }
 
 export function recoveryCandlePath(candle, afterMs = -Infinity) {

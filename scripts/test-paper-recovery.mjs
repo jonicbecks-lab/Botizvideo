@@ -4,6 +4,7 @@ import {
   createCampaign,
   recoveryCandlePath,
   replayCampaignCandles,
+  validateRecoveryCandleRange,
 } from '../terminal/modules/paper-engine.js';
 
 const settings = {
@@ -61,6 +62,21 @@ const candles = [
   minute(2, { open: 100.1, high: 100.3, low: 99.65, close: 100.2 }),
   minute(3, { open: 101.5, high: 102, low: 100.5, close: 100.8 }),
 ];
+
+assert.equal(
+  validateRecoveryCandleRange(candles, BASE + 30_000, BASE + 4 * 60_000 - 1).length,
+  4,
+  'a complete closed-minute range is accepted',
+);
+assert.throws(
+  () => validateRecoveryCandleRange(
+    [candles[0], candles[2], candles[3]],
+    BASE + 30_000,
+    BASE + 4 * 60_000 - 1,
+  ),
+  /Incomplete recovery candles|Missing recovery candle/,
+  'a missing minute must keep recovery pending instead of advancing the cursor',
+);
 
 const campaign = createCampaign('BTCUSDT', pattern, settings, BASE - 1_000);
 const replay = replayCampaignCandles(campaign, candles, settings, { afterMs: BASE + 30_000 });
