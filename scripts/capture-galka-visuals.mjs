@@ -5,6 +5,15 @@ import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
 
+async function waitForPageCondition(page, condition, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(condition)) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Page condition timed out after ${timeout}ms`);
+}
+
 function argument(name, fallback) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : fallback;
@@ -14,7 +23,7 @@ const currentRoot = path.resolve(argument('--current-root', '.'));
 const baselineRoot = path.resolve(argument('--baseline-root', currentRoot));
 const outputRoot = path.resolve(argument('--output', 'artifacts/galka-visuals'));
 await fs.mkdir(outputRoot, { recursive: true });
-const chartBundle = await fs.readFile(path.resolve('node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.js'));
+const chartBundle = await fs.readFile(path.join(currentRoot, 'terminal/vendor/lightweight-charts.standalone.production.js'));
 
 function serve(root, port) {
   return spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1', '--directory', root], {
@@ -150,7 +159,7 @@ async function preparePage(browser, baseUrl, viewport) {
   });
   page.on('pageerror', (error) => console.log(`[browser pageerror] ${baseUrl}: ${error.message}`));
   await page.goto(`${baseUrl}/terminal/pro.html`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => /"rows":\s*[1-9]/.test(document.querySelector('#diagnostics')?.textContent || ''), null, { timeout: 10_000 });
+  await waitForPageCondition(page, () => /"rows":\s*[1-9]/.test(document.querySelector('#diagnostics')?.textContent || ''));
   await page.waitForTimeout(1_000);
   const visualState = await page.evaluate(() => ({
     diagnostics: document.querySelector('#diagnostics')?.textContent,
@@ -169,8 +178,8 @@ async function openAndVerifyLab(page, viewport) {
     if (!openSheet) await page.locator('#toggleSidebar').click();
     await page.locator('.side-tabs [data-panel="lab"]').click();
   }
-  await page.waitForFunction(() => document.querySelector('#labPackStatus')?.textContent === 'Verified', null, { timeout: 15_000 });
-  await page.waitForFunction(() => /Candidates/.test(document.querySelector('#labOosMetrics')?.textContent || ''), null, { timeout: 5_000 });
+  await waitForPageCondition(page, () => document.querySelector('#labPackStatus')?.textContent === 'Verified', 15_000);
+  await waitForPageCondition(page, () => /Candidates/.test(document.querySelector('#labOosMetrics')?.textContent || ''), 5_000);
   await page.waitForTimeout(450);
   const state = await page.evaluate(() => {
     const panel = document.querySelector('[data-panel-id="lab"]');
@@ -201,7 +210,7 @@ async function openAndVerifyLab(page, viewport) {
 async function verifyLabInteractions(page) {
   const paperBefore = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('galka-pro-v1')).paper));
   await page.locator('.shadow-card .switch').click();
-  await page.waitForFunction(() => document.querySelector('#shadowToggle')?.checked === true && /Включён с/.test(document.querySelector('#shadowStatus')?.textContent || ''));
+  await waitForPageCondition(page, () => document.querySelector('#shadowToggle')?.checked === true && /Включён с/.test(document.querySelector('#shadowStatus')?.textContent || ''));
   const enabled = await page.evaluate(() => {
     const store = JSON.parse(localStorage.getItem('galka-pro-v1'));
     return { paper: JSON.stringify(store.paper), shadow: store.shadow, radarEnabled: store.ui.radar.enabled };
@@ -211,7 +220,7 @@ async function verifyLabInteractions(page) {
   assert.equal(enabled.shadow.records.length, 0, 'historical Radar candidates must not be backfilled');
   assert.equal(enabled.radarEnabled, true);
   await page.locator('.shadow-card .switch').click();
-  await page.waitForFunction(() => document.querySelector('#shadowToggle')?.checked === false);
+  await waitForPageCondition(page, () => document.querySelector('#shadowToggle')?.checked === false);
 
   await page.locator('#labSymbol').selectOption('SOLUSDT');
   await page.locator('#labInterval').selectOption('5m');

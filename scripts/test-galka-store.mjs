@@ -9,7 +9,9 @@ import {
   saveStore,
 } from '../terminal/modules/store.js';
 import {
+  BACKUP_MAX_BYTES,
   createBackupSnapshot,
+  parseBoundedJson,
   summarizeBackupSnapshot,
   validateBackupSnapshot,
 } from '../terminal/modules/backup.js';
@@ -121,5 +123,38 @@ assert.deepEqual(summary, {
 });
 assert.equal(validateBackupSnapshot(snapshot).paper.symbols.BTCUSDT.campaign.campaignId, oldCampaign.campaignId);
 assert.throws(() => validateBackupSnapshot({}), /не полный snapshot/);
+
+assert.throws(
+  () => parseBoundedJson('{"__proto__":{"polluted":true}}'),
+  /опасный ключ/,
+  'prototype-polluting JSON keys must be rejected before migration',
+);
+assert.equal({}.polluted, undefined);
+assert.throws(
+  () => migrateStore({ paper: { settings: { startingBalance: Number.POSITIVE_INFINITY } } }),
+  /Non-finite store number/,
+);
+assert.throws(
+  () => saveStore({ unsafe: Number.NaN }, createMemoryStorage()),
+  /Non-finite store number/,
+);
+const unsafeSnapshot = createBackupSnapshot(createDefaultStore(), 'test');
+unsafeSnapshot.store.paper.settings.leverage = 1_000;
+assert.throws(() => validateBackupSnapshot(unsafeSnapshot), /безопасного диапазона/);
+assert.throws(
+  () => parseBoundedJson(`"${'x'.repeat(BACKUP_MAX_BYTES)}"`),
+  /безопасный лимит/,
+);
+const poisonedStorage = createMemoryStorage({
+  [STORAGE_KEY]: '{"__proto__":{"polluted":true}}',
+});
+const originalWarn = console.warn;
+console.warn = () => {};
+try {
+  assert.deepEqual(loadStore(poisonedStorage).paper.symbols, createDefaultStore().paper.symbols);
+} finally {
+  console.warn = originalWarn;
+}
+assert.equal({}.polluted, undefined);
 
 console.log('Galka store: simple migration, L1 cycle fields, round-trip and backup checks passed');

@@ -19,7 +19,9 @@ const checks=[
  ['zero liquidations candidate',summary.summaries.trail075_400.liquidations===0],
  ['dangerous preset fails',summary.summaries.trail075_3333.ending_equity===0],
  ['annual curves',Object.keys(curves).length===12&&curves.trail075_400.length>=8],
- ['mobile css',css.includes('@media(max-width:600px)')]
+ ['mobile css',css.includes('@media(max-width:600px)')],
+ ['local chart runtime',html.includes('vendor/lightweight-charts.standalone.production.js')&&!/<script[^>]+https?:\/\//.test(html)],
+ ['bounded browser policy',html.includes('Content-Security-Policy')]
 ];
 for(const [name,ok] of checks)if(!ok)throw new Error(`Backtest page check failed: ${name}`);
 console.log(`Backtest page: ${checks.length} checks passed`);

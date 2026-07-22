@@ -20,6 +20,15 @@ async function waitForServer() {
   throw new Error('Paper recovery browser server did not start');
 }
 
+async function waitForPageCondition(page, condition, timeout = 10_000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(condition)) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`Page condition timed out after ${timeout}ms`);
+}
+
 function levels(galka = 100) {
   return Array.from({ length: 10 }, (_, index) => {
     const depthPct = (index + 1) * 0.15;
@@ -258,10 +267,10 @@ try {
     if (message.type() === 'error') runtimeErrors.push(message.text());
   });
   await page.goto(`${BASE_URL}/terminal/pro.html`, { waitUntil: 'domcontentloaded', timeout: 10_000 });
-  await page.waitForFunction(() => {
+  await waitForPageCondition(page, () => {
     const state = JSON.parse(localStorage.getItem('galka-pro-v1'));
     return state?.paper?.trades?.length === 1 && state?.paper?.symbols?.BTCUSDT?.campaign == null;
-  }, null, { timeout: 10_000 });
+  });
 
   const recovered = await page.evaluate(() => ({
     state: JSON.parse(localStorage.getItem('galka-pro-v1')),
@@ -282,7 +291,7 @@ try {
     if (!registration.active) throw new Error('service worker did not become active');
   });
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 10_000 });
-  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 10_000 });
+  await waitForPageCondition(page, () => !!navigator.serviceWorker?.controller);
   await page.waitForTimeout(300);
   const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('galka-pro-v1')));
   assert.equal(afterReload.paper.trades.length, 1, 'reloading after recovery must not duplicate a trade');
@@ -354,12 +363,12 @@ try {
   portfolioPage.on('pageerror', (error) => portfolioErrors.push(error.message));
   await portfolioPage.goto(`${BASE_URL}/terminal/pro.html`, { waitUntil: 'domcontentloaded', timeout: 10_000 });
   try {
-    await portfolioPage.waitForFunction(() => {
+    await waitForPageCondition(portfolioPage, () => {
       const state = JSON.parse(localStorage.getItem('galka-pro-v1'));
       return state?.paper?.trades?.length === 2
         && state.paper.symbols.BTCUSDT.campaign == null
         && state.paper.symbols.ETHUSDT.campaign == null;
-    }, null, { timeout: 10_000 });
+    });
   } catch (error) {
     const diagnostic = await portfolioPage.evaluate(() => {
       const state = JSON.parse(localStorage.getItem('galka-pro-v1'));

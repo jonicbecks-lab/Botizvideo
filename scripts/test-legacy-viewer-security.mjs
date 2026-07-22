@@ -10,12 +10,18 @@ import {
 const sourceHtml = fs.readFileSync('src/index.html', 'utf8');
 const sourceApp = fs.readFileSync('src/app.js', 'utf8');
 const mobileHtml = fs.readFileSync('terminal/index.html', 'utf8');
+const proHtml = fs.readFileSync('terminal/pro.html', 'utf8');
+const liveHtml = fs.readFileSync('terminal/live.html', 'utf8');
+const backtestHtml = fs.readFileSync('terminal/backtest.html', 'utf8');
 const jszip = fs.readFileSync('terminal/vendor/jszip-3.10.1.min.js');
 const charts = fs.readFileSync('terminal/vendor/lightweight-charts.standalone.production.js');
 
-assert.doesNotMatch(sourceHtml + mobileHtml, /<script[^>]+src=["']https?:\/\//i, 'legacy viewers cannot execute CDN scripts');
+const terminalHtml = sourceHtml + mobileHtml + proHtml + liveHtml + backtestHtml;
+assert.doesNotMatch(terminalHtml, /<script[^>]+src=["']https?:\/\//i, 'terminals cannot execute CDN scripts');
+for (const html of [sourceHtml, mobileHtml, proHtml, liveHtml, backtestHtml]) {
+  assert.match(html, /Content-Security-Policy/);
+}
 assert.doesNotMatch(sourceApp, /innerHTML|insertAdjacentHTML|document\.write/, 'uploaded package values must only reach text-safe DOM APIs');
-assert.match(sourceHtml, /Content-Security-Policy/);
 assert.match(mobileHtml, /ARCHIVE_TOTAL_LIMIT=128\*1024\*1024/);
 assert.match(mobileHtml, /safeArchiveName/);
 assert.equal(createHash('sha256').update(jszip).digest('hex'), 'acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e');

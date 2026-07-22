@@ -4,6 +4,9 @@ export const STORAGE_KEY = 'galka-pro-v1';
 export const STORE_SCHEMA_VERSION = 5;
 export const SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
 export const PAPER_RECOVERY_POLICY = 'closed-1m-directional-v1';
+export const STORE_MAX_BYTES = 8 * 1024 * 1024;
+
+const FORBIDDEN_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const SIMPLE_MANUAL_DEPTHS = [0.15, 0.3, 0.45, 0.6, 0.9, 1.2, 1.5, 2.0];
 const SIMPLE_MANUAL_WEIGHTS = [0.42, 0.22, 0.12, 0.08, 0.06, 0.04, 0.03, 0.03];
@@ -122,8 +125,10 @@ export function deepMerge(base, extra) {
   if (Array.isArray(base)) return Array.isArray(extra) ? extra : base;
   if (base && typeof base === 'object') {
     const output = { ...base };
-    for (const [key, value] of Object.entries(extra || {})) {
-      output[key] = key in base ? deepMerge(base[key], value) : value;
+    const additions = extra && typeof extra === 'object' && !Array.isArray(extra) ? extra : {};
+    for (const [key, value] of Object.entries(additions)) {
+      if (FORBIDDEN_OBJECT_KEYS.has(key)) throw new Error(`Unsafe object key: ${key}`);
+      output[key] = Object.hasOwn(base, key) ? deepMerge(base[key], value) : value;
     }
     return output;
   }
@@ -131,7 +136,13 @@ export function deepMerge(base, extra) {
 }
 
 function clone(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
+  if (value == null) return value;
+  const serialized = JSON.stringify(value, (key, item) => {
+    if (FORBIDDEN_OBJECT_KEYS.has(key)) throw new Error(`Unsafe object key: ${key}`);
+    if (typeof item === 'number' && !Number.isFinite(item)) throw new Error('Non-finite store number');
+    return item;
+  });
+  return JSON.parse(serialized);
 }
 
 function normalizeSimpleManualCampaign(campaign, settings) {
@@ -218,6 +229,13 @@ export function migrateStore(rawStore) {
   migrated.training.replayExamples = Array.isArray(migrated.training.replayExamples)
     ? migrated.training.replayExamples
     : [];
+  migrated.paper.trades = Array.isArray(migrated.paper.trades)
+    ? migrated.paper.trades.slice(-50_000)
+    : [];
+  migrated.ui.alerts = Array.isArray(migrated.ui.alerts) ? migrated.ui.alerts.slice(-1_000) : [];
+  migrated.training.manualExamples = migrated.training.manualExamples.slice(-10_000);
+  migrated.training.radarLabels = migrated.training.radarLabels.slice(-10_000);
+  migrated.training.replayExamples = migrated.training.replayExamples.slice(-10_000);
   if (migrated.ui.radar.filter === 'medium') migrated.ui.radar.filter = 'strong';
   if (!['all', 'strong', 'mine', 'profitable', 'losing'].includes(migrated.ui.radar.filter)) {
     migrated.ui.radar.filter = 'all';
@@ -229,14 +247,22 @@ export function migrateStore(rawStore) {
   migrated.ui.sheet.panel = 'chart';
   migrated.shadow = normalizeShadowState(migrated.shadow);
   migrated.shadow.enabled = false;
-  migrated.activity = Array.isArray(migrated.activity) ? migrated.activity : [];
+  migrated.activity = Array.isArray(migrated.activity) ? migrated.activity.slice(-500) : [];
   migrated.schemaVersion = STORE_SCHEMA_VERSION;
   return migrated;
 }
 
 export function loadStore(storage = globalThis.localStorage) {
   try {
-    const raw = JSON.parse(storage?.getItem(STORAGE_KEY) || 'null');
+    const serialized = storage?.getItem(STORAGE_KEY) || 'null';
+    if (new TextEncoder().encode(serialized).byteLength > STORE_MAX_BYTES) {
+      throw new Error('Galka store exceeds the safe size limit');
+    }
+    const raw = JSON.parse(serialized, (key, value) => {
+      if (FORBIDDEN_OBJECT_KEYS.has(key)) throw new Error(`Unsafe object key: ${key}`);
+      if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Non-finite store number');
+      return value;
+    });
     return migrateStore(raw);
   } catch (error) {
     console.warn('Galka store recovery:', error);
@@ -245,7 +271,15 @@ export function loadStore(storage = globalThis.localStorage) {
 }
 
 export function saveStore(store, storage = globalThis.localStorage) {
-  storage?.setItem(STORAGE_KEY, JSON.stringify(store));
+  const serialized = JSON.stringify(store, (key, value) => {
+    if (FORBIDDEN_OBJECT_KEYS.has(key)) throw new Error(`Unsafe object key: ${key}`);
+    if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Non-finite store number');
+    return value;
+  });
+  if (new TextEncoder().encode(serialized).byteLength > STORE_MAX_BYTES) {
+    throw new Error('Galka store exceeds the safe size limit');
+  }
+  storage?.setItem(STORAGE_KEY, serialized);
   return store;
 }
 
