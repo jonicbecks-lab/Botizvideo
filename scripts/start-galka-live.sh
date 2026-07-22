@@ -17,10 +17,16 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "Выполни bash scripts/setup-galka-live.sh"
   exit 1
 fi
-chmod 600 "$CONFIG_FILE"
+if [[ -L "$CONFIG_FILE" ]]; then
+  echo "Секретный config не должен быть symlink: $CONFIG_FILE" >&2
+  exit 1
+fi
 
-PORT="$(awk -F= '/^GALKA_PORT=/{gsub(/[[:space:]]/,"",$2);print $2;exit}' "$CONFIG_FILE")"
-PORT="${PORT:-8098}"
+PORT="$(PYTHONPATH="$ROOT_DIR" "$VENV/bin/python" -c 'from live.config import load_config; print(load_config().port)')"
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
+  echo "Некорректный GALKA_PORT" >&2
+  exit 1
+fi
 LOG_FILE="${TMPDIR:-/tmp}/galka-live-${PORT}.log"
 umask 077
 rm -f "$LOG_FILE"
@@ -44,7 +50,7 @@ SERVER_PID=$!
 for _ in 1 2 3 4 5 6 7 8; do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "Galka LIVE не запустилась:"
-    cat "$LOG_FILE"
+    sed '/^Galka LIVE URL: /d' "$LOG_FILE"
     exit 1
   fi
   if grep -q "Galka LIVE URL:" "$LOG_FILE" 2>/dev/null; then
@@ -55,7 +61,7 @@ done
 
 if ! grep -q "Galka LIVE URL:" "$LOG_FILE" 2>/dev/null; then
   echo "Сервер не подтвердил запуск. Лог:"
-  cat "$LOG_FILE"
+  sed '/^Galka LIVE URL: /d' "$LOG_FILE"
   exit 1
 fi
 

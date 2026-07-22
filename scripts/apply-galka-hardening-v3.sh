@@ -1,153 +1,129 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-REPO="$HOME/GalkaLive"
+REPO="${GALKA_REPO_DIR:-$HOME/GalkaLive}"
 BRANCH="agent/galka-live-hardening-v3"
-REMOTE_REF="refs/remotes/origin/$BRANCH"
-PATCH_SHA="98414f915ce0ff2aae06edb63ead566ffd51abe734d17edcf4c9db76396069d7"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP_ROOT="$HOME/GalkaLive-backups/$STAMP"
-CONFIG="$HOME/.config/galka-live.env"
-STATE_DIR="$HOME/.local/share/galka-live"
-PRESERVE_JSON="research/galka_lab/output/galka-stats-v1.json"
-STASHED=0
+REMOTE="origin"
+REMOTE_REF="refs/remotes/$REMOTE/$BRANCH"
+BACKUP_PARENT="${GALKA_BACKUP_ROOT:-$HOME/GalkaLive-backups}"
+CONFIG="${GALKA_LIVE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/galka-live.env}"
+STATE_DIR="${GALKA_STATE_DIR:-$HOME/.local/share/galka-live}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+BACKUP_DIR="$BACKUP_PARENT/$STAMP"
+BACKUP_READY=0
 
-fail() {
-  printf '\nОШИБКА: %s\n' "$*" >&2
-  printf 'Резервная копия: %s\n' "$BACKUP_ROOT" >&2
-  exit 1
+on_error() {
+  local status=$?
+  printf '\nОБНОВЛЕНИЕ ОСТАНОВЛЕНО (код %s).\n' "$status" >&2
+  if [[ "$BACKUP_READY" -eq 1 ]]; then
+    printf 'Код и данные не удалены. Резервная копия: %s\n' "$BACKUP_DIR" >&2
+    printf 'Rollback: bash scripts/rollback-galka-live.sh %q\n' "$BACKUP_DIR" >&2
+  fi
+  exit "$status"
 }
-trap 'fail "команда завершилась на строке $LINENO"' ERR
+trap on_error ERR
 
-git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || \
-  fail "не найден Git-репозиторий $REPO"
-mkdir -p "$BACKUP_ROOT"
-chmod 700 "$BACKUP_ROOT"
+die() {
+  printf 'ОШИБКА: %s\n' "$*" >&2
+  return 1
+}
 
-printf '[1/10] Останавливаю локальный LIVE-сервер, если он запущен...\n'
-pkill -f 'python.*-m live.server' 2>/dev/null || true
-pkill -f 'live/server.py' 2>/dev/null || true
-sleep 1
-
-printf '[2/10] Создаю резервную копию конфигурации, state и локальных изменений...\n'
-if [[ -f "$CONFIG" ]]; then
-  mkdir -p "$BACKUP_ROOT/config"
-  cp -p "$CONFIG" "$BACKUP_ROOT/config/galka-live.env"
-fi
-if [[ -d "$STATE_DIR" ]]; then
-  cp -a "$STATE_DIR" "$BACKUP_ROOT/galka-live-state"
-fi
-cd "$REPO"
-git status --short > "$BACKUP_ROOT/git-status.txt"
-git diff --binary > "$BACKUP_ROOT/working-tree.patch" || true
-git diff --cached --binary > "$BACKUP_ROOT/index.patch" || true
-if [[ -f "$PRESERVE_JSON" ]]; then
-  mkdir -p "$BACKUP_ROOT/preserve/$(dirname "$PRESERVE_JSON")"
-  cp -p "$PRESERVE_JSON" "$BACKUP_ROOT/preserve/$PRESERVE_JSON"
-fi
-
-if [[ -n "$(git status --porcelain)" ]]; then
-  git stash push --include-untracked -m "pre-galka-hardening-v3-$STAMP" >/dev/null
-  STASHED=1
-fi
-
-printf '[3/10] Получаю подготовленную ветку из GitHub...\n'
-git fetch origin "$BRANCH:$REMOTE_REF"
-git switch -C "$BRANCH" "$REMOTE_REF"
-
-printf '[4/10] Восстанавливаю и проверяю hardened-патч...\n'
-if ! command -v patch >/dev/null 2>&1; then
-  command -v pkg >/dev/null 2>&1 || fail "не найдена команда patch"
-  pkg install -y patch
-fi
-[[ -f .galka-hardening/READY ]] || fail "в ветке отсутствует .galka-hardening/READY"
-cat .galka-hardening/part-* > "$BACKUP_ROOT/hardening.patch.b64"
-base64 --decode "$BACKUP_ROOT/hardening.patch.b64" > "$BACKUP_ROOT/hardening.patch.gz"
-gzip -dc "$BACKUP_ROOT/hardening.patch.gz" > "$BACKUP_ROOT/hardening.patch"
-printf '%s  %s\n' "$PATCH_SHA" "$BACKUP_ROOT/hardening.patch" | sha256sum --check -
-
-# The audited source archive already contained the user's deliberate $1000 validation cap,
-# while the GitHub base branch still has the earlier guarded $200 cap. Normalize only this
-# known two-line difference so the audited patch applies exactly; reject any unknown variant.
-if grep -q 'total_notional > 200' live/config.py && \
-   grep -q 'between \$80 and \$200 for the guarded first version' live/config.py; then
-  sed -i 's/total_notional > 200/total_notional > 1000/' live/config.py
-  sed -i 's/between \$80 and \$200 for the guarded first version/between \$80 and \$1000/' live/config.py
-elif ! grep -q 'total_notional > 1000' live/config.py; then
-  fail "неизвестная версия ограничения HL_TOTAL_NOTIONAL в live/config.py"
-fi
-
-patch --dry-run --batch --forward -p1 < "$BACKUP_ROOT/hardening.patch"
-patch --batch --forward -p1 < "$BACKUP_ROOT/hardening.patch"
-rm -rf .galka-hardening
-rm -f .github/workflows/apply-galka-hardening-v3.yml
-chmod +x scripts/setup-galka-live.sh scripts/start-galka-live.sh \
-  scripts/verify-galka-live.sh scripts/check-galka-live-account.sh
-
-# Normalize the single known packaging-only artifact from the audited archive:
-# source files must end with exactly one newline, not an extra blank line.
-python - <<'PY'
+path_is_within() {
+  python3 - "$1" "$2" <<'PY'
 from pathlib import Path
-
-path = Path("live/engine.py")
-text = path.read_text(encoding="utf-8")
-path.write_text(text.rstrip("\n") + "\n", encoding="utf-8")
+import sys
+try:
+    Path(sys.argv[1]).expanduser().resolve(strict=False).relative_to(Path(sys.argv[2]).expanduser().resolve(strict=False))
+except ValueError:
+    raise SystemExit(1)
 PY
+}
 
-printf '[5/10] Принудительно оставляю реальную торговлю выключенной...\n'
-if [[ -f "$CONFIG" ]]; then
-  sed -i 's/^HL_LIVE_ENABLED=.*/HL_LIVE_ENABLED=NO/' "$CONFIG"
-  sed -i 's/^HL_LIVE_CONFIRM=.*/HL_LIVE_CONFIRM=NOT_CONFIRMED/' "$CONFIG"
-  chmod 600 "$CONFIG"
+[[ -d "$REPO" && "$REPO" != "/" && "$REPO" != "$HOME" ]] || \
+  die "не найден безопасный путь репозитория: $REPO"
+git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || \
+  die "$REPO не является Git-репозиторием"
+
+cd "$REPO"
+REPO_REAL="$(pwd -P)"
+mkdir -p "$BACKUP_PARENT"
+BACKUP_PARENT_REAL="$(cd "$BACKUP_PARENT" && pwd -P)"
+path_is_within "$BACKUP_PARENT_REAL" "$REPO_REAL" && \
+  die "backup directory должен находиться вне Git-репозитория"
+path_is_within "$CONFIG" "$REPO_REAL" && die "LIVE config находится внутри Git-репозитория"
+path_is_within "$STATE_DIR" "$REPO_REAL" && die "LIVE state находится внутри Git-репозитория"
+BACKUP_DIR="$BACKUP_PARENT_REAL/$STAMP"
+CURRENT_BRANCH="$(git branch --show-current)"
+[[ "$CURRENT_BRANCH" == "$BRANCH" ]] || \
+  die "ожидалась ветка $BRANCH, текущая: ${CURRENT_BRANCH:-detached HEAD}"
+[[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] || \
+  die "рабочее дерево содержит изменения; обновление ничего не stash-ит и не коммитит"
+
+REMOTE_URL="$(git remote get-url "$REMOTE")"
+if [[ "${GALKA_ALLOW_LOCAL_REMOTE:-0}" != "1" ]]; then
+  case "$REMOTE_URL" in
+    https://github.com/jonicbecks-lab/Botizvideo|https://github.com/jonicbecks-lab/Botizvideo.git|git@github.com:jonicbecks-lab/Botizvideo.git) ;;
+    *) die "неожиданный origin: $REMOTE_URL" ;;
+  esac
 fi
 
-printf '[6/10] Проверяю синтаксис кода...\n'
-python -m compileall -q live tests
-if command -v node >/dev/null 2>&1; then
-  node --check terminal/live.js
-  node --check terminal/vendor/galka-chart.js
-  node scripts/check-live-secret-isolation.mjs
-  node scripts/check-live-terminal.mjs
+if command -v pgrep >/dev/null 2>&1 && pgrep -f 'python[^ ]* .*\-m live\.server' >/dev/null 2>&1; then
+  die "сначала останови Galka LIVE через Ctrl+C"
 fi
-for script in scripts/*.sh; do
-  bash -n "$script"
-done
-
-printf '[7/10] Проверяю Python-окружение и устанавливаю pinned-зависимости при необходимости...\n'
-if [[ ! -x .venv-live/bin/python ]]; then
-  command -v pkg >/dev/null 2>&1 || fail "скрипт нужно запускать в Termux"
-  pkg install -y python clang make pkg-config libffi openssl
-  python -m venv .venv-live
+if [[ -f "$CONFIG" ]] && grep -Eq '^[[:space:]]*HL_LIVE_ENABLED[[:space:]]*=[[:space:]]*YES[[:space:]]*$' "$CONFIG"; then
+  die "обновление разрешено только при HL_LIVE_ENABLED=NO"
 fi
-.venv-live/bin/python -m pip install --upgrade pip setuptools wheel
-.venv-live/bin/python -m pip install --no-cache-dir -r live/requirements-termux.txt
 
-printf '[8/10] Запускаю полный локальный набор проверок...\n'
+python3 scripts/check-repository-secrets.py --history
+
+umask 077
+mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
+git rev-parse HEAD > "$BACKUP_DIR/previous-commit.txt"
+printf '%s\n' "$CURRENT_BRANCH" > "$BACKUP_DIR/previous-branch.txt"
+printf '%s\n' "$REPO" > "$BACKUP_DIR/repo-path.txt"
+printf '%s\n' "$REMOTE_URL" > "$BACKUP_DIR/remote-url.txt"
+if [[ -L "$CONFIG" ]]; then
+  die "секретный config не должен быть symlink"
+elif [[ -f "$CONFIG" ]]; then
+  mkdir -p "$BACKUP_DIR/config"
+  cp -p "$CONFIG" "$BACKUP_DIR/config/galka-live.env"
+  chmod 600 "$BACKUP_DIR/config/galka-live.env"
+fi
+if [[ -L "$STATE_DIR" ]]; then
+  die "state directory не должен быть symlink"
+elif [[ -d "$STATE_DIR" ]]; then
+  cp -a "$STATE_DIR" "$BACKUP_DIR/state"
+fi
+: > "$BACKUP_DIR/checksums.sha256"
+while IFS= read -r -d '' file; do
+  relative="${file#"$BACKUP_DIR/"}"
+  (cd "$BACKUP_DIR" && sha256sum "$relative") >> "$BACKUP_DIR/checksums.sha256"
+done < <(find "$BACKUP_DIR" -type f ! -name checksums.sha256 -print0 | sort -z)
+BACKUP_READY=1
+
+printf '[1/4] Получаю только подготовленную ветку...\n'
+git fetch --prune "$REMOTE" "refs/heads/$BRANCH:$REMOTE_REF"
+TARGET_COMMIT="$(git rev-parse "$REMOTE_REF^{commit}")"
+PREVIOUS_COMMIT="$(<"$BACKUP_DIR/previous-commit.txt")"
+git merge-base --is-ancestor "$PREVIOUS_COMMIT" "$TARGET_COMMIT" || \
+  die "origin/$BRANCH не является fast-forward; обновление отменено"
+
+printf '[2/4] Выполняю fast-forward без merge commit...\n'
+git merge --ff-only "$REMOTE_REF"
+[[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT" ]] || die "не достигнут ожидаемый commit"
+
+printf '[3/4] Проверяю зависимости и весь hardened-набор...\n'
+python3 scripts/check-repository-secrets.py --history
+if [[ "${GALKA_SKIP_DEPENDENCIES:-0}" != "1" ]]; then
+  bash scripts/setup-galka-live.sh --dependencies-only
+fi
 bash scripts/verify-galka-live.sh
 
-printf '[9/10] Создаю commit и отправляю рабочий код в GitHub...\n'
-git add -A
-# Никогда не добавлять пользовательскую статистику, даже если она появилась в рабочем дереве.
-git reset -- "$PRESERVE_JSON" 2>/dev/null || true
-git diff --cached --check
-if ! git diff --cached --quiet; then
-  git -c user.name='CryptoJonic' \
-      -c user.email='173195477+CryptoJonic@users.noreply.github.com' \
-      commit -m 'Harden Galka Hyperliquid LIVE v3'
-fi
-git push --set-upstream origin "$BRANCH"
+printf '[4/4] Проверяю чистоту установки...\n'
+[[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] || \
+  die "проверки оставили неожиданные изменения в рабочем дереве"
 
-printf '[10/10] Возвращаю отдельно сохранённый пользовательский JSON...\n'
-if [[ -f "$BACKUP_ROOT/preserve/$PRESERVE_JSON" ]]; then
-  mkdir -p "$(dirname "$PRESERVE_JSON")"
-  cp -p "$BACKUP_ROOT/preserve/$PRESERVE_JSON" "$PRESERVE_JSON"
-fi
-
-printf '\nГОТОВО. Hardened-код установлен и отправлен в GitHub.\n'
-printf 'Ветка: %s\n' "$BRANCH"
-printf 'Резервная копия: %s\n' "$BACKUP_ROOT"
-if [[ "$STASHED" -eq 1 ]]; then
-  printf 'Прочие старые локальные изменения сохранены в git stash и не потеряны.\n'
-fi
-printf 'LIVE оставлен выключенным. Следующая безопасная проверка:\n'
-printf '  cd %q && bash scripts/check-galka-live-account.sh\n' "$REPO"
+trap - ERR
+printf '\nОБНОВЛЕНИЕ ГОТОВО\nCommit: %s\nBackup: %s\n' "$TARGET_COMMIT" "$BACKUP_DIR"
+printf 'LIVE config не изменялся и должен оставаться выключенным.\n'

@@ -38,19 +38,29 @@ else:
 PY
 )"
 fi
+if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
+  echo "Порт должен быть целым числом от 1024 до 65535." >&2
+  exit 2
+fi
 
 LOG_FILE="${TMPDIR:-/tmp}/galka-terminal-${PORT}.log"
 VERSION="$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
 URL="http://127.0.0.1:${PORT}/terminal/pro.html?v=${VERSION}"
+umask 077
+rm -f "$LOG_FILE"
+: > "$LOG_FILE"
+chmod 600 "$LOG_FILE"
 
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
   fi
+  rm -f "$LOG_FILE"
 }
 trap cleanup EXIT INT TERM
 
-python -m http.server "$PORT" --bind 127.0.0.1 >"$LOG_FILE" 2>&1 &
+python -m http.server "$PORT" --bind 127.0.0.1 --directory "$ROOT_DIR" >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 sleep 1
 
