@@ -4,12 +4,18 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, distributions, version
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "live" / "requirements-termux.txt"
+TOOLING = {
+    "packaging": "26.2",
+    "pip": "26.1.2",
+    "setuptools": "83.0.0",
+    "wheel": "0.47.0",
+}
 
 
 def canonical(name: str) -> str:
@@ -31,7 +37,8 @@ def main() -> int:
         expected[key] = wanted
 
     failures: list[str] = []
-    for package, wanted in expected.items():
+    allowed = {**expected, **TOOLING}
+    for package, wanted in allowed.items():
         try:
             actual = version(package)
         except PackageNotFoundError:
@@ -39,6 +46,18 @@ def main() -> int:
             continue
         if actual != wanted:
             failures.append(f"{package}: installed {actual}, locked {wanted}")
+    installed: dict[str, str] = {}
+    for distribution in distributions():
+        package = distribution.metadata.get("Name")
+        if not package:
+            failures.append("installed distribution without a package name")
+            continue
+        key = canonical(package)
+        if key in installed:
+            failures.append(f"{key}: duplicate installed distributions")
+        installed[key] = distribution.version
+    unexpected = sorted(set(installed) - set(allowed))
+    failures.extend(f"{package}: unexpected package {installed[package]}" for package in unexpected)
     if failures:
         raise SystemExit("Python lock mismatch:\n" + "\n".join(f"- {item}" for item in failures))
     subprocess.run([sys.executable, "-m", "pip", "check"], check=True)
@@ -48,7 +67,7 @@ def main() -> int:
         pass
     else:
         raise SystemExit("pydantic-core must not be installed in the Termux LIVE environment")
-    print(f"Python lock verified: {len(expected)} runtime packages")
+    print(f"Python lock verified: {len(expected)} runtime packages + {len(TOOLING)} pinned tooling packages")
     return 0
 
 

@@ -68,7 +68,7 @@ if [[ ! -x "$VENV/bin/python" ]]; then
 fi
 
 "$VENV/bin/python" -m pip install --upgrade \
-  pip==26.1.2 setuptools==83.0.0 wheel==0.47.0
+  packaging==26.2 pip==26.1.2 setuptools==83.0.0 wheel==0.47.0
 "$VENV/bin/python" -m pip install --no-cache-dir -r "$REQUIREMENTS"
 "$VENV/bin/python" "$ROOT_DIR/scripts/check-python-lock.py"
 printf '%s\n' "$LOCK_HASH" > "$LOCK_MARKER"

@@ -107,6 +107,7 @@ def main() -> int:
     live = (WORKFLOW_DIR / "galka-live-hyperliquid.yml").read_text(encoding="utf-8")
     for contract in (
         "agent/galka-live-hardening-v3",
+        "packaging==26.2 pip==26.1.2 setuptools==83.0.0 wheel==0.47.0",
         "python -m unittest discover -s tests -v",
         "scripts/check-python-lock.py",
         "scripts/check-repository-secrets.py --history",
