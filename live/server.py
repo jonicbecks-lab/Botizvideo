@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import fcntl
 import hmac
 import json
+import os
 import secrets
 import sys
 from http import HTTPStatus
@@ -16,6 +18,52 @@ from .hyperliquid_gateway import GatewayError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TERMINAL_ROOT = REPO_ROOT / "terminal"
+
+
+class LiveProcessLock:
+    """Hold a non-blocking OS lock for the lifetime of one LIVE server."""
+
+    def __init__(self, data_dir: Path):
+        self.path = data_dir / "server.lock"
+        self._descriptor: int | None = None
+
+    def acquire(self) -> None:
+        if self._descriptor is not None:
+            return
+        if self.path.is_symlink():
+            raise LiveEngineError("LIVE process lock must not be a symlink")
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(self.path, flags, 0o600)
+            os.fchmod(descriptor, 0o600)
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            try:
+                os.close(descriptor)
+            except (OSError, UnboundLocalError):
+                pass
+            raise LiveEngineError(
+                "Another Galka LIVE server already owns this state directory"
+            ) from exc
+        except OSError as exc:
+            try:
+                os.close(descriptor)
+            except (OSError, UnboundLocalError):
+                pass
+            raise LiveEngineError("Cannot securely create the LIVE process lock") from exc
+        os.ftruncate(descriptor, 0)
+        os.write(descriptor, f"{os.getpid()}\n".encode("ascii"))
+        os.fsync(descriptor)
+        self._descriptor = descriptor
+
+    def release(self) -> None:
+        descriptor, self._descriptor = self._descriptor, None
+        if descriptor is None:
+            return
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
 
 
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
@@ -188,21 +236,31 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> int:
+    lock: LiveProcessLock | None = None
+    engine: CompatibleGalkaLiveEngine | None = None
+    server: ThreadingHTTPServer | None = None
     try:
         config = load_config()
+        lock = LiveProcessLock(config.data_dir)
+        lock.acquire()
         gateway = CompatibleHyperliquidGateway(config)
         engine = CompatibleGalkaLiveEngine(config, gateway)
-    except (ConfigError, RuntimeError, GatewayError) as exc:
+        token = secrets.token_urlsafe(32)
+        GalkaRequestHandler.engine = engine
+        GalkaRequestHandler.session_token = token
+        GalkaRequestHandler.server_port = config.port
+        server = ThreadingHTTPServer((config.host, config.port), GalkaRequestHandler)
+        server.daemon_threads = True
+        engine.start()
+    except (ConfigError, RuntimeError, GatewayError, LiveEngineError, OSError) as exc:
+        if engine is not None:
+            engine.stop()
+        if server is not None:
+            server.server_close()
+        if lock is not None:
+            lock.release()
         print(f"Galka LIVE не запущена: {exc}", file=sys.stderr, flush=True)
         return 2
-
-    token = secrets.token_urlsafe(32)
-    GalkaRequestHandler.engine = engine
-    GalkaRequestHandler.session_token = token
-    GalkaRequestHandler.server_port = config.port
-    server = ThreadingHTTPServer((config.host, config.port), GalkaRequestHandler)
-    server.daemon_threads = True
-    engine.start()
 
     base_url = f"http://{config.host}:{config.port}/terminal/live.html"
     session_url = f"{base_url}#token={token}"
@@ -222,6 +280,7 @@ def main() -> int:
     finally:
         engine.stop()
         server.server_close()
+        lock.release()
     return 0
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import stat
 import threading
 import time
 import uuid
@@ -28,6 +29,7 @@ ACTIVE_STATUSES = {
     "recovery",
 }
 RECOVERY_STATUS = "recovery"
+MAX_STATE_BYTES = 20_000_000
 
 
 class LiveEngineError(RuntimeError):
@@ -59,6 +61,7 @@ class GalkaLiveEngine:
         self.config = config
         self.gateway = gateway
         self.state_path = config.data_dir / "state.json"
+        self.state_backup_path = config.data_dir / "state.prev.json"
         self.lock = threading.RLock()          # in-memory state only
         self.action_lock = threading.Lock()    # serializes all exchange actions
         self.stop_event = threading.Event()
@@ -103,47 +106,122 @@ class GalkaLiveEngine:
             "events": [],
         }
 
-    def _load_state(self) -> dict[str, Any]:
-        if not self.state_path.exists():
-            return self._empty_state()
+    @staticmethod
+    def _reject_json_constant(value: str) -> None:
+        raise ValueError(f"non-finite JSON constant: {value}")
+
+    def _read_state_candidate(self, path: Path) -> dict[str, Any]:
+        if path.is_symlink():
+            raise ValueError("state path is a symlink")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
         try:
-            data = json.loads(self.state_path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or data.get("version") not in {1, 2, 3}:
-                raise ValueError("unsupported state version")
-            data["version"] = 3
-            data.setdefault("system", {})
-            system = data["system"]
-            system.setdefault("safeMode", False)
-            system.setdefault("safeModeReason", None)
-            system.setdefault("stateCorrupt", False)
-            system.setdefault("lastReconcileAt", None)
-            system.setdefault("lastGlobalCheckAt", None)
-            system.setdefault("monitorHeartbeatAt", None)
-            data.setdefault("campaigns", {})
-            data.setdefault("events", [])
-            for campaign in data["campaigns"].values():
-                self._migrate_campaign(campaign)
-            return data
-        except Exception as exc:
-            backup = self.state_path.with_suffix(f".broken-{now_ms()}.json")
-            self.state_path.replace(backup)
-            state = self._empty_state()
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_STATE_BYTES:
+                raise ValueError("invalid state file type or size")
+            if stat.S_IMODE(metadata.st_mode) & (stat.S_IRWXG | stat.S_IRWXO):
+                raise ValueError("unsafe state file permissions")
+            with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+                descriptor = -1
+                data = json.load(handle, parse_constant=self._reject_json_constant)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+        if not isinstance(data, dict) or data.get("version") not in {1, 2, 3}:
+            raise ValueError("unsupported state version")
+        if not isinstance(data.get("system", {}), dict):
+            raise ValueError("invalid state system")
+        if not isinstance(data.get("campaigns", {}), dict):
+            raise ValueError("invalid state campaigns")
+        if not isinstance(data.get("events", []), list):
+            raise ValueError("invalid state events")
+        data["version"] = 3
+        data.setdefault("system", {})
+        system = data["system"]
+        system.setdefault("safeMode", False)
+        system.setdefault("safeModeReason", None)
+        system.setdefault("stateCorrupt", False)
+        system.setdefault("lastReconcileAt", None)
+        system.setdefault("lastGlobalCheckAt", None)
+        system.setdefault("monitorHeartbeatAt", None)
+        data.setdefault("campaigns", {})
+        data.setdefault("events", [])
+        for campaign in data["campaigns"].values():
+            if not isinstance(campaign, dict) or not isinstance(campaign.get("levels", []), list):
+                raise ValueError("invalid campaign state")
+            self._migrate_campaign(campaign)
+        return data
+
+    def _quarantine_primary_state(self) -> Path | None:
+        if not self.state_path.exists() and not self.state_path.is_symlink():
+            return None
+        broken = self.state_path.with_suffix(
+            f".broken-{now_ms()}-{uuid.uuid4().hex[:8]}.json"
+        )
+        os.replace(self.state_path, broken)
+        return broken
+
+    def _load_state(self) -> dict[str, Any]:
+        artifacts_present = self.state_path.exists() or self.state_path.is_symlink()
+        if artifacts_present:
+            try:
+                return self._read_state_candidate(self.state_path)
+            except Exception:
+                broken = self._quarantine_primary_state()
+        else:
+            broken = None
+
+        candidates = [self.state_backup_path]
+        candidates.extend(
+            sorted(
+                self.config.data_dir.glob(".state.json.*.tmp"),
+                key=lambda path: path.stat().st_mtime_ns if path.exists() else 0,
+                reverse=True,
+            )[:5]
+        )
+        for candidate in candidates:
+            if not candidate.exists() or candidate.is_symlink():
+                continue
+            artifacts_present = True
+            try:
+                state = self._read_state_candidate(candidate)
+            except Exception:
+                continue
+            source = candidate.name
+            reason = f"State восстановлен из {source}; требуется ручная сверка"
             state["system"].update(
-                {
-                    "safeMode": True,
-                    "safeModeReason": f"Повреждён state-файл: {backup.name}",
-                    "stateCorrupt": True,
-                }
+                {"safeMode": True, "safeModeReason": reason, "stateCorrupt": True}
             )
             state["events"].append(
                 {
                     "time": now_iso(),
                     "type": "risk",
-                    "message": f"Повреждённый state перемещён в {backup.name}; LIVE заблокирован",
-                    "meta": {"error": str(exc)},
+                    "message": reason + "; LIVE заблокирован",
+                    "meta": {"source": source},
                 }
             )
             return state
+
+        if not artifacts_present:
+            return self._empty_state()
+        state = self._empty_state()
+        label = broken.name if broken is not None else "state artifacts"
+        state["system"].update(
+            {
+                "safeMode": True,
+                "safeModeReason": f"Повреждён state-файл: {label}",
+                "stateCorrupt": True,
+            }
+        )
+        state["events"].append(
+            {
+                "time": now_iso(),
+                "type": "risk",
+                "message": f"State не удалось восстановить ({label}); LIVE заблокирован",
+                "meta": {},
+            }
+        )
+        return state
 
     @staticmethod
     def _migrate_campaign(campaign: dict[str, Any]) -> None:
@@ -175,30 +253,49 @@ class GalkaLiveEngine:
             if level.get("targetCloid"):
                 campaign["targetCloidMap"].setdefault(str(level["targetCloid"]), int(level["index"]))
 
-    def _save_locked(self) -> None:
-        tmp = self.state_path.with_suffix(".tmp")
-        payload = json.dumps(self.state, ensure_ascii=False, indent=2)
-        with tmp.open("w", encoding="utf-8") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
+    def _atomic_replace_bytes(self, destination: Path, payload: bytes) -> None:
+        tmp = destination.parent / f".{destination.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        descriptor = -1
         try:
-            tmp.chmod(0o600)
-        except OSError:
-            pass
-        os.replace(tmp, self.state_path)
-        try:
-            self.state_path.chmod(0o600)
-        except OSError:
-            pass
-        try:
-            directory_fd = os.open(self.state_path.parent, os.O_RDONLY)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(tmp, flags, 0o600)
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                descriptor = -1
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, destination)
+            directory_fd = os.open(destination.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_fd)
             finally:
                 os.close(directory_fd)
-        except OSError:
-            pass
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+
+    def _save_locked(self) -> None:
+        payload = json.dumps(
+            self.state, ensure_ascii=False, indent=2, allow_nan=False
+        ).encode("utf-8")
+        if len(payload) > MAX_STATE_BYTES:
+            raise LiveEngineError("LIVE state exceeds the safe size limit")
+        if self.state_path.exists() and not self.state_path.is_symlink():
+            try:
+                previous = self.state_path.read_bytes()
+                if len(previous) <= MAX_STATE_BYTES:
+                    self._atomic_replace_bytes(self.state_backup_path, previous)
+            except OSError:
+                # The primary atomic write remains authoritative. Failure to
+                # refresh a convenience backup must not create an inconsistent
+                # half-write.
+                pass
+        self._atomic_replace_bytes(self.state_path, payload)
 
     def _event_locked(self, event_type: str, message: str, **meta: Any) -> None:
         events = self.state.setdefault("events", [])

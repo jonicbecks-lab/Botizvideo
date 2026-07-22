@@ -500,6 +500,42 @@ class LiveEngineTests(unittest.TestCase):
         self.assertTrue(engine.state["system"]["stateCorrupt"])
         self.assertTrue(list(self.config.data_dir.glob("state.broken-*.json")))
 
+    def test_corrupt_primary_recovers_last_valid_state_in_safe_mode(self):
+        with self.engine.lock:
+            self.engine.state["system"]["checkpoint"] = "previous"
+            self.engine._save_locked()
+            self.engine.state["system"]["checkpoint"] = "current"
+            self.engine._save_locked()
+        self.engine.state_path.write_text("{truncated", encoding="utf-8")
+        self.engine.state_path.chmod(0o600)
+
+        recovered = GalkaLiveEngine(self.config, self.gateway)
+        self.assertEqual(recovered.state["system"]["checkpoint"], "previous")
+        self.assertTrue(recovered.state["system"]["safeMode"])
+        self.assertTrue(recovered.state["system"]["stateCorrupt"])
+        self.assertIn("state.prev.json", recovered.state["system"]["safeModeReason"])
+
+    def test_complete_crash_temp_is_recovered_but_never_trusted(self):
+        state = self.engine._empty_state()
+        state["system"]["checkpoint"] = "fsynced-temp"
+        temporary = self.config.data_dir / ".state.json.123.crash.tmp"
+        temporary.write_text(json.dumps(state), encoding="utf-8")
+        temporary.chmod(0o600)
+
+        recovered = GalkaLiveEngine(self.config, self.gateway)
+        self.assertEqual(recovered.state["system"]["checkpoint"], "fsynced-temp")
+        self.assertTrue(recovered.state["system"]["safeMode"])
+        self.assertIn(".state.json.123.crash.tmp", recovered.state["system"]["safeModeReason"])
+
+    def test_state_symlink_is_quarantined_without_touching_target(self):
+        target = self.config.data_dir / "unrelated.json"
+        target.write_text(json.dumps(self.engine._empty_state()), encoding="utf-8")
+        self.engine.state_path.symlink_to(target)
+        recovered = GalkaLiveEngine(self.config, self.gateway)
+        self.assertTrue(recovered.state["system"]["safeMode"])
+        self.assertTrue(target.exists())
+        self.assertEqual(json.loads(target.read_text(encoding="utf-8"))["version"], 3)
+
     def test_startup_orphan_position_sets_safe_mode(self):
         self.gateway.position_sizes["BTC"] = 0.01
         self.engine._initial_reconcile()
@@ -530,6 +566,13 @@ class LiveEngineTests(unittest.TestCase):
         data = json.loads(self.engine.state_path.read_text(encoding="utf-8"))
         self.assertEqual(data["version"], 3)
         self.assertIn("BTC", data["campaigns"])
+        self.assertTrue(self.engine.state_backup_path.exists())
+
+    def test_non_finite_state_cannot_be_persisted(self):
+        with self.engine.lock:
+            self.engine.state["system"]["invalid"] = float("nan")
+            with self.assertRaises(ValueError):
+                self.engine._save_locked()
 
     def test_dead_started_monitor_blocks_new_real_orders(self):
         self.engine.monitor_thread = SimpleNamespace(ident=123, is_alive=lambda: False)

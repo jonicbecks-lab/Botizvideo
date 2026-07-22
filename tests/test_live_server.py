@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import http.client
 import json
+import stat
+import tempfile
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
-from live.server import GalkaRequestHandler
+from live.engine import LiveEngineError
+from live.server import GalkaRequestHandler, LiveProcessLock
 
 
 class DummyEngine:
@@ -88,6 +92,29 @@ class LiveServerSecurityTests(unittest.TestCase):
         status, _, payload = self.request("POST", "/api/live/reconcile", headers=headers, body=body)
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(payload)["data"]["confirmation"], "RECONCILE_LOCAL_STATE")
+
+    def test_process_lock_prevents_two_servers_sharing_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = LiveProcessLock(Path(directory))
+            second = LiveProcessLock(Path(directory))
+            first.acquire()
+            self.addCleanup(first.release)
+            self.assertEqual(stat.S_IMODE(first.path.stat().st_mode), 0o600)
+            with self.assertRaisesRegex(LiveEngineError, "already owns"):
+                second.acquire()
+            first.release()
+            second.acquire()
+            second.release()
+
+    def test_process_lock_rejects_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.write_text("do not overwrite\n", encoding="utf-8")
+            (root / "server.lock").symlink_to(target)
+            with self.assertRaisesRegex(LiveEngineError, "symlink"):
+                LiveProcessLock(root).acquire()
+            self.assertEqual(target.read_text(encoding="utf-8"), "do not overwrite\n")
 
 
 if __name__ == "__main__":
