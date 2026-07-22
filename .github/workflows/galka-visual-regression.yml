@@ -28,10 +28,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-      - name: Install temporary visual test runtime
-        run: npm install --no-save --ignore-scripts playwright@1.52.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked visual test runtime
+        run: npm ci --ignore-scripts
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx --no-install playwright install --with-deps chromium
       - name: Verify background paper recovery in Chromium
         run: node scripts/test-paper-recovery-browser.mjs
       - name: Verify offline legacy viewers in Chromium

@@ -163,8 +163,11 @@ def main() -> int:
         "lightweight-charts@" in visual
         or "test-paper-recovery-browser.mjs" not in visual
         or "test-legacy-viewers-browser.mjs" not in visual
+        or "npm ci --ignore-scripts" not in visual
+        or "npx --no-install playwright" not in visual
+        or "npm install --no-save" in visual
     ):
-        fail("visual workflow must use vendored runtimes and both browser recovery/security gates", failures)
+        fail("visual workflow must use locked runtimes and both browser recovery/security gates", failures)
 
     if (WORKFLOW_DIR / "apply-reclaim-trailing.yml").exists() or (ROOT / "scripts" / "apply_reclaim_trail.py").exists():
         fail("obsolete main-mutating reclaim patch automation still exists", failures)
