@@ -13,28 +13,34 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: visual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   capture:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Install temporary visual test runtime
-        run: npm install --no-save --ignore-scripts playwright@1.52.0 lightweight-charts@5.2.0
+        run: npm install --no-save --ignore-scripts playwright@1.52.0
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Verify background paper recovery in Chromium
         run: node scripts/test-paper-recovery-browser.mjs
       - name: Prepare visual baseline
-        run: git worktree add /tmp/galka-base origin/agent/galka-pro-redesign
+        run: |
+          git fetch origin agent/galka-pro-redesign:refs/remotes/origin/agent/galka-pro-redesign
+          git worktree add --detach /tmp/galka-base origin/agent/galka-pro-redesign
       - name: Capture before and after
         run: node scripts/capture-galka-visuals.mjs --current-root . --baseline-root /tmp/galka-base --output artifacts/galka-visuals
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: galka-visuals
           path: artifacts/galka-visuals/*.png

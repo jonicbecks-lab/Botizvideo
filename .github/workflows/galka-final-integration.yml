@@ -1,6 +1,19 @@
 name: Galka Final Integration
 
 on:
+  push:
+    branches:
+      - main
+      - agent/galka-live-hardening-v3
+    paths:
+      - 'terminal/**'
+      - 'scripts/check-pro-terminal.mjs'
+      - 'scripts/test-final-source-integration.mjs'
+      - 'scripts/test-galka-store.mjs'
+      - 'scripts/test-paper-engine.mjs'
+      - 'scripts/test-paper-recovery.mjs'
+      - 'scripts/test-pro-responsive.mjs'
+      - '.github/workflows/galka-final-integration.yml'
   pull_request:
     paths:
       - 'terminal/**'
@@ -11,13 +24,22 @@ on:
       - 'scripts/test-paper-recovery.mjs'
       - 'scripts/test-pro-responsive.mjs'
       - '.github/workflows/galka-final-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: final-integration-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   terminal-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - run: node scripts/check-pro-terminal.mjs
@@ -28,12 +50,13 @@ jobs:
           node scripts/test-final-source-integration.mjs > source-test.log 2>&1
           echo "$?" > source-test.exit
           exit 0
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: galka-source-integration-test-log
           path: |
             source-test.log
             source-test.exit
+          retention-days: 7
       - name: Enforce first-load source result
         shell: bash
         run: |
@@ -42,9 +65,10 @@ jobs:
 
   store-migration:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Capture store migration test
@@ -54,12 +78,13 @@ jobs:
           node scripts/test-galka-store.mjs > store-test.log 2>&1
           echo "$?" > store-test.exit
           exit 0
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: galka-store-test-log
           path: |
             store-test.log
             store-test.exit
+          retention-days: 7
       - name: Enforce store migration result
         shell: bash
         run: |
@@ -68,27 +93,30 @@ jobs:
 
   paper-engine:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - run: node scripts/test-paper-engine.mjs
 
   paper-recovery:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - run: node scripts/test-paper-recovery.mjs
 
   responsive-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - run: node scripts/test-pro-responsive.mjs
