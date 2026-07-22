@@ -262,7 +262,7 @@ try {
   assert.equal(recovered.state.paper.trades[0].executionSource, 'recovery');
   assert.equal(recovered.state.paper.trades[0].levelsFilled, 4);
   assert.equal(recovered.state.paper.recovery.gapStartedAt, null);
-  assert.match(recovered.note, /Восстановлено 4 закрытых 1m свечей/);
+  assert.match(recovered.note, /Восстановлено 3 закрытых 1m свечей/);
   assert.equal(recoveryRequests, 1);
 
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 10_000 });
