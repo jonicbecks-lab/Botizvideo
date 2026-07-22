@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -536,6 +537,48 @@ class LiveEngineTests(unittest.TestCase):
             self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
         self.assertEqual(self.gateway.orders, {})
         self.assertTrue(self.engine.state["system"]["safeMode"])
+
+    def test_live_off_blocks_cancel_and_emergency_writes(self):
+        read_only = GalkaLiveEngine(replace(self.config, live_enabled=False), self.gateway)
+        self.gateway.position_sizes["BTC"] = 0.001
+        before = (dict(self.gateway.orders), list(self.gateway.cancelled), self.gateway.next_oid)
+
+        with self.assertRaisesRegex(LiveEngineError, "LIVE выключен"):
+            read_only.cancel_waiting_campaign("BTC")
+        with self.assertRaisesRegex(LiveEngineError, "LIVE выключен"):
+            read_only.emergency_close("BTC", "EMERGENCY_CLOSE_REAL_POSITION")
+
+        self.assertEqual(
+            (dict(self.gateway.orders), list(self.gateway.cancelled), self.gateway.next_oid),
+            before,
+        )
+        self.assertEqual(self.gateway.position_sizes["BTC"], 0.001)
+
+    def test_live_off_startup_reconcile_is_strictly_read_only(self):
+        self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
+        before = (dict(self.gateway.orders), list(self.gateway.cancelled), self.gateway.next_oid)
+        read_only = GalkaLiveEngine(replace(self.config, live_enabled=False), self.gateway)
+
+        read_only._initial_reconcile()
+
+        self.assertEqual(
+            (dict(self.gateway.orders), list(self.gateway.cancelled), self.gateway.next_oid),
+            before,
+        )
+        self.assertTrue(read_only.state["system"]["safeMode"])
+        self.assertIn("LIVE is disabled", read_only.state["system"]["safeModeReason"])
+
+    def test_reconcile_failure_cannot_clear_safe_mode(self):
+        self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
+        with self.engine.lock:
+            self.engine._set_safe_mode_locked("test")
+            self.engine._save_locked()
+
+        with patch.object(self.engine, "_sync_campaign", side_effect=GatewayError("offline")):
+            result = self.engine.reconcile_system("RECONCILE_LOCAL_STATE")
+
+        self.assertTrue(result["safeMode"])
+        self.assertTrue(any("sync failed" in risk for risk in result["risks"]))
 
 
 if __name__ == "__main__":

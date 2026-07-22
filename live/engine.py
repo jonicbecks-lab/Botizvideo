@@ -210,6 +210,12 @@ class GalkaLiveEngine:
         system["safeMode"] = True
         system["safeModeReason"] = reason
 
+    def _require_live_writes(self) -> None:
+        if not self.config.live_enabled:
+            raise LiveEngineError(
+                "LIVE выключен: любые команды, изменяющие состояние Hyperliquid, заблокированы"
+            )
+
     @staticmethod
     def _coin(value: str) -> str:
         coin = value.upper().replace("USDT", "").replace("USD", "")
@@ -286,10 +292,7 @@ class GalkaLiveEngine:
 
     def create_campaign(self, coin: str, galka_price: float, confirmation: str) -> dict[str, Any]:
         coin = self._coin(coin)
-        if not self.config.live_enabled:
-            raise LiveEngineError(
-                "LIVE выключен в локальном config. Установи HL_LIVE_ENABLED=YES и правильную строку подтверждения."
-            )
+        self._require_live_writes()
         if confirmation != "PLACE_REAL_ORDERS":
             raise LiveEngineError("Не подтверждена отправка реальных ордеров")
 
@@ -478,6 +481,7 @@ class GalkaLiveEngine:
 
     def cancel_waiting_campaign(self, coin: str) -> dict[str, Any]:
         coin = self._coin(coin)
+        self._require_live_writes()
         with self.action_lock:
             with self.lock:
                 campaign = self._active_campaign_locked(coin)
@@ -543,6 +547,7 @@ class GalkaLiveEngine:
 
     def emergency_close(self, coin: str, confirmation: str) -> dict[str, Any]:
         coin = self._coin(coin)
+        self._require_live_writes()
         if confirmation != "EMERGENCY_CLOSE_REAL_POSITION":
             raise LiveEngineError("Не подтверждено аварийное закрытие")
         with self.action_lock:
@@ -641,24 +646,35 @@ class GalkaLiveEngine:
         if confirmation != "RECONCILE_LOCAL_STATE":
             raise LiveEngineError("Не подтверждена ручная сверка")
         with self.action_lock:
+            sync_risks: list[str] = []
             for coin in sorted(SUPPORTED_COINS):
                 with self.lock:
                     campaign = self._active_campaign_locked(coin)
-                if campaign:
+                if campaign and self.config.live_enabled:
                     try:
                         self._sync_campaign(campaign)
                     except Exception as exc:
+                        sync_risks.append(f"{coin}: sync failed ({type(exc).__name__})")
                         with self.lock:
                             campaign["lastError"] = str(exc)
+                            self._set_safe_mode_locked(f"{coin} reconcile failed: {exc}")
+                            self._event_locked(
+                                "error",
+                                f"{coin}: ручная сверка не завершена: {exc}",
+                                campaignId=campaign.get("id"),
+                            )
+                            self._save_locked()
             account = self.gateway.fresh_account_state()
             all_orders = self.gateway.fresh_open_orders()
-            risks: list[str] = []
+            risks: list[str] = list(sync_risks)
             with self.lock:
                 for coin in sorted(SUPPORTED_COINS):
                     campaign = self._active_campaign_locked(coin)
                     actual = self._position_size(account, coin)
                     coin_orders = [row for row in all_orders if row.get("coin") == coin]
-                    if campaign and campaign.get("status") == RECOVERY_STATUS:
+                    if campaign and not self.config.live_enabled:
+                        risks.append(f"{coin}: active campaign while LIVE is disabled")
+                    elif campaign and campaign.get("status") == RECOVERY_STATUS:
                         risks.append(f"{coin}: campaign recovery")
                     elif not campaign:
                         if abs(actual) > self._size_tolerance(coin):
@@ -680,7 +696,11 @@ class GalkaLiveEngine:
                     system["stateCorrupt"] = False
                     self._event_locked("live", "Сверка завершена: локальное состояние и биржа чистые")
                 self._save_locked()
-                return {"safeMode": system["safeMode"], "risks": risks}
+                return {
+                    "safeMode": system["safeMode"],
+                    "risks": risks,
+                    "readOnly": not self.config.live_enabled,
+                }
 
     def status(self) -> dict[str, Any]:
         account = self.gateway.account_state()
@@ -1447,7 +1467,7 @@ class GalkaLiveEngine:
                 for campaign in self.state.get("campaigns", {}).values()
                 if campaign.get("status") in ACTIVE_STATUSES
             ]
-        for campaign in campaigns:
+        for campaign in campaigns if self.config.live_enabled else []:
             try:
                 self._sync_campaign(campaign)
             except Exception as exc:
@@ -1465,7 +1485,9 @@ class GalkaLiveEngine:
                 campaign = self._active_campaign_locked(coin)
                 coin_orders = [row for row in orders if row.get("coin") == coin]
                 actual = self._position_size(account, coin)
-                if not campaign:
+                if campaign and not self.config.live_enabled:
+                    risks.append(f"{coin}: active campaign while LIVE is disabled")
+                elif not campaign:
                     if abs(actual) > self._size_tolerance(coin):
                         risks.append(f"{coin}: orphan position {actual:g}")
                     if coin_orders:

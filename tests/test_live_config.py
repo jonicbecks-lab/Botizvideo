@@ -25,7 +25,8 @@ class LiveConfigTests(unittest.TestCase):
     def write_config(self, extra=""):
         root = tempfile.TemporaryDirectory()
         path = Path(root.name) / "galka-live.env"
-        path.write_text(BASE + extra, encoding="utf-8")
+        data_dir = Path(root.name) / "data"
+        path.write_text(BASE + f"GALKA_DATA_DIR={data_dir}\n" + extra, encoding="utf-8")
         path.chmod(0o600)
         self.addCleanup(root.cleanup)
         return path

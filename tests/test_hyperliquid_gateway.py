@@ -71,6 +71,7 @@ class HyperliquidGatewayTests(unittest.TestCase):
             leverage=10,
             isolated=True,
             account_address="0x" + "11" * 20,
+            live_enabled=True,
         )
         gateway._universe = {"BTC": {"szDecimals": 5, "maxLeverage": 50}}
         gateway._io_lock = threading.RLock()
@@ -184,6 +185,22 @@ class HyperliquidGatewayTests(unittest.TestCase):
         self.assertEqual(gateway.info.open_orders_calls, 2)
         self.assertEqual(first[0]["oid"], second[0]["oid"])
         self.assertNotEqual(first[0]["oid"], fresh[0]["oid"])
+
+    def test_read_only_config_blocks_every_exchange_write(self):
+        gateway = self.make_gateway()
+        gateway.config.live_enabled = False
+        level = SimpleNamespace(index=1, price=60_000.0, size=0.001)
+
+        actions = [
+            lambda: gateway.set_leverage("BTC"),
+            lambda: gateway.place_entry_with_target("BTC", level, 61_000.0),
+            lambda: gateway.place_or_replace_target("BTC", 0.001, 61_000.0),
+            lambda: gateway.cancel_oids("BTC", [123]),
+            lambda: gateway.emergency_market_close("BTC"),
+        ]
+        for action in actions:
+            with self.subTest(action=action), self.assertRaisesRegex(GatewayError, "write blocked"):
+                action()
 
 
 if __name__ == "__main__":

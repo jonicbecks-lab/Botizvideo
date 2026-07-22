@@ -315,7 +315,9 @@ function renderLines(campaign, position) {
 }
 
 function renderCampaignDetails(campaign, position) {
+  const writesEnabled = !!runtime.status?.liveEnabled;
   const signature = JSON.stringify({
+    writesEnabled,
     campaign: campaign ? {
       id: campaign.id,
       status: campaign.status,
@@ -341,7 +343,7 @@ function renderCampaignDetails(campaign, position) {
       (safeReason ? `SAFE MODE: ${esc(safeReason)}` : 'Нет активной GALKA для выбранной монеты.') +
       '</small></div>';
     els.cancel.disabled = true;
-    els.emergency.disabled = !(position && Math.abs(position.size) > 0);
+    els.emergency.disabled = !writesEnabled || !(position && Math.abs(position.size) > 0);
     return;
   }
 
@@ -362,8 +364,8 @@ function renderCampaignDetails(campaign, position) {
       `<span><small>Средняя</small><b>${price(position.entryPrice)}</b></span></div>` : '') +
     `</div>${levels}`;
 
-  els.cancel.disabled = campaign.status !== 'waiting' || !!(position && Math.abs(position.size) > 0);
-  els.emergency.disabled = !(position && Math.abs(position.size) > 0);
+  els.cancel.disabled = !writesEnabled || campaign.status !== 'waiting' || !!(position && Math.abs(position.size) > 0);
+  els.emergency.disabled = !writesEnabled || !(position && Math.abs(position.size) > 0);
 }
 
 function renderEvents() {

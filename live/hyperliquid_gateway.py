@@ -158,6 +158,13 @@ class HyperliquidGateway:
     def agent_address(self) -> str:
         return self.signer.address.lower()
 
+    def _require_live_write(self, action: str) -> None:
+        """Block every exchange mutation unless the two-factor LIVE gate is enabled."""
+        if not self.config.live_enabled:
+            raise GatewayError(
+                f"Hyperliquid write blocked ({action}): HL_LIVE_ENABLED is not enabled"
+            )
+
     def _read(self, label: str, action: Callable[[], T], attempts: int = 2) -> T:
         last: Exception | None = None
         for index in range(attempts):
@@ -413,6 +420,7 @@ class HyperliquidGateway:
         return payload
 
     def set_leverage(self, coin: str) -> dict[str, Any]:
+        self._require_live_write("set leverage")
         coin = self._coin(coin)
         leverage = min(self.config.leverage, self.max_leverage(coin))
         with self._io_lock:
@@ -430,6 +438,7 @@ class HyperliquidGateway:
         entry_cloid: str | None = None,
         target_cloid: str | None = None,
     ) -> EntryWithTarget:
+        self._require_live_write("place entry and target")
         coin = self._coin(coin)
         target = round_perp_price(galka_price, self.sz_decimals(coin))
         requests = [
@@ -492,6 +501,7 @@ class HyperliquidGateway:
         existing_oid: int | None = None,
         cloid: str | None = None,
     ) -> PlacedOrder:
+        self._require_live_write("place or replace target")
         coin = self._coin(coin)
         quantity = round_size_down(abs(quantity), self.sz_decimals(coin))
         if quantity <= 0:
@@ -533,6 +543,7 @@ class HyperliquidGateway:
         return order
 
     def cancel_oids(self, coin: str, oids: list[int]) -> dict[str, Any]:
+        self._require_live_write("cancel orders")
         coin = self._coin(coin)
         unique = sorted({int(oid) for oid in oids if int(oid) > 0})
         if not unique:
@@ -558,6 +569,7 @@ class HyperliquidGateway:
         return response
 
     def emergency_market_close(self, coin: str, cloid: str | None = None) -> PlacedOrder:
+        self._require_live_write("emergency market close")
         coin = self._coin(coin)
         with self._io_lock:
             response = self.exchange.market_close(
