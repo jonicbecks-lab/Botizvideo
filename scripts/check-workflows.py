@@ -117,9 +117,25 @@ def main() -> int:
             fail(f"LIVE workflow missing contract: {contract}", failures)
 
     ci = (WORKFLOW_DIR / "ci.yml").read_text(encoding="utf-8")
-    for contract in ("npm run check", "npm run research:test", "scripts/check-workflows.py", "shellcheck -x"):
+    for contract in (
+        "npm run check",
+        "npm run research:test",
+        "scripts/check-research-lock.py",
+        "scripts/check-workflows.py",
+        "shellcheck -x",
+    ):
         if contract not in ci:
             fail(f"CI workflow missing contract: {contract}", failures)
+
+    for workflow in (
+        "ci.yml",
+        "galka-lab-full.yml",
+        "rebuild-btc-history.yml",
+        "reclaim-backtest.yml",
+        "research.yml",
+    ):
+        if "scripts/check-research-lock.py" not in (WORKFLOW_DIR / workflow).read_text(encoding="utf-8"):
+            fail(f"{workflow}: research environment is not checked against the full lock", failures)
 
     lab = (WORKFLOW_DIR / "galka-lab-full.yml").read_text(encoding="utf-8")
     if "pull_request:" in top_level_block(lab, "on"):

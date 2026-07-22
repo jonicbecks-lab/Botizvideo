@@ -27,6 +27,8 @@ jobs:
           cache-dependency-path: research/requirements.txt
       - name: Install dependencies
         run: python -m pip install -r research/requirements.txt
+      - name: Verify dependency lock
+        run: python scripts/check-research-lock.py
       - name: Synthetic no-network smoke test
         run: python research/run_candidate.py --synthetic --output research/output/smoke.galka.zip
       - name: Galka Lab unit tests

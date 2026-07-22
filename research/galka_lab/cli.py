@@ -32,6 +32,11 @@ from .utils import canonical_json, frame_hash, sha256_bytes, sha256_file, write_
 from .validation import walk_forward_validate
 
 
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
+MAX_CACHED_DATASET_BYTES = 8 * 1024 * 1024 * 1024
+MAX_CACHED_DATASET_ROWS = 5_000_000
+
+
 def _rule(interval: str) -> str:
     return {"1m": "1min", "5m": "5min", "15m": "15min", "30m": "30min", "1h": "1h"}[interval]
 
@@ -117,6 +122,62 @@ def canonical_manifest_datasets(
             str(item.get("hash", "")),
         ),
     )
+
+
+def finalize_manifest(manifest: dict, dataset_path: Path, row_count: int) -> dict:
+    """Bind the reusable analysis dataset to a self-verifying source manifest."""
+    if dataset_path.is_symlink() or not dataset_path.is_file():
+        raise ValueError("analysis dataset must be a regular file")
+    payload = {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    payload["analysis_dataset"] = {
+        "bytes": dataset_path.stat().st_size,
+        "rows": int(row_count),
+        "sha256": sha256_file(dataset_path),
+    }
+    payload["manifest_hash"] = sha256_bytes(canonical_json(payload).encode("utf-8"))
+    return payload
+
+
+def load_cached_dataset(dataset_path: Path, manifest_path: Path) -> tuple[pd.DataFrame, dict]:
+    """Fail closed if a cached dataset or its provenance manifest was changed or truncated."""
+    for path, limit, label in (
+        (dataset_path, MAX_CACHED_DATASET_BYTES, "analysis dataset"),
+        (manifest_path, MAX_MANIFEST_BYTES, "data manifest"),
+    ):
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"{label} must be a regular file")
+        if path.stat().st_size > limit:
+            raise ValueError(f"{label} exceeds its size limit")
+    try:
+        manifest = json.loads(manifest_path.read_bytes())
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("invalid data manifest JSON") from error
+    if not isinstance(manifest, dict):
+        raise ValueError("data manifest must be an object")
+    recorded_hash = manifest.get("manifest_hash")
+    unsigned = {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    expected_hash = sha256_bytes(canonical_json(unsigned).encode("utf-8"))
+    if not isinstance(recorded_hash, str) or recorded_hash != expected_hash:
+        raise ValueError("data manifest hash mismatch; rebuild with --build-dataset")
+    dataset = manifest.get("analysis_dataset")
+    if not isinstance(dataset, dict):
+        raise ValueError("manifest has no bound analysis dataset; rebuild with --build-dataset")
+    expected_keys = {"bytes", "rows", "sha256"}
+    if set(dataset) != expected_keys:
+        raise ValueError("invalid analysis dataset manifest")
+    if not isinstance(dataset["bytes"], int) or dataset["bytes"] != dataset_path.stat().st_size:
+        raise ValueError("analysis dataset size mismatch; rebuild with --build-dataset")
+    if not isinstance(dataset["rows"], int) or not 1 <= dataset["rows"] <= MAX_CACHED_DATASET_ROWS:
+        raise ValueError("invalid analysis dataset row count")
+    if not isinstance(dataset["sha256"], str) or dataset["sha256"] != sha256_file(dataset_path):
+        raise ValueError("analysis dataset checksum mismatch; rebuild with --build-dataset")
+    events = pd.read_csv(
+        dataset_path,
+        parse_dates=["pivot_time", "confirmation_time", "feature_cutoff_time", "activation_time", "return_time", "reclaim_time", "outcome_end_time"],
+    )
+    if len(events) != dataset["rows"]:
+        raise ValueError("analysis dataset row count mismatch; rebuild with --build-dataset")
+    return events, manifest
 
 
 def build_dataset(args) -> tuple[pd.DataFrame, dict]:
@@ -222,7 +283,6 @@ def build_dataset(args) -> tuple[pd.DataFrame, dict]:
             (events["analysis_eligible"] & ~events["purged_for_split"]).sum()
         ),
     }
-    manifest_payload["manifest_hash"] = sha256_bytes(canonical_json(manifest_payload).encode("utf-8"))
     return events, manifest_payload
 
 
@@ -235,13 +295,10 @@ def run(args) -> dict:
     if args.build_dataset or not dataset_path.exists():
         events, manifest = build_dataset(args)
         write_gzip_csv(dataset_path, events)
+        manifest = finalize_manifest(manifest, dataset_path, len(events))
         write_json(manifest_path, manifest)
     else:
-        events = pd.read_csv(
-            dataset_path,
-            parse_dates=["pivot_time", "confirmation_time", "feature_cutoff_time", "activation_time", "return_time", "reclaim_time", "outcome_end_time"],
-        )
-        manifest = json.loads(manifest_path.read_text())
+        events, manifest = load_cached_dataset(dataset_path, manifest_path)
 
     classification = events[events["analysis_eligible"] == True].copy()  # noqa: E712
     clustered = fit_types(classification)

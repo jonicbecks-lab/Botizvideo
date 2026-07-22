@@ -63,4 +63,5 @@ jobs:
           cache: pip
           cache-dependency-path: research/requirements.txt
       - run: python -m pip install -r research/requirements.txt
+      - run: python scripts/check-research-lock.py
       - run: npm run research:test

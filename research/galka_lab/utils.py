@@ -4,8 +4,11 @@ import gzip
 import hashlib
 import io
 import json
+import os
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, Iterator
 
 import numpy as np
 import pandas as pd
@@ -38,10 +41,47 @@ def frame_hash(frame: pd.DataFrame) -> str:
     return digest.hexdigest()
 
 
+def _sync_directory(path: Path) -> None:
+    """Durably persist a rename on filesystems that support directory fsync."""
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    descriptor = os.open(path, flags)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+@contextmanager
+def atomic_binary_writer(path: Path) -> Iterator[BinaryIO]:
+    """Write a file beside its destination and atomically replace it after fsync."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            yield stream
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        _sync_directory(path.parent)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def write_bytes_atomic(path: Path, value: bytes) -> None:
+    with atomic_binary_writer(path) as stream:
+        stream.write(value)
+
+
 def write_gzip_csv(path: Path, frame: pd.DataFrame) -> None:
     """Write a reproducible gzip CSV without filename or wall-clock headers."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("wb") as raw:
+    with atomic_binary_writer(path) as raw:
         with gzip.GzipFile(
             filename="",
             fileobj=raw,
@@ -66,5 +106,5 @@ def safe_float(value: Any, fallback: float = 0.0) -> float:
 
 
 def write_json(path: Path, value: Any, *, indent: int = 2) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=indent, sort_keys=True) + "\n")
+    payload = (json.dumps(value, ensure_ascii=False, indent=indent, sort_keys=True) + "\n").encode("utf-8")
+    write_bytes_atomic(path, payload)
