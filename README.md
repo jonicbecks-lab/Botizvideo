@@ -110,3 +110,5 @@ contracts for 360×800, 390×844, 844×390, and 1440×900.
 ## Hyperliquid LIVE hardened build
 
 Operational instructions and safety limitations: `HARDENED_LIVE_README_RU.md`.
+
+Audited release status and the remaining rollout gates: `PRODUCTION_READINESS_REPORT.md`.
