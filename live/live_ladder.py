@@ -138,11 +138,20 @@ def weighted_average(levels: Iterable[LadderLevel]) -> float:
     return sum(level.price * level.size for level in rows) / total_size
 
 
-def estimated_target_pnl(levels: Iterable[LadderLevel], galka_price: float, maker_fee: float) -> float:
+def estimated_target_pnl_mixed(
+    levels: Iterable[LadderLevel],
+    galka_price: float,
+    entry_fee_rate: float,
+    exit_fee_rate: float,
+) -> float:
     rows = list(levels)
     qty = sum(level.size for level in rows)
     entry_notional = sum(level.price * level.size for level in rows)
     exit_notional = galka_price * qty
     gross = exit_notional - entry_notional
-    fees = entry_notional * maker_fee + exit_notional * maker_fee
+    fees = entry_notional * entry_fee_rate + exit_notional * exit_fee_rate
     return gross - fees
+
+
+def estimated_target_pnl(levels: Iterable[LadderLevel], galka_price: float, maker_fee: float) -> float:
+    return estimated_target_pnl_mixed(levels, galka_price, maker_fee, maker_fee)

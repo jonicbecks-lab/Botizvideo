@@ -22,13 +22,17 @@ chmod 600 "$CONFIG_FILE"
 PORT="$(awk -F= '/^GALKA_PORT=/{gsub(/[[:space:]]/,"",$2);print $2;exit}' "$CONFIG_FILE")"
 PORT="${PORT:-8098}"
 LOG_FILE="${TMPDIR:-/tmp}/galka-live-${PORT}.log"
-URL="http://127.0.0.1:${PORT}/terminal/live.html?v=$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
+umask 077
+rm -f "$LOG_FILE"
+: > "$LOG_FILE"
+chmod 600 "$LOG_FILE"
 
 cleanup(){
   if [[ -n "${SERVER_PID:-}" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
   fi
+  rm -f "$LOG_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -43,26 +47,34 @@ for _ in 1 2 3 4 5 6 7 8; do
     cat "$LOG_FILE"
     exit 1
   fi
-  if grep -q "Galka LIVE:" "$LOG_FILE" 2>/dev/null; then
+  if grep -q "Galka LIVE URL:" "$LOG_FILE" 2>/dev/null; then
     break
   fi
   sleep 1
 done
 
-if ! grep -q "Galka LIVE:" "$LOG_FILE" 2>/dev/null; then
+if ! grep -q "Galka LIVE URL:" "$LOG_FILE" 2>/dev/null; then
   echo "Сервер не подтвердил запуск. Лог:"
   cat "$LOG_FILE"
   exit 1
 fi
 
-cat "$LOG_FILE"
+# Do not echo the session token into the terminal history. The browser receives
+# it through the URL fragment, which is then removed by terminal/live.js.
+sed '/^Galka LIVE URL: /d' "$LOG_FILE"
+URL="$(sed -n 's/^Galka LIVE URL: //p' "$LOG_FILE" | tail -n 1)"
+if [[ -z "$URL" ]]; then
+  echo "Не удалось получить защищённый URL сессии."
+  exit 1
+fi
 echo
-echo "Открываю: $URL"
+echo "Открываю защищённую локальную сессию."
 echo "Чтобы остановить LIVE-сервер, вернись в Termux и нажми Ctrl+C."
 
-if command -v termux-open-url >/dev/null 2>&1; then
-  termux-open-url "$URL" || true
+if command -v termux-open-url >/dev/null 2>&1 && termux-open-url "$URL"; then
+  :
 else
+  echo "Автоматически открыть браузер не удалось."
   echo "Открой адрес вручную: $URL"
 fi
 

@@ -106,3 +106,7 @@ of active campaigns, three simultaneous instruments, live and reconnect fill ide
 deterministic 1m recovery, boundary-candle safety, reclaim/trailing invariants,
 Radar visual-only behavior, positive/negative labels, PWA files, accessibility, and responsive
 contracts for 360×800, 390×844, 844×390, and 1440×900.
+
+## Hyperliquid LIVE hardened build
+
+Operational instructions and safety limitations: `HARDENED_LIVE_README_RU.md`.

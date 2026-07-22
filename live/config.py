@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import re
 import stat
@@ -27,6 +28,12 @@ class LiveConfig:
     port: int
     config_path: Path
     data_dir: Path
+    request_timeout: float = 8.0
+    max_margin_fraction: float = 0.60
+    maker_fee_rate: float = 0.00015
+    taker_fee_rate: float = 0.00045
+    monitor_interval: float = 6.0
+    global_check_interval: float = 30.0
 
     @property
     def network_name(self) -> str:
@@ -56,6 +63,16 @@ def _bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _finite_float(values: dict[str, str], key: str, default: str) -> float:
+    try:
+        value = float(values.get(key, default))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{key} must be a number") from exc
+    if not math.isfinite(value):
+        raise ConfigError(f"{key} must be finite")
+    return value
+
+
 def _check_permissions(path: Path) -> None:
     if not path.exists():
         raise ConfigError(f"Config file not found: {path}. Run bash scripts/setup-galka-live.sh")
@@ -82,13 +99,42 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     if not SECRET_RE.fullmatch(api_secret_key):
         raise ConfigError("HL_API_SECRET_KEY must be the 0x private key of the approved API wallet")
 
-    leverage = int(values.get("HL_LEVERAGE", "10"))
+    try:
+        leverage = int(values.get("HL_LEVERAGE", "10"))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("HL_LEVERAGE must be an integer") from exc
     if leverage < 1 or leverage > 10:
-        raise ConfigError("HL_LEVERAGE must be between 1 and 10 for this first live version")
+        raise ConfigError("HL_LEVERAGE must be between 1 and 10")
 
-    total_notional = float(values.get("HL_TOTAL_NOTIONAL", "150"))
-    if total_notional < 80 or total_notional > 200:
-        raise ConfigError("HL_TOTAL_NOTIONAL must be between $80 and $200 for the guarded first version")
+    total_notional = _finite_float(values, "HL_TOTAL_NOTIONAL", "150")
+    if total_notional < 80 or total_notional > 1000:
+        raise ConfigError("HL_TOTAL_NOTIONAL must be between $80 and $1000")
+
+    request_timeout = _finite_float(values, "HL_REQUEST_TIMEOUT", "8")
+    if request_timeout < 2 or request_timeout > 30:
+        raise ConfigError("HL_REQUEST_TIMEOUT must be between 2 and 30 seconds")
+
+    max_margin_fraction = _finite_float(values, "HL_MAX_MARGIN_FRACTION", "0.60")
+    if max_margin_fraction < 0.10 or max_margin_fraction > 0.90:
+        raise ConfigError("HL_MAX_MARGIN_FRACTION must be between 0.10 and 0.90")
+
+    maker_fee_rate = _finite_float(values, "HL_MAKER_FEE_RATE", "0.00015")
+    taker_fee_rate = _finite_float(values, "HL_TAKER_FEE_RATE", "0.00045")
+    if maker_fee_rate < 0 or maker_fee_rate > 0.01:
+        raise ConfigError("HL_MAKER_FEE_RATE must be between 0 and 0.01")
+    if taker_fee_rate < 0 or taker_fee_rate > 0.01:
+        raise ConfigError("HL_TAKER_FEE_RATE must be between 0 and 0.01")
+
+    monitor_interval = _finite_float(values, "HL_MONITOR_INTERVAL", "6")
+    global_check_interval = _finite_float(values, "HL_GLOBAL_CHECK_INTERVAL", "30")
+    if monitor_interval < 3 or monitor_interval > 30:
+        raise ConfigError("HL_MONITOR_INTERVAL must be between 3 and 30 seconds")
+    if global_check_interval < 10 or global_check_interval > 300:
+        raise ConfigError("HL_GLOBAL_CHECK_INTERVAL must be between 10 and 300 seconds")
+
+    isolated = _bool(values.get("HL_ISOLATED"), True)
+    if not isolated:
+        raise ConfigError("HL_ISOLATED must remain true for the hardened LIVE engine")
 
     live_enabled = (
         values.get("HL_LIVE_ENABLED", "NO").strip().upper() == "YES"
@@ -97,11 +143,16 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     host = values.get("GALKA_HOST", "127.0.0.1").strip()
     if host not in {"127.0.0.1", "localhost"}:
         raise ConfigError("GALKA_HOST must remain 127.0.0.1 or localhost")
-    port = int(values.get("GALKA_PORT", "8098"))
+    try:
+        port = int(values.get("GALKA_PORT", "8098"))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError("GALKA_PORT must be an integer") from exc
     if not 1024 <= port <= 65535:
         raise ConfigError("GALKA_PORT is invalid")
 
-    data_dir = Path(values.get("GALKA_DATA_DIR", str(Path.home() / ".local" / "share" / "galka-live"))).expanduser()
+    data_dir = Path(
+        values.get("GALKA_DATA_DIR", str(Path.home() / ".local" / "share" / "galka-live"))
+    ).expanduser()
     data_dir.mkdir(parents=True, exist_ok=True)
     try:
         data_dir.chmod(0o700)
@@ -114,10 +165,16 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
         mainnet=_bool(values.get("HL_MAINNET"), True),
         live_enabled=live_enabled,
         leverage=leverage,
-        isolated=_bool(values.get("HL_ISOLATED"), True),
+        isolated=isolated,
         total_notional=total_notional,
         host="127.0.0.1",
         port=port,
         config_path=config_path,
         data_dir=data_dir,
+        request_timeout=request_timeout,
+        max_margin_fraction=max_margin_fraction,
+        maker_fee_rate=maker_fee_rate,
+        taker_fee_rate=taker_fee_rate,
+        monitor_interval=monitor_interval,
+        global_check_interval=global_check_interval,
     )

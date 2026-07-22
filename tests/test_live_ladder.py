@@ -1,6 +1,12 @@
 import unittest
 
-from live.live_ladder import MANUAL_DEPTHS, MIN_ORDER_NOTIONAL, build_ladder, weighted_average
+from live.live_ladder import (
+    MANUAL_DEPTHS,
+    MIN_ORDER_NOTIONAL,
+    build_ladder,
+    estimated_target_pnl_mixed,
+    weighted_average,
+)
 
 
 class LiveLadderTests(unittest.TestCase):
@@ -21,6 +27,14 @@ class LiveLadderTests(unittest.TestCase):
         levels = build_ladder(150, 150, 2)
         self.assertAlmostEqual(levels[-1].price, 147.0, places=4)
         self.assertTrue(all(level.notional >= 10 for level in levels))
+
+    def test_mixed_fee_preview_uses_separate_entry_and_exit_rates(self):
+        levels = build_ladder(60_000, 200, 5)
+        maker_maker = estimated_target_pnl_mixed(levels, 60_000, 0.00015, 0.00015)
+        maker_taker = estimated_target_pnl_mixed(levels, 60_000, 0.00015, 0.00045)
+        self.assertLess(maker_taker, maker_maker)
+        expected_difference = 60_000 * sum(level.size for level in levels) * 0.00030
+        self.assertAlmostEqual(maker_maker - maker_taker, expected_difference, places=8)
 
 
 if __name__ == "__main__":

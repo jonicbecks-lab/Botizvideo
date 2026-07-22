@@ -25,6 +25,7 @@ const els = {
   cancel: $('cancelCampaign'),
   emergency: $('emergencyClose'),
   notifications: $('enableNotifications'),
+  reconcile: $('reconcileState'),
   events: $('events'),
   modal: $('previewModal'),
   closePreview: $('closePreview'),
@@ -37,7 +38,7 @@ const els = {
   previewLevels: $('previewLevels'),
 };
 
-const ACTIVE = new Set(['placing', 'waiting', 'open', 'closing']);
+const ACTIVE = new Set(['placing', 'waiting', 'open', 'closing', 'canceling', 'emergency', 'recovery']);
 const COLORS = {
   green: '#16c784',
   red: '#ef5350',
@@ -45,6 +46,15 @@ const COLORS = {
   gray: '#7c8797',
   cyan: '#26c6da',
 };
+
+
+const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+const hashToken = hashParams.get('token');
+if (hashToken) {
+  sessionStorage.setItem('galkaLiveSession', hashToken);
+  history.replaceState(null, '', location.pathname + location.search);
+}
+const sessionToken = sessionStorage.getItem('galkaLiveSession') || '';
 
 const runtime = {
   coin: 'BTC',
@@ -100,11 +110,15 @@ function toast(message, type = '') {
 }
 
 async function api(path, { method = 'GET', body } = {}) {
+  if (!sessionToken) throw new Error('Открой терминал через защищённую ссылку из Termux');
+  const headers = { 'X-Galka-Session': sessionToken };
+  if (body) headers['Content-Type'] = 'application/json';
   const response = await fetch(path, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
+    credentials: 'same-origin',
   });
   let payload;
   try {
@@ -321,10 +335,13 @@ function renderCampaignDetails(campaign, position) {
   runtime.detailsSignature = signature;
 
   if (!campaign) {
+    const safeReason = runtime.status?.system?.safeModeReason;
     els.campaignDetails.innerHTML =
-      '<div class="campaign-card"><small>Нет активной GALKA для выбранной монеты.</small></div>';
+      '<div class="campaign-card"><small>' +
+      (safeReason ? `SAFE MODE: ${esc(safeReason)}` : 'Нет активной GALKA для выбранной монеты.') +
+      '</small></div>';
     els.cancel.disabled = true;
-    els.emergency.disabled = true;
+    els.emergency.disabled = !(position && Math.abs(position.size) > 0);
     return;
   }
 
@@ -345,7 +362,7 @@ function renderCampaignDetails(campaign, position) {
       `<span><small>Средняя</small><b>${price(position.entryPrice)}</b></span></div>` : '') +
     `</div>${levels}`;
 
-  els.cancel.disabled = !!(position && Math.abs(position.size) > 0);
+  els.cancel.disabled = campaign.status !== 'waiting' || !!(position && Math.abs(position.size) > 0);
   els.emergency.disabled = !(position && Math.abs(position.size) > 0);
 }
 
@@ -381,8 +398,12 @@ function renderStatus() {
   const mid = status.mids?.[runtime.coin];
   els.ticker.textContent = price(mid);
   els.watermark.textContent = `${runtime.coin} · ${runtime.interval} · HYPERLIQUID`;
-  els.liveBadge.textContent = status.liveEnabled ? 'LIVE ON' : 'LIVE OFF';
-  els.liveBadge.className = 'live-badge ' + (status.liveEnabled ? 'on' : 'off');
+  const monitorFailed = status.liveEnabled && status.system?.monitorStarted && !status.system?.monitorAlive;
+  const safeMode = !!status.system?.safeMode || monitorFailed;
+  const safeReason = status.system?.safeModeReason || (monitorFailed ? 'Фоновый LIVE-монитор остановлен' : '');
+  els.liveBadge.textContent = safeMode ? 'SAFE MODE' : (status.liveEnabled ? 'LIVE ON' : 'LIVE OFF');
+  els.liveBadge.className = 'live-badge ' + (!safeMode && status.liveEnabled ? 'on' : 'off');
+  els.liveBadge.title = safeMode ? (safeReason || 'Требуется сверка') : '';
   els.drawerAccount.textContent = `${status.network} · ${status.account}`;
 
   const account = status.accountState || {};
@@ -396,9 +417,9 @@ function renderStatus() {
   if (!campaign) {
     els.status.textContent = `${runtime.coin} · нет GALKA`;
     els.status.className = 'campaign-status idle';
-    els.preview.disabled = false;
-    els.input.disabled = false;
-    els.preview.textContent = 'Проверить';
+    els.preview.disabled = safeMode;
+    els.input.disabled = safeMode;
+    els.preview.textContent = safeMode ? 'SAFE MODE' : 'Проверить';
   } else {
     const filled = (campaign.levels || []).filter((level) =>
       ['filled', 'partial'].includes(level.status)).length;
@@ -443,13 +464,13 @@ async function refreshStatus() {
 
 async function statusLoop() {
   await refreshStatus();
-  const delay = currentCampaign() ? 2000 : 5000;
+  const delay = 5000;
   setTimeout(statusLoop, delay);
 }
 
 async function candleLoop() {
   await loadCandles();
-  setTimeout(candleLoop, 5000);
+  setTimeout(candleLoop, 15000);
 }
 
 function openDrawer() {
@@ -492,13 +513,14 @@ async function previewGalka() {
       `<small>−${Number(level.depth_pct).toFixed(2)}%</small></span>` +
       `<span><b>${price(level.price)}</b> <small>${money(level.notional)}</small></span></div>`
     )).join('');
-    els.confirm.disabled = !data.liveEnabled;
+    els.confirm.disabled = !data.liveEnabled || !!runtime.status?.system?.safeMode;
     openPreview();
   } catch (error) {
     toast(error.message, 'error');
   } finally {
-    els.preview.disabled = !!currentCampaign();
-    els.preview.textContent = currentCampaign() ? 'Активна' : 'Проверить';
+    const safeMode = !!runtime.status?.system?.safeMode;
+    els.preview.disabled = !!currentCampaign() || safeMode;
+    els.preview.textContent = currentCampaign() ? 'Активна' : (safeMode ? 'SAFE MODE' : 'Проверить');
   }
 }
 
@@ -552,10 +574,27 @@ async function emergencyClose() {
         confirmation: 'EMERGENCY_CLOSE_REAL_POSITION',
       },
     });
-    toast('Аварийное закрытие отправлено', 'error');
+    toast('Аварийное закрытие подтверждено биржей', 'error');
     await refreshStatus();
   } catch (error) {
     toast(error.message, 'error');
+  }
+}
+
+async function reconcileState() {
+  if (!confirm('Сверить локальное состояние с позициями и ордерами Hyperliquid?')) return;
+  els.reconcile.disabled = true;
+  try {
+    const result = await api('/api/live/reconcile', {
+      method: 'POST',
+      body: { confirmation: 'RECONCILE_LOCAL_STATE' },
+    });
+    toast(result.safeMode ? `SAFE MODE остаётся: ${result.risks.join('; ')}` : 'Сверка завершена, SAFE MODE снят', result.safeMode ? 'error' : 'ok');
+    await refreshStatus();
+  } catch (error) {
+    toast(error.message, 'error');
+  } finally {
+    els.reconcile.disabled = false;
   }
 }
 
@@ -595,6 +634,7 @@ els.closeDrawer.onclick = closeDrawer;
 els.backdrop.onclick = closeDrawer;
 els.cancel.onclick = cancelCampaign;
 els.emergency.onclick = emergencyClose;
+els.reconcile.onclick = reconcileState;
 els.notifications.onclick = async () => {
   if (!('Notification' in window)) {
     return toast('Браузер не поддерживает оповещения', 'error');

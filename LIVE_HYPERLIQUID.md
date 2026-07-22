@@ -1,108 +1,82 @@
-# Galka Hyperliquid LIVE
-
-## Status
-
-This branch contains a guarded first live implementation for manual GALKA trading on Hyperliquid. It is separate from the paper terminal and must remain a draft until Android/Termux verification and a deliberately tiny real-order smoke test are complete.
+# Galka Hyperliquid LIVE — Hardened v3
 
 ## Trading contract
 
-- Mainnet Hyperliquid perpetuals.
-- BTC, ETH, SOL only.
-- Long only.
-- Manual GALKA price only.
-- Eight entry levels below GALKA: 0.15%, 0.30%, 0.45%, 0.60%, 0.90%, 1.20%, 1.50%, 2.00%.
-- Total requested notional defaults to $150 at 10x isolated, intended for an approximately $19 account while leaving a margin buffer.
-- Every entry is ALO/post-only.
-- Every entry is submitted together with an exchange-native, reduce-only, non-market TP at GALKA using `normalTpsl` grouping.
-- If only L1 participates and closes at GALKA, L1 is rearmed and the campaign stays active.
-- If L2 or deeper participates and the managed position closes at GALKA, all remaining campaign orders are canceled and the campaign is complete.
-- No automatic expiration or timeout.
-- Normal exits are limit exits. The market-close method is exposed only through a double-confirmed emergency action.
+- Hyperliquid perpetuals: BTC, ETH, SOL.
+- Long only, manual GALKA price.
+- One active LIVE campaign across all supported coins.
+- 1–10x isolated margin only.
+- Eight ALO/post-only entries below GALKA: 0.15%, 0.30%, 0.45%, 0.60%, 0.90%, 1.20%, 1.50%, 2.00%.
+- Every entry is submitted with an exchange-native reduce-only trigger-limit TP at GALKA.
+- If only L1 participates and closes by an owned TP, L1 may be rearmed.
+- If L2 or deeper participates and the owned position closes, remaining owned orders are canceled and the campaign completes.
+- Unknown/manual fills, state mismatch or exchange ambiguity disable automatic rearm and enter recovery/SAFE MODE.
+- No strategy stop-loss and no automatic campaign expiry.
 
-## Small-account allocation
+## Allocation and margin
 
-Hyperliquid requires a minimum order value. With eight orders and a $150 campaign, the fixed paper percentages cannot be copied literally because the last levels would be below the minimum. The live ladder therefore:
+The live ladder enforces the exchange minimum order notional after lot-size rounding. It starts from the configured weights, raises small levels to the minimum, and reduces larger levels so the total does not exceed the requested notional. A campaign is rejected when eight valid orders do not fit.
 
-1. starts with the paper weights;
-2. raises every level to the exchange minimum after lot-size rounding;
-3. reduces excess allocation from larger levels;
-4. refuses the campaign if all eight valid orders cannot fit inside the requested notional.
-
-The preview displays the actual rounded values before any order is sent.
+The engine also rejects a campaign when its estimated initial margin exceeds `HL_MAX_MARGIN_FRACTION` of current withdrawable funds. This is a placement guard, not a guarantee against liquidation or later margin changes.
 
 ## Secret handling
 
-The browser never receives the API Wallet private key.
-
-Local file:
+The browser never receives the API Wallet private key. It is read only by the Termux Python process from:
 
 ```text
 ~/.config/galka-live.env
 ```
 
-Required permissions:
+Required mode:
 
 ```bash
 chmod 600 ~/.config/galka-live.env
 ```
 
-Required values:
+Use the private key of an approved API Wallet / Agent Wallet, not the main-wallet seed phrase or private key.
 
-```text
-HL_ACCOUNT_ADDRESS=<public main account address>
-HL_API_SECRET_KEY=<private key of approved API Wallet / Agent Wallet>
-```
-
-Do not use a seed phrase. Do not commit the file. Do not paste the secret into chat, GitHub, browser storage, screenshots, or logs.
-
-The SDK signs locally in Termux. Account queries use the main account address; the API Wallet key is used only to sign authorized exchange actions.
-
-## Setup
+## Setup and verification
 
 ```bash
+cd ~/GalkaLive
 bash scripts/setup-galka-live.sh
+bash scripts/verify-galka-live.sh
 ```
 
-The script creates a private virtual environment, installs the pinned official SDK, creates the local configuration file, sets mode 600, and opens it in nano.
-
-LIVE remains disabled until both settings are present:
+Keep LIVE disabled for the online read-only check:
 
 ```text
-HL_LIVE_ENABLED=YES
-HL_LIVE_CONFIRM=I_UNDERSTAND_REAL_MONEY
+HL_LIVE_ENABLED=NO
+HL_LIVE_CONFIRM=NOT_CONFIRMED
 ```
 
-Start:
-
 ```bash
+bash scripts/check-galka-live-account.sh
 bash scripts/start-galka-live.sh
 ```
 
-The server binds only to `127.0.0.1` and opens:
+The local server binds only to `127.0.0.1`. Each launch creates a random browser session token. The static server exposes only the terminal assets, not Python source, state or configuration files.
 
-```text
-http://127.0.0.1:8098/terminal/live.html
-```
+## Runtime safety behavior
 
-## Safety behavior
-
-- Refuses a new campaign when the selected coin already has a real position or any open order.
-- Checks free margin before placement.
-- Persists each entry/TP pair immediately after placement.
-- On partial creation failure, cancels all newly created coin orders. If a position appeared during the failure, it places a fallback reduce-only limit at GALKA and stops after that position closes.
-- Tracks only order IDs created by the campaign.
-- Uses exchange-native child TP orders so an already-filled entry retains its GALKA exit even if Android pauses the local process.
-- Reconciles fills and open orders after reconnect.
-- Normal cancellation is disabled once the campaign has an open managed position.
-- Emergency close cancels campaign orders and closes the complete coin position by an aggressive reduce-only IOC; it can also close an unrelated manual position on that coin and therefore requires two confirmations.
+- Initial venue reconciliation completes before the browser is served as ready.
+- New campaigns are refused when any BTC/ETH/SOL position/order already exists.
+- Every exchange response is checked at both top-level and per-order status level.
+- Cancellation and emergency close require repeated fresh venue confirmation.
+- Actual exchange position is compared with locally owned fills.
+- Recovery cancels owned entries while keeping/repairing reduce-only target coverage.
+- Corrupt state, foreign orders, unknown position, unexpected short, monitor failure or API ambiguity enable SAFE MODE.
+- SAFE MODE blocks new campaigns until an explicit clean reconcile.
+- Native exchange TP protects accepted entries while Termux is paused, but local rearm/reconciliation requires the process to be running.
 
 ## Promotion checklist
 
-1. CI syntax, unit, allocation, and lifecycle tests pass.
-2. Termux installs the SDK successfully on the user's Python version.
-3. Read-only launch shows the correct main account, balance, mids, and Hyperliquid candles.
-4. Testnet or controlled mainnet preview produces eight valid orders and expected margin.
-5. Minimum-size real smoke test verifies one entry plus native TP.
-6. L1 rearm and L2+ completion are verified with exchange order history.
-7. Notifications and reconnect behavior are verified on the Samsung S24.
-8. Only then consider increasing notional or merging.
+1. `bash scripts/verify-galka-live.sh` passes in Termux.
+2. `bash scripts/check-galka-live-account.sh` identifies the correct account and reports expected clean state.
+3. READ ONLY terminal shows correct network, balance, mids and candles.
+4. A controlled minimal-notional preview produces eight valid orders and acceptable margin.
+5. A real smoke test verifies entry, native TP, fill ownership and cleanup in the official Hyperliquid interface.
+6. L1 rearm, L2+ completion, restart recovery, cancel and emergency-close paths are exercised deliberately.
+7. Only after repeated clean cycles should notional be increased in steps.
+
+See `HARDENED_LIVE_README_RU.md` for the detailed rollout and limitations.

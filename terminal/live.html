@@ -8,7 +8,7 @@
   <title>Galka · Hyperliquid LIVE</title>
   <link rel="icon" href="icons/galka-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="live.css?v=2">
-  <script src="https://unpkg.com/lightweight-charts@5.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="vendor/galka-chart.js?v=1"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -53,7 +53,7 @@
       <button id="cancelCampaign" type="button">Отменить без позиции</button>
       <button id="emergencyClose" class="danger" type="button">Аварийно закрыть</button>
     </div>
-    <div class="section-head"><b>Последние события</b><button id="enableNotifications" type="button">Оповещения</button></div>
+    <div class="section-head"><b>Последние события</b><button id="reconcileState" type="button">Сверить</button><button id="enableNotifications" type="button">Оповещения</button></div>
     <div id="events" class="events"></div>
   </aside>
 

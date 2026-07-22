@@ -8,6 +8,8 @@ const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
+const server = fs.readFileSync('live/server.py', 'utf8');
+const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
 
 const checks = [
   ['Hyperliquid title', html.includes('Hyperliquid LIVE') || html.includes('HYPERLIQUID')],
@@ -23,11 +25,16 @@ const checks = [
   ['non-market TP', gateway.includes('"isMarket": False') && gateway.includes('"tpsl": "tp"')],
   ['reduce-only target', gateway.includes('"reduce_only": True')],
   ['local API', js.includes('/api/live/preview') && js.includes('/api/live/campaign')],
+  ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
+  ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
+  ['local chart dependency', html.includes('vendor/galka-chart.js') && chartShim.includes('LightweightCharts')],
+  ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
   ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
-  ['live launcher', launcher.includes('terminal/live.html') && launcher.includes('127.0.0.1')],
+  ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
+  ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
 ];
 

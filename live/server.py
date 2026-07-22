@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hmac
 import json
+import secrets
 import sys
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -13,13 +15,16 @@ from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquid
 from .hyperliquid_gateway import GatewayError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+TERMINAL_ROOT = REPO_ROOT / "terminal"
 
 
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
     engine: CompatibleGalkaLiveEngine
+    session_token: str
+    server_port: int
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
+        super().__init__(*args, directory=str(TERMINAL_ROOT), **kwargs)
 
     def log_message(self, fmt: str, *args) -> None:
         message = fmt % args
@@ -29,10 +34,17 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         sys.stdout.flush()
 
     def end_headers(self) -> None:
-        if self.path.startswith("/api/"):
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self'; "
+            "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
+            "base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+        )
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def _json(self, status: int, payload: dict | list) -> None:
@@ -43,8 +55,43 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _allowed_origins(self) -> set[str]:
+        return {
+            f"http://127.0.0.1:{self.server_port}",
+            f"http://localhost:{self.server_port}",
+        }
+
+    def _authorized_api_request(self) -> bool:
+        host = (self.headers.get("Host") or "").lower()
+        allowed_hosts = {
+            f"127.0.0.1:{self.server_port}",
+            f"localhost:{self.server_port}",
+        }
+        if host not in allowed_hosts:
+            return False
+        origin = self.headers.get("Origin")
+        if origin and origin not in self._allowed_origins():
+            return False
+        fetch_site = (self.headers.get("Sec-Fetch-Site") or "").lower()
+        if fetch_site and fetch_site not in {"same-origin", "none"}:
+            return False
+        supplied = self.headers.get("X-Galka-Session") or ""
+        return hmac.compare_digest(supplied, self.session_token)
+
+    def _require_api_auth(self) -> bool:
+        if self._authorized_api_request():
+            return True
+        self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Недействительная локальная LIVE-сессия"})
+        return False
+
     def _read_json(self) -> dict:
-        length = int(self.headers.get("Content-Length") or 0)
+        content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            raise LiveEngineError("Ожидается Content-Type: application/json")
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError as exc:
+            raise LiveEngineError("Некорректный Content-Length") from exc
         if length <= 0 or length > 64_000:
             raise LiveEngineError("Некорректное тело запроса")
         try:
@@ -57,18 +104,45 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
-        if parsed.path == "/api/live/status":
-            return self._handle(lambda: self.engine.status())
-        if parsed.path == "/api/live/candles":
-            query = parse_qs(parsed.query)
-            coin = query.get("coin", [""])[0]
-            interval = query.get("interval", ["15m"])[0]
-            limit = int(query.get("limit", ["1000"])[0])
-            return self._handle(lambda: self.engine.candles(coin, interval, limit))
-        return super().do_GET()
+        if parsed.path.startswith("/api/"):
+            if not self._require_api_auth():
+                return
+            if parsed.path == "/api/live/status":
+                return self._handle(lambda: self.engine.status())
+            if parsed.path == "/api/live/candles":
+                query = parse_qs(parsed.query)
+                coin = query.get("coin", [""])[0]
+                interval = query.get("interval", ["15m"])[0]
+                try:
+                    limit = int(query.get("limit", ["1000"])[0])
+                except ValueError:
+                    return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
+                return self._handle(lambda: self.engine.candles(coin, interval, limit))
+            return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
+
+        if parsed.path == "/":
+            self.send_response(HTTPStatus.FOUND)
+            self.send_header("Location", "/terminal/live.html")
+            self.end_headers()
+            return
+        if not parsed.path.startswith("/terminal/"):
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        # The static file root is terminal/. Strip the public /terminal prefix.
+        original = self.path
+        suffix = original[len("/terminal"):]
+        self.path = suffix or "/live.html"
+        try:
+            return super().do_GET()
+        finally:
+            self.path = original
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/"):
+            return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
+        if not self._require_api_auth():
+            return
         try:
             data = self._read_json()
         except LiveEngineError as exc:
@@ -95,6 +169,10 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
                     str(data.get("confirmation", "")),
                 )
             )
+        if parsed.path == "/api/live/reconcile":
+            return self._handle(
+                lambda: self.engine.reconcile_system(str(data.get("confirmation", "")))
+            )
         return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
     def _handle(self, action) -> None:
@@ -118,12 +196,18 @@ def main() -> int:
         print(f"Galka LIVE не запущена: {exc}", file=sys.stderr, flush=True)
         return 2
 
+    token = secrets.token_urlsafe(32)
     GalkaRequestHandler.engine = engine
+    GalkaRequestHandler.session_token = token
+    GalkaRequestHandler.server_port = config.port
     server = ThreadingHTTPServer((config.host, config.port), GalkaRequestHandler)
     server.daemon_threads = True
     engine.start()
 
-    print(f"Galka LIVE: http://{config.host}:{config.port}/terminal/live.html", flush=True)
+    base_url = f"http://{config.host}:{config.port}/terminal/live.html"
+    session_url = f"{base_url}#token={token}"
+    print(f"Galka LIVE: {base_url}", flush=True)
+    print(f"Galka LIVE URL: {session_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
     print(
