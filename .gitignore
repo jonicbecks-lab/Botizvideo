@@ -1,4 +1,5 @@
 .venv-live/
+.venv-research/
 node_modules/
 .env
 *.env
