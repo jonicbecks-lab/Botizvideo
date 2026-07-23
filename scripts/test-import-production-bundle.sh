@@ -108,8 +108,10 @@ run_import() {
   local home_dir="$2"
   local bundle="$3"
   local output="$4"
-  HOME="$home_dir" PATH="$case_root/bin:$PATH" \
-    bash "$IMPORT_SCRIPT" "$bundle" > "$output" 2>&1
+  HOME="$home_dir" \
+  GALKA_LIVE_CONFIG="$home_dir/.config/galka-live.env" \
+  PATH="$case_root/bin:$PATH" \
+  bash "$IMPORT_SCRIPT" "$bundle" > "$output" 2>&1
 }
 
 IFS=$'\t' read -r case_root home_dir repo producer bundle < <(prepare_case success)

@@ -122,6 +122,7 @@ run_bootstrap() {
   local output_file="$3"
   shift 3
   HOME="$home_dir" \
+  GALKA_LIVE_CONFIG="$home_dir/.config/galka-live.env" \
   PATH="$case_root/bin:$PATH" \
   bash "$SCRIPT" "$@" > "$output_file" 2>&1
 }
@@ -209,7 +210,7 @@ mkdir -p "$minimal_path"
 for command_name in bash git python; do
   ln -s "$(command -v "$command_name")" "$minimal_path/$command_name"
 done
-if HOME="$home_dir" PATH="$minimal_path" /usr/bin/bash "$SCRIPT" \
+if HOME="$home_dir" GALKA_LIVE_CONFIG="$home_dir/.config/galka-live.env" PATH="$minimal_path" /usr/bin/bash "$SCRIPT" \
   > "$case_root/output.log" 2>&1; then
   fail "bootstrap без gh неожиданно продолжился"
 fi

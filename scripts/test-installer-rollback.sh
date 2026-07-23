@@ -11,6 +11,7 @@ REMOTE="$TEST_ROOT/remote.git"
 HOME_DIR="$TEST_ROOT/home"
 PRODUCTION="$HOME_DIR/GalkaLive"
 BACKUPS="$HOME_DIR/GalkaLive-backups"
+CONFIG_FILE="$HOME_DIR/.config/galka-live.env"
 BRANCH="agent/galka-live-hardening-v3"
 mkdir -p "$SEED/scripts" "$HOME_DIR/.config" "$HOME_DIR/.local/share/galka-live"
 cp "$SOURCE_ROOT/scripts/apply-galka-hardening-v3.sh" "$SEED/scripts/"
@@ -53,14 +54,14 @@ git -C "$SEED" commit -qm v2
 git -C "$SEED" push -q origin "$BRANCH"
 V2="$(git -C "$SEED" rev-parse HEAD)"
 
-if HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$PRODUCTION/backups" \
+if HOME="$HOME_DIR" GALKA_LIVE_CONFIG="$CONFIG_FILE" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$PRODUCTION/backups" \
   GALKA_ALLOW_LOCAL_REMOTE=1 GALKA_SKIP_DEPENDENCIES=1 \
   bash "$PRODUCTION/scripts/apply-galka-hardening-v3.sh" >/dev/null 2>&1; then
   echo "repo-local backup root unexpectedly succeeded" >&2
   exit 1
 fi
 
-HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
+HOME="$HOME_DIR" GALKA_LIVE_CONFIG="$CONFIG_FILE" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
   GALKA_ALLOW_LOCAL_REMOTE=1 GALKA_SKIP_DEPENDENCIES=1 \
   bash "$PRODUCTION/scripts/apply-galka-hardening-v3.sh"
 [[ "$(git -C "$PRODUCTION" rev-parse HEAD)" == "$V2" ]]
@@ -70,7 +71,7 @@ BACKUP="$(find "$BACKUPS" -mindepth 1 -maxdepth 1 -type d ! -name 'pre-rollback-
 (cd "$BACKUP" && sha256sum --check --quiet checksums.sha256)
 
 printf 'dirty\n' >> "$PRODUCTION/version.txt"
-if HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
+if HOME="$HOME_DIR" GALKA_LIVE_CONFIG="$CONFIG_FILE" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
   GALKA_ALLOW_LOCAL_REMOTE=1 GALKA_SKIP_DEPENDENCIES=1 \
   bash "$PRODUCTION/scripts/apply-galka-hardening-v3.sh" >/dev/null 2>&1; then
   echo "dirty updater unexpectedly succeeded" >&2
@@ -79,7 +80,7 @@ fi
 git -C "$PRODUCTION" restore version.txt
 printf 'state-v2\n' > "$HOME_DIR/.local/share/galka-live/state.json"
 printf 'HL_LIVE_ENABLED=YES\n' > "$HOME_DIR/.config/galka-live.env"
-if HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
+if HOME="$HOME_DIR" GALKA_LIVE_CONFIG="$CONFIG_FILE" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
   GALKA_ALLOW_LOCAL_REMOTE=1 GALKA_SKIP_DEPENDENCIES=1 \
   bash "$PRODUCTION/scripts/rollback-galka-live.sh" "$BACKUP" >/dev/null 2>&1; then
   echo "LIVE-enabled rollback unexpectedly succeeded" >&2
@@ -87,7 +88,7 @@ if HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
 fi
 printf 'HL_LIVE_ENABLED=NO\n' > "$HOME_DIR/.config/galka-live.env"
 
-HOME="$HOME_DIR" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
+HOME="$HOME_DIR" GALKA_LIVE_CONFIG="$CONFIG_FILE" GALKA_REPO_DIR="$PRODUCTION" GALKA_BACKUP_ROOT="$BACKUPS" \
   GALKA_ALLOW_LOCAL_REMOTE=1 GALKA_SKIP_DEPENDENCIES=1 \
   bash "$PRODUCTION/scripts/rollback-galka-live.sh" "$BACKUP"
 [[ "$(git -C "$PRODUCTION" rev-parse HEAD)" == "$V1" ]]
