@@ -16,6 +16,8 @@ on:
       - 'scripts/check-repository-secrets.py'
       - 'scripts/check-workflows.py'
       - 'scripts/test-installer-rollback.sh'
+      - 'scripts/termux-sync-and-prepare-galka.sh'
+      - 'scripts/test-termux-sync-and-prepare-galka.sh'
       - 'tests/test_*.py'
       - '.github/workflows/galka-live-hyperliquid.yml'
   pull_request:
@@ -30,6 +32,8 @@ on:
       - 'scripts/check-repository-secrets.py'
       - 'scripts/check-workflows.py'
       - 'scripts/test-installer-rollback.sh'
+      - 'scripts/termux-sync-and-prepare-galka.sh'
+      - 'scripts/test-termux-sync-and-prepare-galka.sh'
       - 'tests/test_*.py'
       - '.github/workflows/galka-live-hyperliquid.yml'
   workflow_dispatch:
@@ -80,6 +84,7 @@ jobs:
       - run: node scripts/check-live-terminal.mjs
       - run: python3 scripts/check-workflows.py
       - run: bash scripts/test-installer-rollback.sh
+      - run: bash scripts/test-termux-sync-and-prepare-galka.sh
       - run: shellcheck -x scripts/*.sh .githooks/pre-commit
       - name: Validate shell entrypoints
         run: |

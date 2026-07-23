@@ -116,6 +116,7 @@ def main() -> int:
         "scripts/check-python-lock.py",
         "scripts/check-repository-secrets.py --history",
         "scripts/test-installer-rollback.sh",
+        "scripts/test-termux-sync-and-prepare-galka.sh",
     ):
         if contract not in live:
             fail(f"LIVE workflow missing contract: {contract}", failures)
@@ -127,6 +128,9 @@ def main() -> int:
         "scripts/check-research-lock.py",
         "scripts/check-workflows.py",
         "shellcheck -x",
+        "scripts/test-termux-sync-and-prepare-galka.sh",
+        "actionlint_1.7.12_linux_amd64.tar.gz",
+        "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
     ):
         if contract not in ci:
             fail(f"CI workflow missing contract: {contract}", failures)
