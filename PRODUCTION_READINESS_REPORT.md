@@ -1,8 +1,11 @@
 # GalkaLive production readiness report
 
-- Дата аудита: 2026-07-22
+- Дата финального локального аудита: 2026-07-23
 - Ветка: `agent/galka-live-hardening-v3`
-- Проверенный кодовый диапазон: `d5a5256..4cf2603`
+- Проверенный кодовый диапазон: `d5a5256..2a998cd`
+- Исходный handoff HEAD: `9df8ef279d80ece84b35f2fa1cb662897bd633fc`
+- Последний кодовый commit до этого отчёта:
+  `2a998cd2ee62ca94b304737fad58633c0a8a5b1d`
 
 ## Итоговое решение
 
@@ -11,8 +14,9 @@
 | Paper terminal | **GO** | Детерминированный replay/reconnect, portfolio recovery, безопасный restore и browser regression прошли. |
 | Hyperliquid READ ONLY | **GO** | Онлайн-проверка ранее подтверждена как `READ-ONLY CHECK PASS`; все exchange-write методы дополнительно закрыты абсолютным LIVE-off barrier. |
 | Release candidate в локальной ветке | **GO** | Полная матрица тестов и чистая установка с нуля прошли. |
-| Публикация release candidate | **BLOCKED EXTERNALLY** | В этой среде нет `gh` и GitHub HTTPS credentials; локальная серия ещё не отправлена. |
-| Реальные деньги / LIVE | **NO-GO (намеренно)** | LIVE не включался и не должен включаться до push, зелёных удалённых Actions и контролируемого минимального rollout по инструкции. |
+| Full-history Git bundle | **GO** | Bundle содержит всю production-ветку, проходит `git bundle verify`, clone и проверку HEAD/tree/status. |
+| GitHub publication / remote CI | **NOT PERFORMED** | По текущему заданию GitHub не используется; локальная ветка и bundle являются источником handoff. |
+| Реальные деньги / LIVE | **NO-GO (намеренно)** | LIVE не включался; bootstrap и importer завершаются только при точном `HL_LIVE_ENABLED=NO`. |
 
 Торговые команды в ходе аудита не отправлялись. API-ключи и содержимое секретных файлов не
 изменялись. `main` не изменялся, merge и force-push не выполнялись.
@@ -24,7 +28,7 @@
 | 1 | Полный анализ репозитория | PASS — проверены 8 workflows, `scripts/`, `live/`, `terminal/`, research, tests, installer и документация. |
 | 2 | TODO/FIXME/DEBUG/заглушки | PASS — actionable-маркеров нет; найденные `pass` относятся к exception/compatibility классам и контролируемым cleanup-ветвям. |
 | 3 | GitHub workflows | PASS локально — immutable SHA action pins, явные permissions, concurrency и timeout; `actionlint` PASS. |
-| 4 | `scripts/` | PASS — `bash -n`, ShellCheck 0.11.0, installer/update/rollback и security contracts. |
+| 4 | `scripts/` | PASS — `bash -n`, ShellCheck 0.11.0, installer/update/rollback, Termux sync, bundle import и security contracts. |
 | 5 | `live/` | PASS — 65 тестов на Python 3.12 и 65 на Python 3.14. |
 | 6 | `terminal/` | PASS — статические, state migration, responsive, offline/XSS и Chromium gates. |
 | 7 | Paper recovery | PASS — точная закрытая 1m последовательность, idempotency и глобальная cross-symbol liquidation. |
@@ -35,9 +39,9 @@
 | 12 | Исправления | PASS — все найденные code/security/recovery/workflow дефекты исправлены логическими коммитами. |
 | 13 | Все тесты | PASS локально — см. матрицу ниже. |
 | 14 | Падающие тесты | PASS — после исправлений локальных падений нет. |
-| 15 | Зелёный CI | PASS для локального эквивалента; удалённый статус новых коммитов ожидает push. |
-| 16 | Сборка с нуля | PASS — новый clone, `npm ci`, новые LIVE/research venv и полный набор проверок. |
-| 17 | Installer | PASS — чистая установка нужной ветки, secret-history gate, LIVE по умолчанию OFF. |
+| 15 | CI-equivalent | PASS локально; remote Actions намеренно не запускались и не заявляются зелёными. |
+| 16 | Сборка с нуля | PASS — новый clone, `npm ci`, новые LIVE/research venv, Python 3.12/3.14 и полный набор проверок. |
+| 17 | Installer/bootstrap | PASS — locked dependencies, clean tree, точная ветка, external config и LIVE OFF. |
 | 18 | Rollback | PASS — отдельная rollback-ветка, pre-rollback backup, state restore, config не меняется. |
 | 19 | Crash recovery | PASS — atomic `fsync`, backup/temp recovery, corrupt quarantine, process lock. |
 | 20 | SAFE MODE | PASS — corrupt/orphan/reconcile/monitor failures включают SAFE MODE; снять его можно только после чистой сверки. |
@@ -63,6 +67,10 @@
   пакетов; browser regression tree закреплён `package-lock.json` и устанавливается через `npm ci`.
 - Generated research data больше не может напрямую менять `main`: BTC rebuild artifact-only, Lab
   publisher ограничен `agent/galka-statistics-engine`.
+- Termux bootstrap и bundle importer не используют `reset --hard`, `clean -fd`, rebase, force или
+  merge без `--ff-only`; старый `CryptoJonic/MeteoraAgent` сохраняется как `legacy-origin`.
+- Все LIVE entrypoints используют единый внешний config с поддержкой `GALKA_LIVE_CONFIG` и
+  `XDG_CONFIG_HOME`; config внутри репозитория и symlink отклоняются.
 
 ## Финальная матрица тестов
 
@@ -81,11 +89,50 @@
 | Legacy offline/XSS Chromium | PASS |
 | Visual regression capture | PASS, 9 PNG, S24/landscape/desktop |
 | Installer/update/rollback | PASS |
+| Termux sync bootstrap fixtures | PASS — origin/refspec/worktree/branch/dirty/diverged/gh/LIVE OFF |
+| Production bundle importer fixtures | PASS — verify/full branch/FF/corrupt/dirty/diverged/LIVE OFF |
 | Secret scan staged/tracked/history | PASS |
 | Workflow audit | 8/8 PASS |
 | actionlint 1.7.12 | PASS |
 | ShellCheck 0.11.0 | PASS |
 | Чистый clone + locked dependency install | PASS |
+
+## Однокомандный Termux handoff
+
+После доставки bundle в стандартный каталог загрузок Termux:
+
+```bash
+cd ~/GalkaLive && bash scripts/import-production-bundle.sh "$HOME/storage/downloads/GalkaLive-agent-galka-live-hardening-v3.bundle"
+```
+
+`scripts/import-production-bundle.sh`:
+
+1. Проверяет regular-file bundle через `git bundle verify` и принимает ровно один ref —
+   `refs/heads/agent/galka-live-hardening-v3`.
+2. Импортирует его во временный ref, проверяет trusted base `d5a5256`, отсутствие merge-коммитов,
+   обязательные файлы и executable modes.
+3. Требует точную текущую ветку, чистое дерево и доказанный fast-forward от локального HEAD.
+4. Выполняет только `git merge --ff-only`, подтверждает точный bundle HEAD и удаляет только свой
+   временный ref.
+5. Вызывает `scripts/termux-sync-and-prepare-galka.sh --prepare-local <HEAD>`.
+
+`scripts/termux-sync-and-prepare-galka.sh`:
+
+- проверяет `bash`, `git`, `gh`, `python`, exact branch, clean worktree, внешний config и LIVE OFF;
+- поддерживает обычный clone и worktree, где `.git` является файлом;
+- сохраняет старый `CryptoJonic/MeteoraAgent` как `legacy-origin`, приводит `origin` к
+  `https://github.com/jonicbecks-lab/Botizvideo.git`, удаляет старые fetch refspec и оставляет
+  стандартный `+refs/heads/*:refs/remotes/origin/*`;
+- в online-режиме проверяет `gh auth`, загружает только production ref и делает только
+  fast-forward; в bundle-режиме не выполняет сетевой fetch;
+- запускает фактический installer с locked dependencies, полный preflight и
+  `check-galka-live-account.sh`, который использует только read endpoints;
+- требует неизменный чистый HEAD/config и завершает строками `SYNC PASS`, `INSTALL PASS`,
+  `PREFLIGHT PASS`, `READ ONLY PASS`, `LIVE OFF`, `ORDERS SENT: NO`, `READY`.
+
+Оба скрипта **не** переключают ветки, не используют reset/clean/rebase/force/обычный merge, не
+запускают LIVE-сервер, не включают LIVE, не отправляют ордера и не перезаписывают secret config.
+Node/npm не требуются production runtime; Node нужен только для development/CI browser checks.
 
 ## Security и recovery invariants
 
@@ -99,17 +146,19 @@
 - Service worker кэширует только UI shell и никогда не подменяет market data.
 - Workflow tokens read-only по умолчанию; все внешние Actions закреплены полными commit SHA.
 
-## Оставшиеся release gates
+## Известные ограничения и обязательные условия
 
-1. Установить и авторизовать GitHub CLI (`gh auth login`) либо настроить штатный Git credential
-   helper для `jonicbecks-lab/Botizvideo`.
-2. Выполнить обычный, не force push:
-   `git push origin agent/galka-live-hardening-v3`.
-3. Дождаться зелёного результата всех применимых GitHub Actions на фактически опубликованном HEAD.
-4. До этого сохранить LIVE OFF. После публикации повторить read-only account check.
-5. Реальный rollout разрешать только вручную: отдельный API Wallet, чистые BTC/ETH/SOL
-   positions/orders, минимальный notional, проверка каждого exchange-side order/TP и немедленная
-   остановка при SAFE MODE/recovery.
+1. Bundle import предназначен для существующего `~/GalkaLive` на точной production-ветке с чистым
+   деревом и общей историей; dirty/diverged/wrong-branch состояния намеренно останавливаются.
+2. На устройстве должны быть `git`, `gh` и Python. Для локальной bundle-подготовки gh должен
+   запускаться, но GitHub-аутентификация и сеть не нужны; для последующей online-синхронизации
+   `gh auth status` обязателен.
+3. Внешний local config должен уже существовать, быть regular file и содержать ровно одну строку
+   `HL_LIVE_ENABLED=NO`. Его account address и отдельный API Wallet должны быть валидны, иначе
+   read-only account check корректно остановит подготовку.
+4. Текущий handoff не публикуется в GitHub, поэтому remote Actions для итогового bundle HEAD не
+   проверялись и не заявляются PASS. Локальный эквивалент всех применимых проверок зелёный.
+5. LIVE остаётся выключен. Реальный rollout не является частью этого handoff и требует отдельного
+   явного решения после чистой read-only сверки и проверки SAFE MODE.
 
-Удалённый CI для новых коммитов нельзя честно объявить зелёным до выполнения пунктов 1–3. Это
-единственный незакрытый технический release gate; локальная production matrix полностью зелёная.
+Итог аудита: **LIVE OFF**, **READ ONLY**, **ORDERS SENT: NO**.

@@ -47,6 +47,17 @@ reconnect assumptions are documented in
 
 ## Start in Termux
 
+Audited bundle update for an existing clean checkout:
+
+```bash
+cd ~/GalkaLive && bash scripts/import-production-bundle.sh "$HOME/storage/downloads/GalkaLive-agent-galka-live-hardening-v3.bundle"
+```
+
+The importer verifies the complete bundle and production branch, permits only a fast-forward, then
+runs the locked installer, production preflight, and Hyperliquid read-only account check. It never
+starts LIVE trading. The local config must already exist outside the repository with
+`HL_LIVE_ENABLED=NO`; its contents are not overwritten.
+
 First installation:
 
 ```bash
@@ -62,14 +73,18 @@ Existing installation on the audited hardening branch:
 
 ```bash
 cd ~/GalkaLive
-git pull --ff-only origin agent/galka-live-hardening-v3
-bash scripts/start-termux.sh
+bash scripts/termux-sync-and-prepare-galka.sh
 ```
 
-The launcher chooses a free port from 8080–8089 and opens a cache-busted `terminal/pro.html` URL.
-It never switches branches, resets files, or touches browser data. Its local HTTP server exposes
-only `terminal/` and the reviewed `results/` packs, never the repository, Git metadata, or ignored
-local files.
+The sync bootstrap validates `git`, `gh`, Python, the exact branch, a clean worktree and LIVE OFF;
+normalizes `origin` and its fetch refspec; fetches only the production branch; and advances only
+with `git merge --ff-only`. Node.js is used for development checks but is not required by the
+production Python/browser runtime.
+
+The paper launcher `scripts/start-termux.sh` chooses a free port from 8080–8089 and opens a
+cache-busted `terminal/pro.html` URL. It never switches branches, resets files, or touches browser
+data. Its local HTTP server exposes only `terminal/` and the reviewed `results/` packs, never the
+repository, Git metadata, or ignored local files.
 
 ## Desktop / DeX launch
 
