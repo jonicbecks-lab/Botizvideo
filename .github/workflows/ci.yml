@@ -28,6 +28,7 @@ jobs:
       - run: python3 scripts/check-repository-secrets.py --history
       - run: shellcheck -x scripts/*.sh .githooks/pre-commit
       - run: bash scripts/test-termux-sync-and-prepare-galka.sh
+      - run: bash scripts/test-import-production-bundle.sh
       - name: Validate workflows with actionlint
         shell: bash
         run: |

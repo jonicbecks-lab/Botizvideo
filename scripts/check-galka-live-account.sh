@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV="$ROOT_DIR/.venv-live"
-CONFIG_FILE="${GALKA_LIVE_CONFIG:-$HOME/.config/galka-live.env}"
+CONFIG_FILE="${GALKA_LIVE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/galka-live.env}"
 
 if [[ ! -x "$VENV/bin/python" ]]; then
   echo "Сначала выполни: bash scripts/setup-galka-live.sh"

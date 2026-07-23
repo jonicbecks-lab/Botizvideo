@@ -18,6 +18,8 @@ on:
       - 'scripts/test-installer-rollback.sh'
       - 'scripts/termux-sync-and-prepare-galka.sh'
       - 'scripts/test-termux-sync-and-prepare-galka.sh'
+      - 'scripts/import-production-bundle.sh'
+      - 'scripts/test-import-production-bundle.sh'
       - 'tests/test_*.py'
       - '.github/workflows/galka-live-hyperliquid.yml'
   pull_request:
@@ -34,6 +36,8 @@ on:
       - 'scripts/test-installer-rollback.sh'
       - 'scripts/termux-sync-and-prepare-galka.sh'
       - 'scripts/test-termux-sync-and-prepare-galka.sh'
+      - 'scripts/import-production-bundle.sh'
+      - 'scripts/test-import-production-bundle.sh'
       - 'tests/test_*.py'
       - '.github/workflows/galka-live-hyperliquid.yml'
   workflow_dispatch:
@@ -85,6 +89,7 @@ jobs:
       - run: python3 scripts/check-workflows.py
       - run: bash scripts/test-installer-rollback.sh
       - run: bash scripts/test-termux-sync-and-prepare-galka.sh
+      - run: bash scripts/test-import-production-bundle.sh
       - run: shellcheck -x scripts/*.sh .githooks/pre-commit
       - name: Validate shell entrypoints
         run: |

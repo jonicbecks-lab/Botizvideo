@@ -55,6 +55,7 @@ make_mock_gh() {
 #!/usr/bin/env bash
 set -euo pipefail
 case "$*" in
+  "--version") printf 'gh version fixture\n'; exit 0 ;;
   "auth status --active --hostname github.com"|"auth setup-git --hostname github.com") exit 0 ;;
   *) printf 'unexpected gh invocation: %s\n' "$*" >&2; exit 2 ;;
 esac
@@ -119,9 +120,10 @@ run_bootstrap() {
   local case_root="$1"
   local home_dir="$2"
   local output_file="$3"
+  shift 3
   HOME="$home_dir" \
   PATH="$case_root/bin:$PATH" \
-  bash "$SCRIPT" > "$output_file" 2>&1
+  bash "$SCRIPT" "$@" > "$output_file" 2>&1
 }
 
 assert_final_output() {
@@ -130,10 +132,10 @@ assert_final_output() {
     "SYNC PASS" \
     "INSTALL PASS" \
     "PREFLIGHT PASS" \
-    "HYPERLIQUID READ-ONLY PASS" \
+    "READ ONLY PASS" \
     "LIVE OFF" \
     "ORDERS SENT: NO" \
-    "READY FOR CONTROLLED START"; do
+    "READY"; do
     grep -Fxq "$expected" "$output_file" || \
       fail "нет итоговой строки: $expected"
   done
@@ -169,6 +171,27 @@ grep -Fq 'рабочее дерево содержит изменения' "$cas
 [[ "$(git -C "$repo" config --get remote.origin.url)" == "$OLD_REPO_URL" ]] || \
   fail "origin изменён до dirty-tree refusal"
 
+IFS=$'\t' read -r case_root home_dir repo seed < <(prepare_case wrong_branch)
+git -C "$repo" branch -m not-production
+if run_bootstrap "$case_root" "$home_dir" "$case_root/output.log"; then
+  fail "неверная ветка неожиданно синхронизирована"
+fi
+grep -Fq "ожидалась ветка $BRANCH" "$case_root/output.log" || \
+  fail "неверная ветка не сообщила точную причину"
+[[ "$(git -C "$repo" config --get remote.origin.url)" == "$OLD_REPO_URL" ]] || \
+  fail "origin изменён до branch refusal"
+
+IFS=$'\t' read -r case_root home_dir repo seed < <(prepare_case live_on)
+printf 'HL_LIVE_ENABLED=YES\nHL_LIVE_CONFIRM=I_UNDERSTAND_REAL_MONEY\n' \
+  > "$home_dir/.config/galka-live.env"
+if run_bootstrap "$case_root" "$home_dir" "$case_root/output.log"; then
+  fail "bootstrap неожиданно продолжился при LIVE ON"
+fi
+grep -Fq 'LIVE должен быть явно выключен' "$case_root/output.log" || \
+  fail "LIVE ON не сообщил точную причину"
+[[ "$(git -C "$repo" config --get remote.origin.url)" == "$OLD_REPO_URL" ]] || \
+  fail "origin изменён до LIVE-off refusal"
+
 IFS=$'\t' read -r case_root home_dir repo seed < <(prepare_case diverged)
 printf 'local-only\n' > "$repo/local-only.txt"
 git -C "$repo" add local-only.txt
@@ -198,5 +221,8 @@ if grep -Eq \
   "$SCRIPT"; then
   fail "bootstrap содержит запрещённую Git-команду"
 fi
+if grep -E 'git .*merge ' "$SCRIPT" | grep -Fv -- 'merge --ff-only' >/dev/null; then
+  fail "bootstrap содержит merge без --ff-only"
+fi
 
-printf 'Termux sync bootstrap: origin repair, refspec cleanup, worktree, dirty, fast-forward, divergence, gh and LIVE safety passed\n'
+printf 'Termux sync bootstrap: origin repair, refspec cleanup, worktree, branch, dirty, fast-forward, bundle prepare, gh and LIVE safety passed\n'
