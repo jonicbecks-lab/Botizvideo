@@ -8,6 +8,7 @@ const js = fs.readFileSync('terminal/live.js', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
 const testProfile = fs.readFileSync('scripts/galka-live-10-usd-test.sh', 'utf8');
+const testLauncher = fs.readFileSync('scripts/start-galka-10-usd-live-test.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
@@ -20,13 +21,14 @@ const checks = [
   ['BTC selector', html.includes('<option>BTC</option>')],
   ['ETH selector', html.includes('<option>ETH</option>')],
   ['SOL selector', html.includes('<option>SOL</option>')],
-  ['five minute startup', html.includes('<option selected>5m</option>') && html.includes('BTC · 5m · HYPERLIQUID') && html.includes('galka-startup-defaults.js?v=1') && startupDefaults.includes("interval.value = '5m'") && startupDefaults.includes('await interval.onchange()')],
+  ['five minute startup', html.includes('<option selected>5m</option>') && html.includes('BTC · 5m · HYPERLIQUID') && html.includes('galka-startup-defaults.js?v=2') && startupDefaults.includes("symbol.value = 'BTC'") && startupDefaults.includes("interval.value = '5m'") && startupDefaults.includes('await interval.onchange()')],
   ['manual GALKA input', html.includes('id="galkaInput"')],
   ['real preview modal', html.includes('id="previewModal"') && html.includes('РЕАЛЬНЫЕ ОРДЕРА')],
   ['eight live depths', ladder.includes('0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00')],
   ['small-account minimum adjustment', ladder.includes('_allocate_targets') && ladder.includes('MIN_ORDER_NOTIONAL')],
   ['guarded ten dollar profile', testProfile.includes('HL_LEVERAGE') && testProfile.includes('HL_TOTAL_NOTIONAL') && testProfile.includes('ENABLE_10_USD_LIVE_TEST') && testProfile.includes('config.total_notional - 100.0') && testProfile.includes('config.leverage != 10')],
   ['test profile keeps explicit LIVE confirmation', testProfile.includes('I_UNDERSTAND_REAL_MONEY') && testProfile.includes('--enable') && testProfile.includes('--disable')],
+  ['one-command ten dollar launcher', testLauncher.includes('galka-live-10-usd-test.sh --enable') && testLauncher.includes('config.total_notional - 100.0') && testLauncher.includes('exec bash scripts/start-galka-live.sh')],
   ['ALO entries', gateway.includes('"tif": "Alo"')],
   ['exchange-native TP grouping', gateway.includes('grouping="normalTpsl"')],
   ['non-market TP', gateway.includes('"isMarket": False') && gateway.includes('"tpsl": "tp"')],
