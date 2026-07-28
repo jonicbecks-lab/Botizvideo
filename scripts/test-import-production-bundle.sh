@@ -10,8 +10,8 @@ OLD_REPO_URL="https://github.com/CryptoJonic/MeteoraAgent.git"
 TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/galka-bundle-import-test.XXXXXX")"
 
 cleanup() {
-  local attempt
-  for attempt in 1 2 3 4 5; do
+  local _attempt
+  for _attempt in 1 2 3 4 5; do
     rm -rf -- "$TEST_ROOT" 2>/dev/null || true
     [[ ! -e "$TEST_ROOT" ]] && return 0
     sleep 0.1
