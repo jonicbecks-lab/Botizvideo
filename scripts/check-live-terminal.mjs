@@ -31,6 +31,7 @@ const checks = [
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=2') && html.includes('live-chart.css?v=2') && chartShim.includes('LightweightCharts')],
   ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
+  ['grab-style pan direction', chartShim.includes('const draggedBars = (point.x - this.gesture.startX)') && chartShim.includes('this.gesture.startOffset + draggedBars')],
   ['pinch zoom controls', chartShim.includes('activePointers') && chartShim.includes('startPinch') && chartShim.includes('updatePinch')],
   ['wheel and trackpad zoom', chartShim.includes("addEventListener('wheel'") && chartShim.includes('zoomTime') && chartShim.includes('event.deltaX')],
   ['price-axis scaling', chartShim.includes('startPriceScale') && chartShim.includes('updatePriceScale') && chartShim.includes('manualPriceRange') && chartCss.includes('ns-resize')],
