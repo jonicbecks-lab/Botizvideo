@@ -272,8 +272,8 @@
       if (!this.gesture) return;
       if (this.gesture.type === 'pan') {
         const geometry = this.geometry();
-        const bars = (this.gesture.startX - point.x) / geometry.plotWidth * this.visibleCount;
-        this.panOffset = this.gesture.startOffset + bars;
+        const draggedBars = (point.x - this.gesture.startX) / geometry.plotWidth * this.visibleCount;
+        this.panOffset = this.gesture.startOffset + draggedBars;
         this.clampPanOffset();
         this.draw();
       } else if (this.gesture.type === 'price') this.updatePriceScale(point);
