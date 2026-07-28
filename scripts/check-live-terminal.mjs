@@ -28,8 +28,15 @@ const checks = [
   ['local API', js.includes('/api/live/preview') && js.includes('/api/live/campaign')],
   ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
-  ['local chart dependency', html.includes('vendor/galka-chart.js') && html.includes('live-chart.css') && chartShim.includes('LightweightCharts')],
+  ['local chart dependency', html.includes('vendor/galka-chart.js?v=2') && html.includes('live-chart.css?v=2') && chartShim.includes('LightweightCharts')],
   ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.')],
+  ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
+  ['pinch zoom controls', chartShim.includes('activePointers') && chartShim.includes('startPinch') && chartShim.includes('updatePinch')],
+  ['wheel and trackpad zoom', chartShim.includes("addEventListener('wheel'") && chartShim.includes('zoomTime') && chartShim.includes('event.deltaX')],
+  ['price-axis scaling', chartShim.includes('startPriceScale') && chartShim.includes('updatePriceScale') && chartShim.includes('manualPriceRange') && chartCss.includes('ns-resize')],
+  ['time-axis scaling', chartShim.includes('startTimeScale') && chartShim.includes('updateTimeScale') && chartCss.includes('ew-resize')],
+  ['axis double-click reset', chartShim.includes("addEventListener('dblclick'") && chartShim.includes('resetPriceScale') && chartShim.includes('fitContent')],
+  ['touch-safe chart surface', chartCss.includes('touch-action: none') && chartCss.includes('overscroll-behavior: contain')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
@@ -44,4 +51,5 @@ for (const [name, ok] of checks) {
   if (!ok) throw new Error(`Live terminal check failed: ${name}`);
 }
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-chart.js'], { stdio: 'inherit' });
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
