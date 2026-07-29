@@ -28,3 +28,27 @@
 .galka-live-canvas.chart-pinching {
   cursor: grabbing;
 }
+
+.galka-touch-plus {
+  position: absolute;
+  z-index: 12;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid #ffb74d;
+  border-radius: 50%;
+  background: #ff9800;
+  color: #251600;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.galka-touch-plus:active {
+  transform: translate(-50%, -50%) scale(0.92);
+}
