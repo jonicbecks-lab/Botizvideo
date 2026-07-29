@@ -29,26 +29,44 @@
   cursor: grabbing;
 }
 
-.galka-touch-plus {
+.galka-touch-overlay {
   position: absolute;
+  inset: 0;
   z-index: 12;
-  width: 38px;
-  height: 38px;
-  margin: 0;
-  padding: 0;
-  transform: translate(-50%, -50%);
-  border: 1px solid #ffb74d;
-  border-radius: 50%;
-  background: #ff9800;
-  color: #251600;
-  font-size: 26px;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.galka-touch-plus:active {
-  transform: translate(-50%, -50%) scale(0.92);
+.galka-touch-plus {
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  outline: none;
+}
+
+.galka-touch-plus-circle {
+  fill: #ff9800;
+  stroke: #ffb74d;
+  stroke-width: 1;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+.galka-touch-plus-text {
+  fill: #251600;
+  font: 900 26px/1 system-ui, sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}
+
+.galka-touch-plus:focus-visible .galka-touch-plus-circle {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.galka-touch-plus:active .galka-touch-plus-circle {
+  fill: #ffb13b;
 }
