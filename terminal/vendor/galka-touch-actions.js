@@ -21,7 +21,6 @@
     const svgNs = 'http://www.w3.org/2000/svg';
     const overlay = document.createElementNS(svgNs, 'svg');
     overlay.classList.add('galka-touch-overlay');
-    overlay.setAttribute('aria-hidden', 'true');
     overlay.setAttribute('preserveAspectRatio', 'none');
 
     const plus = document.createElementNS(svgNs, 'g');
@@ -174,6 +173,7 @@
           startX: state.gesture.latestPoint.x,
           startY: state.gesture.latestPoint.y,
           moved: false,
+          activatedByHold: true,
         };
       }, HOLD_MS);
     }
@@ -255,7 +255,7 @@
       }
 
       if (finished?.type === 'crosshair' && point?.zone === 'plot') {
-        if (!finished.moved) {
+        if (!finished.moved && !finished.activatedByHold) {
           const now = performance.now();
           if (now - state.lastTapAt <= DOUBLE_TAP_MS) {
             state.lastTapAt = 0;
@@ -293,7 +293,6 @@
     }
 
     plus.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
       event.stopPropagation();
     });
     plus.addEventListener('click', selectCrosshairPrice);
