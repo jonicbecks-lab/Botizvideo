@@ -13,6 +13,8 @@ const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
 const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
+const futurePan = fs.readFileSync('terminal/vendor/galka-future-pan.js', 'utf8');
+const relativeCrosshair = fs.readFileSync('terminal/vendor/galka-relative-crosshair.js', 'utf8');
 const dexActions = fs.readFileSync('terminal/vendor/galka-dex-actions.js', 'utf8');
 const touchActions = fs.readFileSync('terminal/vendor/galka-touch-actions.js', 'utf8');
 const startupDefaults = fs.readFileSync('terminal/vendor/galka-startup-defaults.js', 'utf8');
@@ -38,11 +40,15 @@ const checks = [
   ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=3') && html.includes('live-chart.css?v=3') && chartShim.includes('LightweightCharts')],
+  ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
+  ['relative crosshair dependency', html.includes('vendor/galka-relative-crosshair.js?v=1') && relativeCrosshair.includes('installRelativeCrosshair')],
   ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=2') && dexActions.includes('installDesktopActions')],
   ['touch action dependency', html.includes('vendor/galka-touch-actions.js?v=1') && touchActions.includes('installTouchActions')],
-  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !touchActions.includes('.style.')],
+  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !relativeCrosshair.includes('.style.') && !touchActions.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
   ['grab-style pan direction', chartShim.includes('const draggedBars = deltaX / geometry.plotWidth') && chartShim.includes('this.gesture.startOffset + draggedBars')],
+  ['future chart space', futurePan.includes('FUTURE_SPACE_FRACTION = 0.75') && futurePan.includes('minPanOffset') && futurePan.includes('dataStart') && futurePan.includes('windowState.count')],
+  ['future time labels', futurePan.includes('logicalTime') && futurePan.includes('windowState.end - 1') && futurePan.includes('estimateInterval')],
   ['pinch zoom controls', chartShim.includes('activePointers') && chartShim.includes('startPinch') && chartShim.includes('updatePinch')],
   ['wheel and trackpad zoom', chartShim.includes("addEventListener('wheel'") && chartShim.includes('zoomTime') && chartShim.includes('event.deltaX')],
   ['price-axis scaling', chartShim.includes('startPriceScale') && chartShim.includes('updatePriceScale') && chartShim.includes('manualPriceRange') && chartCss.includes('ns-resize')],
@@ -52,15 +58,16 @@ const checks = [
   ['crosshair does not replace desktop pan', chartShim.includes("this.gesture.type === 'pan'") && chartShim.includes('this.setCrosshair(point)')],
   ['TradingView-style touch pan and hold', touchActions.includes('HOLD_MS = 450') && touchActions.includes("type: 'pending'") && touchActions.includes("gesture.type = 'pan'") && touchActions.includes("type: 'crosshair'")],
   ['persistent touch crosshair', touchActions.includes('crosshairPinned') && touchActions.includes('DOUBLE_TAP_MS') && touchActions.includes('activatedByHold') && touchActions.includes('onPointerLeave')],
+  ['relative pinned crosshair movement', relativeCrosshair.includes('crosshairStartX') && relativeCrosshair.includes('touchStartX') && relativeCrosshair.includes('point.x - relativeGesture.touchStartX') && relativeCrosshair.includes('queueMicrotask')],
   ['touch GALKA plus', chartCss.includes('.galka-touch-plus') && touchActions.includes("new CustomEvent('galka:select-price'") && dexActions.includes("addEventListener('galka:select-price'")],
   ['safe right-click GALKA draft', dexActions.includes("addEventListener('contextmenu'") && dexActions.includes('/api/live/preview') && dexActions.includes('preview.levels')],
   ['right-click remains desktop-only', dexActions.includes("state.lastPointerType !== 'mouse'")],
-  ['browser price actions cannot place orders', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS')],
+  ['browser price actions cannot place orders', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !relativeCrosshair.includes('/api/live/campaign')],
   ['touch-safe chart surface', chartCss.includes('touch-action: none') && chartCss.includes('overscroll-behavior: contain')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + startupDefaults)],
+  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + futurePan + relativeCrosshair + startupDefaults)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
   ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
@@ -72,6 +79,8 @@ for (const [name, ok] of checks) {
 }
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-chart.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-future-pan.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-relative-crosshair.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-dex-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-touch-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-startup-defaults.js'], { stdio: 'inherit' });
