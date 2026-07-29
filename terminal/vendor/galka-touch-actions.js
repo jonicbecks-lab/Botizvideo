@@ -18,12 +18,29 @@
       'График свечей. Одним пальцем двигай график. Удерживай палец, чтобы включить перекрестие. После этого касанием двигай перекрестие, а кнопкой плюс выбирай цену GALKA.',
     );
 
-    const plus = document.createElement('button');
-    plus.type = 'button';
-    plus.className = 'galka-touch-plus hidden';
-    plus.textContent = '+';
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const overlay = document.createElementNS(svgNs, 'svg');
+    overlay.classList.add('galka-touch-overlay');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('preserveAspectRatio', 'none');
+
+    const plus = document.createElementNS(svgNs, 'g');
+    plus.classList.add('galka-touch-plus', 'hidden');
+    plus.setAttribute('role', 'button');
+    plus.setAttribute('tabindex', '0');
     plus.setAttribute('aria-label', 'Поставить GALKA по цене перекрестия');
-    container.append(plus);
+
+    const plusCircle = document.createElementNS(svgNs, 'circle');
+    plusCircle.classList.add('galka-touch-plus-circle');
+    plusCircle.setAttribute('r', '19');
+    const plusText = document.createElementNS(svgNs, 'text');
+    plusText.classList.add('galka-touch-plus-text');
+    plusText.setAttribute('x', '0');
+    plusText.setAttribute('y', '1');
+    plusText.textContent = '+';
+    plus.append(plusCircle, plusText);
+    overlay.append(plus);
+    container.append(overlay);
 
     const state = {
       pointers: new Map(),
@@ -60,8 +77,8 @@
       const geometry = chart.geometry();
       const x = Math.max(geometry.left + 18, geometry.right - 22);
       const y = Math.max(geometry.top + 18, Math.min(geometry.bottom - 18, chart.crosshair.y));
-      plus.style.left = `${x}px`;
-      plus.style.top = `${y}px`;
+      overlay.setAttribute('viewBox', `0 0 ${geometry.width} ${geometry.height}`);
+      plus.setAttribute('transform', `translate(${x} ${y})`);
       plus.classList.remove('hidden');
     }
 
@@ -266,13 +283,24 @@
       positionPlus();
     }
 
-    plus.addEventListener('click', () => {
+    function selectCrosshairPrice() {
       const price = currentCrosshairPrice();
       if (!(Number(price) > 0)) return;
       canvas.dispatchEvent(new CustomEvent('galka:select-price', {
         detail: { price: Number(price), source: 'touch-plus' },
       }));
       clearPinnedCrosshair();
+    }
+
+    plus.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    plus.addEventListener('click', selectCrosshairPrice);
+    plus.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      selectCrosshairPrice();
     });
 
     canvas.addEventListener('pointerdown', onPointerDown, { capture: true, passive: false });
