@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# shellcheck disable=SC2034
 
 TOUCH_LAB_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOUCH_LAB_HOST="127.0.0.1"
