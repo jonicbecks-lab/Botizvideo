@@ -12,7 +12,14 @@ const testLauncher = fs.readFileSync('scripts/start-galka-10-usd-live-test.sh', 
 const touchLabHtml = fs.readFileSync('terminal/touch-lab.html', 'utf8');
 const touchLabCss = fs.readFileSync('terminal/touch-lab.css', 'utf8');
 const touchLabJs = fs.readFileSync('terminal/touch-lab.js', 'utf8');
-const touchLabLauncher = fs.readFileSync('scripts/start-galka-touch-lab.sh', 'utf8');
+const touchLabLegacyLauncher = fs.readFileSync('scripts/start-galka-touch-lab.sh', 'utf8');
+const touchLabServer = fs.readFileSync('scripts/galka-touch-lab-server.py', 'utf8');
+const touchLabCommon = fs.readFileSync('scripts/galka-touch-lab-common.sh', 'utf8');
+const touchLabStart = fs.readFileSync('scripts/galka-touch-lab-start.sh', 'utf8');
+const touchLabOpen = fs.readFileSync('scripts/galka-touch-lab-open.sh', 'utf8');
+const touchLabStatus = fs.readFileSync('scripts/galka-touch-lab-status.sh', 'utf8');
+const touchLabStop = fs.readFileSync('scripts/galka-touch-lab-stop.sh', 'utf8');
+const touchLabBundle = [touchLabHtml, touchLabCss, touchLabJs, touchLabLegacyLauncher, touchLabServer, touchLabCommon, touchLabStart, touchLabOpen, touchLabStatus, touchLabStop].join('\n');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
@@ -77,10 +84,14 @@ const checks = [
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
   ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
-  ['isolated touch laboratory', touchLabHtml.includes('GALKA TOUCH LAB') && touchLabHtml.includes("connect-src 'none'") && touchLabHtml.includes('touch-lab.js?v=1') && !touchLabHtml.includes('live.js') && !touchLabHtml.includes('galka-dex-actions.js')],
-  ['touch laboratory synthetic only', touchLabJs.includes('syntheticCandles') && !touchLabJs.includes('fetch(') && !touchLabJs.includes('/api/live/') && !touchLabJs.includes('Hyperliquid')],
-  ['touch laboratory cannot trade', !/PLACE_REAL_ORDERS|HL_API_SECRET_KEY|\/api\/live\//.test(touchLabHtml + touchLabCss + touchLabJs + touchLabLauncher)],
-  ['touch laboratory separate port', touchLabLauncher.includes('GALKA_TOUCH_LAB_PORT:-8099') && touchLabLauncher.includes('touch-lab.html') && touchLabLauncher.includes('Hyperliquid и реальные ордера не подключены')],
+  ['isolated touch laboratory', touchLabHtml.includes('GALKA TOUCH LAB') && touchLabHtml.includes("connect-src 'self'") && touchLabHtml.includes('touch-lab.js?v=2') && !touchLabHtml.includes('live.js') && !touchLabHtml.includes('galka-dex-actions.js')],
+  ['persistent HttpOnly lab cookie', touchLabServer.includes('HttpOnly; SameSite=Strict') && touchLabServer.includes('COOKIE_MAX_AGE') && touchLabJs.includes("'/touch-lab/session'") && touchLabJs.includes("'/touch-lab/status'") && !touchLabJs.includes('sessionStorage')],
+  ['loopback-only lab server', touchLabServer.includes('args.host != "127.0.0.1"') && touchLabCommon.includes('TOUCH_LAB_HOST="127.0.0.1"')],
+  ['background lab lifecycle', touchLabStart.includes('nohup') && touchLabStart.includes('setsid') && touchLabStart.includes('termux-wake-lock') && touchLabOpen.includes('#token=') && touchLabStatus.includes('Touch Lab: RUNNING') && touchLabStop.includes('kill "$pid"')],
+  ['legacy lab launcher uses managed start', touchLabLegacyLauncher.includes('galka-touch-lab-start.sh')],
+  ['touch laboratory synthetic only', touchLabJs.includes('syntheticCandles') && !touchLabJs.includes('/api/live/') && !touchLabJs.includes('Hyperliquid')],
+  ['touch laboratory cannot trade', !/PLACE_REAL_ORDERS|HL_API_SECRET_KEY|\/api\/live\//.test(touchLabBundle)],
+  ['touch laboratory separate port', touchLabCommon.includes('GALKA_TOUCH_LAB_PORT:-8099') && touchLabStart.includes('Hyperliquid и реальные ордера не подключены')],
 ];
 
 for (const [name, ok] of checks) {
@@ -94,4 +105,5 @@ execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-relative-cross
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-dex-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-touch-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-startup-defaults.js'], { stdio: 'inherit' });
+execFileSync('python3', ['-m', 'py_compile', 'scripts/galka-touch-lab-server.py'], { stdio: 'inherit' });
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
