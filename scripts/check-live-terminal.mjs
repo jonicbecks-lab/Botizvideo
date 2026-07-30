@@ -9,6 +9,10 @@ const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
 const testProfile = fs.readFileSync('scripts/galka-live-10-usd-test.sh', 'utf8');
 const testLauncher = fs.readFileSync('scripts/start-galka-10-usd-live-test.sh', 'utf8');
+const touchLabHtml = fs.readFileSync('terminal/touch-lab.html', 'utf8');
+const touchLabCss = fs.readFileSync('terminal/touch-lab.css', 'utf8');
+const touchLabJs = fs.readFileSync('terminal/touch-lab.js', 'utf8');
+const touchLabLauncher = fs.readFileSync('scripts/start-galka-touch-lab.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
@@ -73,12 +77,17 @@ const checks = [
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
   ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
+  ['isolated touch laboratory', touchLabHtml.includes('GALKA TOUCH LAB') && touchLabHtml.includes("connect-src 'none'") && touchLabHtml.includes('touch-lab.js?v=1') && !touchLabHtml.includes('live.js') && !touchLabHtml.includes('galka-dex-actions.js')],
+  ['touch laboratory synthetic only', touchLabJs.includes('syntheticCandles') && !touchLabJs.includes('fetch(') && !touchLabJs.includes('/api/live/') && !touchLabJs.includes('Hyperliquid')],
+  ['touch laboratory cannot trade', !/PLACE_REAL_ORDERS|HL_API_SECRET_KEY|\/api\/live\//.test(touchLabHtml + touchLabCss + touchLabJs + touchLabLauncher)],
+  ['touch laboratory separate port', touchLabLauncher.includes('GALKA_TOUCH_LAB_PORT:-8099') && touchLabLauncher.includes('touch-lab.html') && touchLabLauncher.includes('Hyperliquid и реальные ордера не подключены')],
 ];
 
 for (const [name, ok] of checks) {
   if (!ok) throw new Error(`Live terminal check failed: ${name}`);
 }
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/touch-lab.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-chart.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-future-pan.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-relative-crosshair.js'], { stdio: 'inherit' });
