@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# shellcheck disable=SC1091,SC2317
 set -euo pipefail
 
-# shellcheck source=galka-touch-lab-common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/galka-touch-lab-common.sh"
 
 if ! mkdir "$TOUCH_LAB_LOCK_DIR" 2>/dev/null; then
