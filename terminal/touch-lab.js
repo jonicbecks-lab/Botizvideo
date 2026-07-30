@@ -1,5 +1,12 @@
 const chartRoot = document.getElementById('chart');
 const stateOutput = document.getElementById('touchLabState');
+const serverBadge = document.getElementById('touchLabServerStatus');
+
+const connection = {
+  authenticated: false,
+  message: 'Проверка защищённой cookie-сессии…',
+  uptimeSeconds: 0,
+};
 
 function syntheticCandles(count = 360) {
   const rows = [];
@@ -86,19 +93,92 @@ function priceAtCrosshair() {
   return range.max - ((y - geometry.top) / geometry.plotHeight) * range.span;
 }
 
-function showCrosshairState() {
+function renderState() {
   const value = priceAtCrosshair();
-  stateOutput.textContent = value == null
+  const crosshairText = value == null
     ? 'Удерживай палец 0,45 с, затем перемещай перекрестие.'
     : `Перекрестие: ${value.toFixed(2)}. Отпусти палец — позиция должна остаться здесь.`;
+  stateOutput.textContent = `${connection.message} · ${crosshairText}`;
+  serverBadge.textContent = connection.authenticated ? 'COOKIE OK' : 'NO SESSION';
+  serverBadge.dataset.state = connection.authenticated ? 'connected' : 'disconnected';
+}
+
+async function requestJson(path, options = {}) {
+  const response = await fetch(path, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+    ...options,
+  });
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (_) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+async function bootstrapCookie() {
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const token = hash.get('token');
+  if (!token) return;
+  try {
+    await requestJson('/touch-lab/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+  } finally {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+}
+
+async function refreshServerStatus() {
+  try {
+    const payload = await requestJson('/touch-lab/status');
+    connection.authenticated = true;
+    connection.uptimeSeconds = Number(payload.uptimeSeconds || 0);
+    connection.message = `Сервер и постоянная cookie работают · uptime ${connection.uptimeSeconds} с`;
+  } catch (error) {
+    connection.authenticated = false;
+    connection.message = error.message === 'NO_SESSION'
+      ? 'Сервер отвечает, но cookie отсутствует: выполни galka-touch-lab-open.sh'
+      : `Сервер недоступен: ${error.message}`;
+  }
+  renderState();
+}
+
+async function initializeSession() {
+  try {
+    await bootstrapCookie();
+  } catch (error) {
+    connection.message = `Не удалось установить cookie: ${error.message}`;
+  }
+  await refreshServerStatus();
 }
 
 for (const name of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
   chart.canvas.addEventListener(name, () => {
-    requestAnimationFrame(showCrosshairState);
+    requestAnimationFrame(renderState);
   }, { capture: false, passive: true });
 }
 
 new ResizeObserver(() => {
-  requestAnimationFrame(showCrosshairState);
+  requestAnimationFrame(renderState);
 }).observe(chartRoot);
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) void refreshServerStatus();
+});
+window.addEventListener('pageshow', () => {
+  void refreshServerStatus();
+});
+setInterval(() => {
+  void refreshServerStatus();
+}, 5000);
+
+renderState();
+void initializeSession();
