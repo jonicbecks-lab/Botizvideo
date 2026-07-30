@@ -7,13 +7,21 @@ const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
+const persistentStart = fs.readFileSync('scripts/galka-live-start.sh', 'utf8');
+const persistentOpen = fs.readFileSync('scripts/galka-live-open.sh', 'utf8');
+const persistentStatus = fs.readFileSync('scripts/galka-live-status.sh', 'utf8');
+const persistentStop = fs.readFileSync('scripts/galka-live-stop.sh', 'utf8');
+const persistentCommon = fs.readFileSync('scripts/galka-live-common.sh', 'utf8');
 const testProfile = fs.readFileSync('scripts/galka-live-10-usd-test.sh', 'utf8');
 const testLauncher = fs.readFileSync('scripts/start-galka-10-usd-live-test.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
+const persistentServer = fs.readFileSync('live/persistent_server.py', 'utf8');
 const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
 const futurePan = fs.readFileSync('terminal/vendor/galka-future-pan.js', 'utf8');
+const visibilityRecovery = fs.readFileSync('terminal/vendor/galka-visibility-recovery.js', 'utf8');
+const liveSession = fs.readFileSync('terminal/vendor/galka-live-session.js', 'utf8');
 const dexActions = fs.readFileSync('terminal/vendor/galka-dex-actions.js', 'utf8');
 const touchActions = fs.readFileSync('terminal/vendor/galka-touch-actions.js', 'utf8');
 const startupDefaults = fs.readFileSync('terminal/vendor/galka-startup-defaults.js', 'utf8');
@@ -36,13 +44,16 @@ const checks = [
   ['non-market TP', gateway.includes('"isMarket": False') && gateway.includes('"tpsl": "tp"')],
   ['reduce-only target', gateway.includes('"reduce_only": True')],
   ['local API', js.includes('/api/live/preview') && js.includes('/api/live/campaign')],
-  ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
+  ['legacy header remains compatible', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
+  ['persistent cookie session', html.includes('galka-live-session.js?v=1') && liveSession.includes('/api/live/session') && liveSession.includes('persistent-cookie-session') && persistentServer.includes('HttpOnly; SameSite=Strict') && persistentServer.includes('GalkaLiveSession')],
+  ['persistent token is private', persistentServer.includes('browser-session.token') && persistentServer.includes('O_NOFOLLOW') && persistentServer.includes('0o600') && !persistentServer.includes('Galka LIVE URL:')],
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=3') && html.includes('live-chart.css?v=3') && chartShim.includes('LightweightCharts')],
   ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
+  ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=1') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
   ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=2') && touchActions.includes('installTouchActions')],
   ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=2') && dexActions.includes('installDesktopActions')],
-  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !touchActions.includes('.style.')],
+  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
   ['grab-style pan direction', chartShim.includes('const draggedBars = deltaX / geometry.plotWidth') && chartShim.includes('this.gesture.startOffset + draggedBars')],
   ['future chart space', futurePan.includes('FUTURE_SPACE_FRACTION = 0.75') && futurePan.includes('minPanOffset') && futurePan.includes('dataStart') && futurePan.includes('windowState.count')],
@@ -61,15 +72,16 @@ const checks = [
   ['touch GALKA plus', chartCss.includes('.galka-touch-plus') && touchActions.includes("new CustomEvent('galka:select-price'") && dexActions.includes("addEventListener('galka:select-price'")],
   ['safe right-click GALKA draft', dexActions.includes("addEventListener('contextmenu'") && dexActions.includes('/api/live/preview') && dexActions.includes('preview.levels')],
   ['right-click remains desktop-only', dexActions.includes("state.lastPointerType !== 'mouse'")],
-  ['browser price actions cannot place orders', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign')],
+  ['browser price actions cannot place orders', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !visibilityRecovery.includes('/api/live/campaign') && !liveSession.includes('/api/live/campaign')],
   ['touch-safe chart surface', chartCss.includes('touch-action: none') && chartCss.includes('overscroll-behavior: contain')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + futurePan + startupDefaults)],
+  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + futurePan + visibilityRecovery + liveSession + startupDefaults)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
-  ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
-  ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
+  ['persistent background launcher', launcher.includes('galka-live-start.sh') && persistentStart.includes('nohup') && persistentStart.includes('setsid') && persistentStart.includes('termux-wake-lock') && persistentStart.includes('live.persistent_server')],
+  ['separate open status stop', persistentOpen.includes('termux-open-url') && persistentOpen.includes('#token=') && persistentStatus.includes('Galka LIVE: RUNNING') && persistentStop.includes('STOP_GALKA_LIVE')],
+  ['loopback runtime guard', persistentCommon.includes('127.0.0.1') && persistentCommon.includes('/healthz') && persistentCommon.includes('browser-session.token')],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
 ];
 
@@ -79,6 +91,8 @@ for (const [name, ok] of checks) {
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-chart.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-future-pan.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-visibility-recovery.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-live-session.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-dex-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-touch-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-startup-defaults.js'], { stdio: 'inherit' });
