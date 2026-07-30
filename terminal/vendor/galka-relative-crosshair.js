@@ -20,8 +20,11 @@
     const originalSetCrosshair = chart.setCrosshair.bind(chart);
     const touchPointers = new Set();
     let relativeGesture = null;
+    let suppressReleaseSnap = false;
 
     chart.setCrosshair = function setRelativeCrosshair(point) {
+      if (suppressReleaseSnap && point?.zone === 'plot') return;
+
       if (
         relativeGesture &&
         point?.zone === 'plot' &&
@@ -67,17 +70,19 @@
 
     function finishPointer(event) {
       if (event.pointerType !== 'touch') return;
-      touchPointers.delete(event.pointerId);
-      if (relativeGesture?.pointerId !== event.pointerId) return;
-
-      const completedGesture = relativeGesture;
-      const pinnedAtRelease = chart.crosshair
+      const endingRelativeGesture = relativeGesture?.pointerId === event.pointerId;
+      const pinnedAtRelease = endingRelativeGesture && chart.crosshair
         ? { x: chart.crosshair.x, y: chart.crosshair.y }
         : null;
 
+      if (endingRelativeGesture) suppressReleaseSnap = true;
+      touchPointers.delete(event.pointerId);
+
       queueMicrotask(() => {
-        if (relativeGesture !== completedGesture) return;
-        relativeGesture = null;
+        if (endingRelativeGesture) {
+          suppressReleaseSnap = false;
+          relativeGesture = null;
+        }
         if (!pinnedAtRelease) return;
         chart.crosshair = pinnedAtRelease;
         chart.draw();
