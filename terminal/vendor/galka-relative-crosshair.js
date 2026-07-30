@@ -69,9 +69,18 @@
       if (event.pointerType !== 'touch') return;
       touchPointers.delete(event.pointerId);
       if (relativeGesture?.pointerId !== event.pointerId) return;
+
       const completedGesture = relativeGesture;
+      const pinnedAtRelease = chart.crosshair
+        ? { x: chart.crosshair.x, y: chart.crosshair.y }
+        : null;
+
       queueMicrotask(() => {
-        if (relativeGesture === completedGesture) relativeGesture = null;
+        if (relativeGesture !== completedGesture) return;
+        relativeGesture = null;
+        if (!pinnedAtRelease) return;
+        chart.crosshair = pinnedAtRelease;
+        chart.draw();
       });
     }
 
