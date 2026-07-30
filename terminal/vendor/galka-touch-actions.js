@@ -8,6 +8,11 @@
   const HOLD_MS = 450;
   const MOVE_SLOP = 9;
   const DOUBLE_TAP_MS = 320;
+  const SYNTHETIC_MOUSE_BLOCK_MS = 900;
+
+  function clamp(value, minimum, maximum) {
+    return Math.max(minimum, Math.min(maximum, value));
+  }
 
   function installTouchActions(chart, container) {
     if (!chart?.canvas || typeof chart.pointFromEvent !== 'function') return;
@@ -47,6 +52,7 @@
       holdTimer: null,
       crosshairPinned: false,
       lastTapAt: 0,
+      lastTouchEndAt: -Infinity,
     };
 
     function clearHold() {
@@ -104,6 +110,20 @@
       redraw();
     }
 
+    function crosshairGesture(pointerId, point, activatedByHold = false) {
+      const pinned = chart.crosshair || { x: point.x, y: point.y };
+      return {
+        type: 'crosshair',
+        pointerId,
+        touchStartX: point.x,
+        touchStartY: point.y,
+        crosshairStartX: pinned.x,
+        crosshairStartY: pinned.y,
+        moved: false,
+        activatedByHold,
+      };
+    }
+
     function startPinch() {
       clearHold();
       const points = plotPointers();
@@ -141,14 +161,7 @@
       }
 
       if (state.crosshairPinned) {
-        chart.setCrosshair(point);
-        state.gesture = {
-          type: 'crosshair',
-          pointerId: event.pointerId,
-          startX: point.x,
-          startY: point.y,
-          moved: false,
-        };
+        state.gesture = crosshairGesture(event.pointerId, point);
         redraw();
         return;
       }
@@ -166,22 +179,20 @@
       clearHold();
       state.holdTimer = setTimeout(() => {
         if (state.gesture?.type !== 'pending' || state.gesture.pointerId !== event.pointerId) return;
-        setPinnedCrosshair(state.gesture.latestPoint);
-        state.gesture = {
-          type: 'crosshair',
-          pointerId: event.pointerId,
-          startX: state.gesture.latestPoint.x,
-          startY: state.gesture.latestPoint.y,
-          moved: false,
-          activatedByHold: true,
-        };
+        const holdPoint = state.gesture.latestPoint;
+        setPinnedCrosshair(holdPoint);
+        state.gesture = crosshairGesture(event.pointerId, holdPoint, true);
       }, HOLD_MS);
+    }
+
+    function stopEvent(event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
     }
 
     function onPointerDown(event) {
       if (event.pointerType !== 'touch') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
+      stopEvent(event);
       const point = chart.pointFromEvent(event);
       state.pointers.set(event.pointerId, point);
       canvas.setPointerCapture(event.pointerId);
@@ -195,9 +206,22 @@
     }
 
     function onPointerMove(event) {
-      if (event.pointerType !== 'touch' || !state.pointers.has(event.pointerId)) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
+      if (event.pointerType !== 'touch') {
+        if (
+          state.crosshairPinned &&
+          performance.now() - state.lastTouchEndAt < SYNTHETIC_MOUSE_BLOCK_MS
+        ) {
+          stopEvent(event);
+        }
+        return;
+      }
+
+      if (!state.pointers.has(event.pointerId)) {
+        if (state.crosshairPinned) stopEvent(event);
+        return;
+      }
+
+      stopEvent(event);
       const point = chart.pointFromEvent(event);
       state.pointers.set(event.pointerId, point);
 
@@ -228,10 +252,16 @@
         chart.crosshair = null;
         redraw();
       } else if (gesture.type === 'crosshair') {
-        if (Math.hypot(point.x - gesture.startX, point.y - gesture.startY) > MOVE_SLOP) {
-          gesture.moved = true;
-        }
-        chart.setCrosshair(point);
+        const dx = point.x - gesture.touchStartX;
+        const dy = point.y - gesture.touchStartY;
+        if (Math.hypot(dx, dy) > MOVE_SLOP) gesture.moved = true;
+        const geometry = chart.geometry();
+        chart.setCrosshair({
+          ...point,
+          x: clamp(gesture.crosshairStartX + dx, geometry.left, geometry.right),
+          y: clamp(gesture.crosshairStartY + dy, geometry.top, geometry.bottom),
+          zone: 'plot',
+        });
         redraw();
       } else if (gesture.type === 'price') {
         chart.updatePriceScale(point);
@@ -241,12 +271,17 @@
     }
 
     function onPointerEnd(event) {
-      if (event.pointerType !== 'touch' || !state.pointers.has(event.pointerId)) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
+      if (event.pointerType !== 'touch') return;
+      if (!state.pointers.has(event.pointerId)) {
+        if (state.crosshairPinned) stopEvent(event);
+        return;
+      }
+
+      stopEvent(event);
       const point = state.pointers.get(event.pointerId);
       const finished = state.gesture;
       state.pointers.delete(event.pointerId);
+      state.lastTouchEndAt = performance.now();
       clearHold();
       try {
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
@@ -264,7 +299,9 @@
           }
           state.lastTapAt = now;
         }
-        chart.setCrosshair(point);
+        // Deliberately do not apply the finger's absolute release coordinate.
+        // The final crosshair position is the last relative position calculated
+        // during pointermove and must remain unchanged on pointerup.
       }
 
       if (state.pointers.size >= 2) {
@@ -278,7 +315,10 @@
     }
 
     function onPointerLeave(event) {
-      if (event.pointerType !== 'touch' || !state.crosshairPinned) return;
+      const recentSyntheticMouse =
+        event.pointerType !== 'touch' &&
+        performance.now() - state.lastTouchEndAt < SYNTHETIC_MOUSE_BLOCK_MS;
+      if (!state.crosshairPinned || (event.pointerType !== 'touch' && !recentSyntheticMouse)) return;
       event.stopImmediatePropagation();
       positionPlus();
     }
