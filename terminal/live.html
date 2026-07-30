@@ -9,8 +9,12 @@
   <title>Galka · Hyperliquid LIVE</title>
   <link rel="icon" href="icons/galka-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="live.css?v=2">
-  <link rel="stylesheet" href="live-chart.css?v=1">
-  <script src="vendor/galka-chart.js?v=1"></script>
+  <link rel="stylesheet" href="live-chart.css?v=3">
+  <script src="vendor/galka-chart.js?v=3"></script>
+  <script src="vendor/galka-future-pan.js?v=1"></script>
+  <script src="vendor/galka-relative-crosshair.js?v=2"></script>
+  <script src="vendor/galka-dex-actions.js?v=2"></script>
+  <script src="vendor/galka-touch-actions.js?v=1"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -18,7 +22,7 @@
       <div class="brand"><span class="brand-mark">G</span><span><b>GALKA</b><small>HYPERLIQUID</small></span></div>
       <div class="market-controls">
         <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>SOL</option></select>
-        <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+        <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
       </div>
       <div class="ticker" id="ticker">—</div>
       <a class="mode-link" href="pro.html">PAPER</a>
@@ -27,7 +31,7 @@
 
     <main class="workspace">
       <div id="chart"></div>
-      <div class="watermark" id="watermark">BTC · 15m · HYPERLIQUID</div>
+      <div class="watermark" id="watermark">BTC · 5m · HYPERLIQUID</div>
       <button class="details-button" id="detailsButton" type="button">Счёт</button>
       <div class="loading" id="loading">Загрузка Hyperliquid…</div>
       <div class="toast hidden" id="toast"></div>
@@ -75,5 +79,6 @@
   </div>
 
   <script type="module" src="live.js?v=2"></script>
+  <script type="module" src="vendor/galka-startup-defaults.js?v=2"></script>
 </body>
 </html>
