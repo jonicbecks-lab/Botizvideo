@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#080b10">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Galka · Touch Lab</title>
+  <link rel="stylesheet" href="live-chart.css?v=3">
+  <link rel="stylesheet" href="touch-lab.css?v=1">
+  <script src="vendor/galka-chart.js?v=3"></script>
+  <script src="vendor/galka-future-pan.js?v=1"></script>
+  <script src="vendor/galka-touch-actions.js?v=2"></script>
+</head>
+<body>
+  <div class="touch-lab-shell">
+    <header class="touch-lab-header">
+      <div><b>GALKA TOUCH LAB</b><small>Тест cookie-сессии и фонового сервера · без Hyperliquid и ордеров</small></div>
+      <span id="touchLabServerStatus">CONNECTING</span>
+    </header>
+
+    <main class="touch-lab-workspace">
+      <div id="chart" aria-label="Тестовый свечной график"></div>
+      <div class="touch-lab-watermark">BTC · 5m · SYNTHETIC DATA</div>
+      <output id="touchLabState">Проверка защищённой cookie-сессии…</output>
+      <input id="galkaInput" type="number" disabled hidden aria-hidden="true">
+    </main>
+
+    <footer class="touch-lab-help">
+      <span>Свайп: двигать график</span>
+      <span>Удержание: включить перекрестие</span>
+      <span>Cookie должна пережить восстановление вкладки</span>
+      <span>Сервер работает отдельно от сессии Termux</span>
+    </footer>
+  </div>
+  <script type="module" src="touch-lab.js?v=2"></script>
+</body>
+</html>

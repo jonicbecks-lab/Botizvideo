@@ -127,6 +127,11 @@
       renderDraftAtPrice(state, price);
     });
 
+    chart.canvas.addEventListener('galka:select-price', (event) => {
+      const selectedPrice = Number(event.detail?.price);
+      if (selectedPrice > 0) renderDraftAtPrice(state, selectedPrice);
+    });
+
     const input = document.getElementById('galkaInput');
     const symbol = document.getElementById('symbolSelect');
     if (input) {
