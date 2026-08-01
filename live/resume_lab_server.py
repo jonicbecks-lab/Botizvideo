@@ -4,6 +4,7 @@ import json
 import mimetypes
 import os
 import signal
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -180,7 +181,7 @@ def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), ResumeLabHandler)
 
     def stop_server(_signum: int, _frame: Any) -> None:
-        server.shutdown()
+        threading.Thread(target=server.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGTERM, stop_server)
     signal.signal(signal.SIGINT, stop_server)
