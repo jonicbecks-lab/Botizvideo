@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node scripts/check-terminal.mjs && node scripts/check-mobile-terminal.mjs && node scripts/check-live-terminal.mjs && node scripts/check-pro-terminal.mjs && node scripts/test-final-source-integration.mjs && node scripts/test-legacy-viewer-security.mjs && node scripts/test-galka-store.mjs && node scripts/test-galka-stats.mjs && node scripts/test-shadow-engine.mjs && node scripts/test-paper-engine.mjs && node scripts/test-paper-recovery.mjs && node scripts/test-radar-engine.mjs && node scripts/test-pro-responsive.mjs && node scripts/check-backtest-page.mjs",
+    "check": "node scripts/check-terminal.mjs && node scripts/check-mobile-terminal.mjs && node scripts/check-live-terminal.mjs && node scripts/check-resume-lab.mjs && node scripts/check-pro-terminal.mjs && node scripts/test-final-source-integration.mjs && node scripts/test-legacy-viewer-security.mjs && node scripts/test-galka-store.mjs && node scripts/test-galka-stats.mjs && node scripts/test-shadow-engine.mjs && node scripts/test-paper-engine.mjs && node scripts/test-paper-recovery.mjs && node scripts/test-radar-engine.mjs && node scripts/test-pro-responsive.mjs && node scripts/check-backtest-page.mjs",
     "research:test": "PYTHONPATH=research python -m unittest discover -s research/galka_lab/tests -v",
     "test": "npm run check"
   },

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#080b10">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Galka Resume Lab</title>
+  <link rel="icon" href="icons/galka-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="live.css?v=2">
+  <link rel="stylesheet" href="live-chart.css?v=3">
+  <link rel="stylesheet" href="resume-lab.css?v=1">
+  <script src="vendor/galka-chart.js?v=3"></script>
+  <script src="vendor/galka-future-pan.js?v=1"></script>
+  <script src="vendor/galka-visibility-recovery.js?v=1"></script>
+  <script src="vendor/galka-touch-actions.js?v=2"></script>
+</head>
+<body>
+  <div class="app-shell resume-lab-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">G</span><span><b>GALKA LAB</b><small>RESUME TEST</small></span></div>
+      <div class="market-controls">
+        <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>SOL</option></select>
+        <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+      </div>
+      <div class="ticker" id="ticker">—</div>
+      <span class="live-badge on" id="modeBadge">READ ONLY</span>
+    </header>
+
+    <main class="workspace">
+      <div id="chart"></div>
+      <div class="watermark" id="watermark">BTC · 5m · HYPERLIQUID</div>
+      <div class="resume-panel" aria-live="polite">
+        <b id="resumeState">Загрузка…</b>
+        <small id="resumeDetails">Проверка свежести свечей</small>
+      </div>
+      <div class="loading" id="loading">Загрузка Hyperliquid…</div>
+      <div class="toast hidden" id="toast"></div>
+    </main>
+
+    <section class="resume-bar" aria-label="Состояние Resume Lab">
+      <span><small>Последняя свеча</small><b id="lastCandle">—</b></span>
+      <span><small>Обновлено</small><b id="lastRefresh">—</b></span>
+      <span><small>Возвратов</small><b id="resumeCount">0</b></span>
+      <button id="refreshNow" type="button">Обновить сейчас</button>
+    </section>
+  </div>
+
+  <script type="module" src="resume-lab.js?v=1"></script>
+</body>
+</html>
