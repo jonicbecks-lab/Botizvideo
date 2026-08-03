@@ -54,6 +54,7 @@
       lastTapAt: 0,
       lastTouchEndAt: -Infinity,
     };
+    const crosshairAction = document.getElementById('crosshairGalkaAction');
 
     function clearHold() {
       clearTimeout(state.holdTimer);
@@ -73,6 +74,25 @@
       return range.max - ((y - geometry.top) / geometry.plotHeight) * range.span;
     }
 
+    function formatSelectedPrice(value) {
+      const coin = document.getElementById('symbolSelect')?.value || 'BTC';
+      return Number(value).toFixed(coin === 'SOL' ? 4 : 2);
+    }
+
+    function updateCrosshairAction() {
+      const input = document.getElementById('galkaInput');
+      const price = currentCrosshairPrice();
+      if (!crosshairAction || !state.crosshairPinned || !(Number(price) > 0) || input?.disabled) {
+        crosshairAction?.classList.add('hidden');
+        return;
+      }
+      const formatted = formatSelectedPrice(price);
+      input.value = formatted;
+      crosshairAction.dataset.price = String(price);
+      crosshairAction.textContent = `Поставить GALKA · ${formatted}`;
+      crosshairAction.classList.remove('hidden');
+    }
+
     function positionPlus() {
       const input = document.getElementById('galkaInput');
       if (!state.crosshairPinned || !chart.crosshair || input?.disabled) {
@@ -85,6 +105,7 @@
       overlay.setAttribute('viewBox', `0 0 ${geometry.width} ${geometry.height}`);
       plus.setAttribute('transform', `translate(${x} ${y})`);
       plus.classList.remove('hidden');
+      updateCrosshairAction();
     }
 
     function redraw() {
@@ -107,6 +128,7 @@
       chart.crosshair = null;
       chart.gesture = null;
       chart.setInteractionClass('plot');
+      crosshairAction?.classList.add('hidden');
       redraw();
     }
 
@@ -341,6 +363,27 @@
       event.preventDefault();
       selectCrosshairPrice();
     });
+
+    crosshairAction?.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    crosshairAction?.addEventListener('click', () => {
+      const input = document.getElementById('galkaInput');
+      const preview = document.getElementById('previewButton');
+      const selected = Number(crosshairAction.dataset.price);
+      if (!input || !preview || input.disabled || preview.disabled || !(selected > 0)) return;
+      input.value = formatSelectedPrice(selected);
+      preview.click();
+    });
+
+    const input = document.getElementById('galkaInput');
+    if (input) {
+      new MutationObserver(updateCrosshairAction).observe(input, {
+        attributes: true,
+        attributeFilter: ['disabled'],
+      });
+    }
+    document.getElementById('symbolSelect')?.addEventListener('change', clearPinnedCrosshair);
 
     canvas.addEventListener('pointerdown', onPointerDown, { capture: true, passive: false });
     canvas.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });

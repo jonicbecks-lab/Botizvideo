@@ -70,3 +70,26 @@
 .galka-touch-plus:active .galka-touch-plus-circle {
   fill: #ffb13b;
 }
+
+.crosshair-galka-action {
+  position: absolute;
+  z-index: 18;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  min-width: min(76vw, 310px);
+  height: 52px;
+  padding: 0 18px;
+  border: 1px solid #ffb74d;
+  border-radius: 15px;
+  background: #ff9800;
+  color: #251600;
+  font-weight: 950;
+  font-size: 15px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.48);
+  white-space: nowrap;
+}
+
+.crosshair-galka-action:active {
+  transform: translateX(-50%) scale(0.98);
+}

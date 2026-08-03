@@ -421,7 +421,7 @@ function renderStatus() {
     els.status.className = 'campaign-status idle';
     els.preview.disabled = safeMode;
     els.input.disabled = safeMode;
-    els.preview.textContent = safeMode ? 'SAFE MODE' : 'Проверить';
+    els.preview.textContent = safeMode ? 'SAFE MODE' : 'Поставить GALKA';
   } else {
     const filled = (campaign.levels || []).filter((level) =>
       ['filled', 'partial'].includes(level.status)).length;
@@ -522,7 +522,7 @@ async function previewGalka() {
   } finally {
     const safeMode = !!runtime.status?.system?.safeMode;
     els.preview.disabled = !!currentCampaign() || safeMode;
-    els.preview.textContent = currentCampaign() ? 'Активна' : (safeMode ? 'SAFE MODE' : 'Проверить');
+    els.preview.textContent = currentCampaign() ? 'Активна' : (safeMode ? 'SAFE MODE' : 'Поставить GALKA');
   }
 }
 
