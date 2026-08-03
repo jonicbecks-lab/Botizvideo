@@ -176,7 +176,7 @@ class FakeGateway:
             "response": {"type": "cancel", "data": {"statuses": ["success"] * len(oids)}},
         }
 
-    def emergency_market_close(self, coin, cloid=None):
+    def emergency_market_close(self, coin, cloid=None, *, size=None, slippage=0.02):
         if self.reject_emergency:
             raise GatewayError("market close rejected")
         self.position_sizes[coin] = 0.0
@@ -359,11 +359,37 @@ class LiveEngineTests(unittest.TestCase):
         self.assertEqual(cancelled["status"], "canceled")
         self.assertEqual(self.gateway.open_orders("ETH"), [])
 
-    def test_only_one_live_campaign_can_be_active(self):
+    def test_three_distinct_live_campaigns_can_be_active(self):
         self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
-        with self.assertRaisesRegex(LiveEngineError, "только одну"):
-            self.engine.create_campaign("ETH", 2_900, "PLACE_REAL_ORDERS")
-        self.assertIsNone(self.active("ETH"))
+        self.engine.create_campaign("ETH", 2_900, "PLACE_REAL_ORDERS")
+        self.engine.create_campaign("SOL", 140, "PLACE_REAL_ORDERS")
+
+        self.assertIsNotNone(self.active("BTC"))
+        self.assertIsNotNone(self.active("ETH"))
+        self.assertIsNotNone(self.active("SOL"))
+        self.assertEqual(len(self.engine._active_campaigns_locked()), 3)
+
+    def test_second_campaign_for_same_coin_is_rejected(self):
+        self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
+        with self.assertRaisesRegex(LiveEngineError, "Для каждой монеты"):
+            self.engine.create_campaign("BTC", 60_100, "PLACE_REAL_ORDERS")
+
+    def test_cancel_one_campaign_does_not_touch_other_coins(self):
+        self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
+        self.engine.create_campaign("ETH", 2_900, "PLACE_REAL_ORDERS")
+        eth_oids = {row["oid"] for row in self.gateway.open_orders("ETH")}
+
+        self.engine.cancel_waiting_campaign("BTC")
+
+        self.assertEqual({row["oid"] for row in self.gateway.open_orders("ETH")}, eth_oids)
+        self.assertIsNotNone(self.active("ETH"))
+
+    def test_aggregate_reserved_margin_is_enforced(self):
+        limited = LiveConfig(**{**self.config.__dict__, "max_margin_fraction": 0.10})
+        engine = GalkaLiveEngine(limited, self.gateway)
+        engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
+        with self.assertRaisesRegex(LiveEngineError, "Общий риск-лимит"):
+            engine.create_campaign("ETH", 2_900, "PLACE_REAL_ORDERS")
 
     def test_cancel_race_enters_recovery_and_keeps_protection(self):
         self.engine.create_campaign("BTC", 60_000, "PLACE_REAL_ORDERS")
