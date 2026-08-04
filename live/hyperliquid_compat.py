@@ -1,8 +1,8 @@
 """Compatibility wrappers with latency diagnostics.
 
-Trading behavior stays in the hardened base gateway and engine.  This module only
-records monotonic timings for placement/cancellation so slow stages can be found
-without changing order semantics.
+Trading behavior stays in the hardened base gateway and engine. This module only
+records monotonic timings for placement/cancellation and avoids repeating an
+already-confirmed leverage write within the same server process.
 """
 
 from __future__ import annotations
@@ -12,14 +12,14 @@ import time
 from copy import deepcopy
 from typing import Any, Callable, TypeVar
 
-from .engine import GalkaLiveEngine, LiveEngineError, now_iso
+from .engine import GalkaLiveEngine, now_iso
 from .hyperliquid_gateway import HyperliquidGateway
 
 T = TypeVar("T")
 
 
 class CompatibleHyperliquidGateway(HyperliquidGateway):
-    """Hardened gateway plus per-operation monotonic timing collection."""
+    """Hardened gateway plus timing collection and conservative leverage caching."""
 
     def __init__(self, config: Any):
         super().__init__(config)
@@ -27,6 +27,8 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         self._trace_name: str | None = None
         self._trace_started = 0.0
         self._trace_rows: list[dict[str, Any]] = []
+        self._confirmed_leverage: set[str] = set()
+        self._leverage_lock = threading.RLock()
 
     def begin_trace(self, name: str) -> None:
         with self._trace_lock:
@@ -61,7 +63,24 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
                     self._trace_rows.append({"stage": label, "ms": elapsed_ms, "ok": ok})
 
     def set_leverage(self, coin: str) -> dict[str, Any]:
-        return self._timed("set_leverage", lambda: super(CompatibleHyperliquidGateway, self).set_leverage(coin))
+        normalized = self._coin(coin)
+        with self._leverage_lock:
+            if normalized in self._confirmed_leverage:
+                return self._timed(
+                    "set_leverage_cached",
+                    lambda: {
+                        "status": "ok",
+                        "response": {"type": "default", "data": {"cached": True}},
+                    },
+                )
+            response = self._timed(
+                "set_leverage",
+                lambda: super(CompatibleHyperliquidGateway, self).set_leverage(normalized),
+            )
+            # Cache only after Hyperliquid has accepted the write. A server restart
+            # intentionally clears this memory and confirms leverage again.
+            self._confirmed_leverage.add(normalized)
+            return response
 
     def place_entry_with_target(
         self,
