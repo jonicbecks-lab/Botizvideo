@@ -16,8 +16,11 @@ from urllib.parse import urlparse
 
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
 from .hyperliquid_gateway import GatewayError
+from .hyperliquid_safe_compat import (
+    SafeCompatibleGalkaLiveEngine,
+    SafeCompatibleHyperliquidGateway,
+)
 from .server import GalkaRequestHandler, LiveProcessLock
 
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60
@@ -163,7 +166,7 @@ class PersistentGalkaRequestHandler(GalkaRequestHandler):
 
 def main() -> int:
     lock: LiveProcessLock | None = None
-    engine: CompatibleGalkaLiveEngine | None = None
+    engine: SafeCompatibleGalkaLiveEngine | None = None
     server: ThreadingHTTPServer | None = None
     pid_file: Path | None = None
     try:
@@ -177,8 +180,8 @@ def main() -> int:
 
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = CompatibleHyperliquidGateway(config)
-        engine = CompatibleGalkaLiveEngine(config, gateway)
+        gateway = SafeCompatibleHyperliquidGateway(config)
+        engine = SafeCompatibleGalkaLiveEngine(config, gateway)
         PersistentGalkaRequestHandler.engine = engine
         PersistentGalkaRequestHandler.session_token = token
         PersistentGalkaRequestHandler.server_port = config.port
