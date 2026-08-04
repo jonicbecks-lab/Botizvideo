@@ -8,6 +8,25 @@
   const MIN_WIDTH = 120;
   const MIN_HEIGHT = 180;
   const RETRY_DELAYS = [0, 60, 250, 1000];
+  const MARKET_REFRESH_AFTER_MS = 20_000;
+
+  let hiddenAt = document.visibilityState === 'hidden' ? Date.now() : 0;
+  let lastMarketRefreshAt = 0;
+
+  function refreshMarketData(reason, force = false) {
+    if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (!force && now - lastMarketRefreshAt < 5_000) return;
+
+    const interval = document.getElementById('intervalSelect');
+    if (!interval || interval.disabled) return;
+
+    lastMarketRefreshAt = now;
+    interval.dispatchEvent(new Event('change', { bubbles: true }));
+    window.dispatchEvent(new CustomEvent('galka:market-recovery', {
+      detail: { reason, at: now },
+    }));
+  }
 
   function installRecovery(chart, container) {
     if (!chart || chart.__galkaVisibilityRecoveryInstalled) return chart;
@@ -31,7 +50,7 @@
       originalResize();
     };
 
-    const recover = () => {
+    const recover = (reason = 'layout', forceMarketRefresh = false) => {
       if (document.visibilityState !== 'visible') return;
       for (const delay of RETRY_DELAYS) {
         setTimeout(() => {
@@ -39,18 +58,34 @@
           requestAnimationFrame(() => chart.resize());
         }, delay);
       }
+      if (forceMarketRefresh) {
+        setTimeout(() => refreshMarketData(reason, true), 80);
+      }
     };
 
-    window.addEventListener('pageshow', recover, { passive: true });
-    window.addEventListener('resize', recover, { passive: true });
-    window.addEventListener('orientationchange', recover, { passive: true });
+    window.addEventListener('pageshow', (event) => {
+      recover('pageshow', Boolean(event.persisted));
+    }, { passive: true });
+    window.addEventListener('focus', () => {
+      const sleptLongEnough = hiddenAt > 0 && Date.now() - hiddenAt >= MARKET_REFRESH_AFTER_MS;
+      recover('focus', sleptLongEnough);
+      hiddenAt = 0;
+    }, { passive: true });
+    window.addEventListener('resize', () => recover('resize'), { passive: true });
+    window.addEventListener('orientationchange', () => recover('orientationchange'), { passive: true });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') recover();
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      const sleptLongEnough = hiddenAt > 0 && Date.now() - hiddenAt >= MARKET_REFRESH_AFTER_MS;
+      recover('visibilitychange', sleptLongEnough);
+      hiddenAt = 0;
     });
-    window.visualViewport?.addEventListener('resize', recover, { passive: true });
+    window.visualViewport?.addEventListener('resize', () => recover('viewport-resize'), { passive: true });
 
-    new ResizeObserver(() => recover()).observe(container);
-    recover();
+    new ResizeObserver(() => recover('container-resize')).observe(container);
+    recover('startup');
     return chart;
   }
 
