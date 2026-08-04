@@ -50,7 +50,7 @@ class LiveConfig:
     config_path: Path
     data_dir: Path
     request_timeout: float = 8.0
-    max_margin_fraction: float = 0.60
+    max_margin_fraction: float = 0.95
     maker_fee_rate: float = 0.00015
     taker_fee_rate: float = 0.00045
     monitor_interval: float = 6.0
@@ -171,17 +171,17 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     if leverage < 1 or leverage > 10:
         raise ConfigError("HL_LEVERAGE must be between 1 and 10")
 
-    total_notional = _finite_float(values, "HL_TOTAL_NOTIONAL", "200")
-    if total_notional < 80 or total_notional > 1000:
-        raise ConfigError("HL_TOTAL_NOTIONAL must be between $80 and $1000")
+    total_notional = _finite_float(values, "HL_TOTAL_NOTIONAL", "2000")
+    if total_notional < 80 or total_notional > 5000:
+        raise ConfigError("HL_TOTAL_NOTIONAL must be between $80 and $5000")
 
     request_timeout = _finite_float(values, "HL_REQUEST_TIMEOUT", "8")
     if request_timeout < 2 or request_timeout > 30:
         raise ConfigError("HL_REQUEST_TIMEOUT must be between 2 and 30 seconds")
 
-    max_margin_fraction = _finite_float(values, "HL_MAX_MARGIN_FRACTION", "0.60")
-    if max_margin_fraction < 0.10 or max_margin_fraction > 0.90:
-        raise ConfigError("HL_MAX_MARGIN_FRACTION must be between 0.10 and 0.90")
+    max_margin_fraction = _finite_float(values, "HL_MAX_MARGIN_FRACTION", "0.95")
+    if max_margin_fraction < 0.10 or max_margin_fraction > 0.97:
+        raise ConfigError("HL_MAX_MARGIN_FRACTION must be between 0.10 and 0.97")
 
     maker_fee_rate = _finite_float(values, "HL_MAKER_FEE_RATE", "0.00015")
     taker_fee_rate = _finite_float(values, "HL_TAKER_FEE_RATE", "0.00045")
