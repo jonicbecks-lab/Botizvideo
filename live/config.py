@@ -171,7 +171,7 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     if leverage < 1 or leverage > 10:
         raise ConfigError("HL_LEVERAGE must be between 1 and 10")
 
-    total_notional = _finite_float(values, "HL_TOTAL_NOTIONAL", "150")
+    total_notional = _finite_float(values, "HL_TOTAL_NOTIONAL", "200")
     if total_notional < 80 or total_notional > 1000:
         raise ConfigError("HL_TOTAL_NOTIONAL must be between $80 and $1000")
 
