@@ -48,6 +48,17 @@ class LiveConfigTests(unittest.TestCase):
         self.assertEqual(config.taker_fee_rate, 0.00045)
         self.assertEqual(config.monitor_interval, 6.0)
         self.assertEqual(config.global_check_interval, 30.0)
+        self.assertIsNone(config.app_read_only_token)
+
+    def test_read_only_token_is_optional_but_requires_entropy(self):
+        config = load_config(self.write_config({"GALKA_APP_READ_ONLY_TOKEN": "x" * 40}))
+        self.assertEqual(config.app_read_only_token, "x" * 40)
+        with self.assertRaisesRegex(ConfigError, "at least 32"):
+            load_config(self.write_config({"GALKA_APP_READ_ONLY_TOKEN": "too-short"}))
+
+    def test_app_origin_must_remain_loopback(self):
+        with self.assertRaisesRegex(ConfigError, "loopback"):
+            load_config(self.write_config({"GALKA_APP_ALLOWED_ORIGIN": "https://public.example"}))
 
     def test_nan_and_infinity_are_rejected(self):
         for key, value in [
