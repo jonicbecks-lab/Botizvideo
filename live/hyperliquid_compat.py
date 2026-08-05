@@ -23,6 +23,9 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         self._trace_name: str | None = None
         self._trace_started = 0.0
         self._trace_rows: list[dict[str, Any]] = []
+        self._trace_account_reads = 0
+        self._trace_account_snapshot: dict[str, Any] | None = None
+        self._trace_account_snapshot_at = 0.0
         self._confirmed_leverage: set[str] = set()
         self._leverage_lock = threading.RLock()
 
@@ -31,6 +34,9 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
             self._trace_name = name
             self._trace_started = time.monotonic()
             self._trace_rows = []
+            self._trace_account_reads = 0
+            self._trace_account_snapshot = None
+            self._trace_account_snapshot_at = 0.0
 
     def finish_trace(self) -> dict[str, Any]:
         with self._trace_lock:
@@ -39,6 +45,9 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
             self._trace_name = None
             self._trace_started = 0.0
             self._trace_rows = []
+            self._trace_account_reads = 0
+            self._trace_account_snapshot = None
+            self._trace_account_snapshot_at = 0.0
             return result
 
     def _timed(self, label: str, action: Callable[[], T]) -> T:
@@ -109,7 +118,26 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         )
 
     def fresh_account_state(self) -> dict[str, Any]:
-        return self._timed("fresh_account_state", lambda: super(CompatibleHyperliquidGateway, self).fresh_account_state())
+        # create_campaign reads the account once in preview and immediately once
+        # again in preflight. Reuse only that second read inside the same trace;
+        # the post-order verification remains a real fresh venue read.
+        with self._trace_lock:
+            trace_name = self._trace_name
+            read_no = self._trace_account_reads
+            snapshot = self._trace_account_snapshot
+            snapshot_age = time.monotonic() - self._trace_account_snapshot_at
+            self._trace_account_reads += 1
+        if trace_name == "create_campaign" and read_no == 1 and snapshot is not None and snapshot_age < 2.0:
+            return self._timed("fresh_account_state_reused", lambda: deepcopy(snapshot))
+        result = self._timed(
+            "fresh_account_state",
+            lambda: super(CompatibleHyperliquidGateway, self).fresh_account_state(),
+        )
+        if trace_name == "create_campaign" and read_no == 0:
+            with self._trace_lock:
+                self._trace_account_snapshot = deepcopy(result)
+                self._trace_account_snapshot_at = time.monotonic()
+        return result
 
     def fresh_open_orders(self, coin: str | None = None) -> list[dict[str, Any]]:
         suffix = coin or "all"
@@ -123,9 +151,11 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
 
 
 class CompatibleGalkaLiveEngine(GalkaLiveEngine):
-    """Base hardened engine with latency reports and a controlled manual exit."""
+    """Base hardened engine with latency reports and controlled recovery grace."""
 
     _NEAR_MARKET_STEPS = {"BTC": 1.0, "ETH": 0.10, "SOL": 0.01}
+    _MISMATCH_CONFIRMATIONS = 3
+    _MISMATCH_GRACE_SECONDS = 10.0
 
     def _record_latency(self, operation: str, coin: str, trace: dict[str, Any], success: bool) -> None:
         stages = trace.get("stages") or []
@@ -145,6 +175,148 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
                 "time": now_iso(), "operation": operation, "coin": coin, "success": success, **trace
             }
             self._save_locked()
+
+    def _campaign_snapshot_locked(self, campaign: dict[str, Any], reason: str) -> dict[str, Any]:
+        levels = []
+        for level in campaign.get("levels", []):
+            levels.append(
+                {
+                    "index": level.get("index"),
+                    "requestedSize": level.get("size"),
+                    "filledSize": level.get("filledSize"),
+                    "averageFillPrice": level.get("averageFillPrice"),
+                    "status": level.get("status"),
+                }
+            )
+        return {
+            "time": now_iso(),
+            "campaignId": campaign.get("id"),
+            "coin": campaign.get("coin"),
+            "reason": reason,
+            "status": campaign.get("status"),
+            "galkaPrice": campaign.get("galkaPrice"),
+            "actualPositionSize": campaign.get("actualPositionSize"),
+            "managedNetSize": campaign.get("managedNetSize"),
+            "cycleDeepest": campaign.get("cycleDeepest"),
+            "l1Cycles": campaign.get("l1Cycles"),
+            "l1RealizedPnl": campaign.get("l1RealizedPnl"),
+            "cycleClosedPnl": campaign.get("cycleClosedPnl"),
+            "cycleFees": campaign.get("cycleFees"),
+            "levels": levels,
+        }
+
+    def _append_campaign_journal_locked(self, campaign: dict[str, Any], reason: str) -> None:
+        journal = self.state.setdefault("campaignJournal", [])
+        journal.append(self._campaign_snapshot_locked(campaign, reason))
+        del journal[:-200]
+
+    def _clear_mismatch_candidate_locked(self, campaign: dict[str, Any]) -> None:
+        campaign.pop("mismatchCandidate", None)
+
+    def _refresh_owned_fill_state(self, campaign: dict[str, Any]) -> tuple[float, list[dict[str, Any]]]:
+        coin = campaign["coin"]
+        cursor = max(0, int(campaign.get("fillCursorMs") or campaign["createdMs"] - 60_000))
+        fills = [row for row in self.gateway.fills_since(cursor) if row.get("coin") == coin]
+        prepared = self._prepare_fill_owners(campaign, fills)
+        account = self.gateway.fresh_account_state()
+        open_orders = self.gateway.fresh_open_orders(coin)
+        with self.lock:
+            self._register_delayed_orders(campaign, open_orders)
+            self._apply_new_fills(campaign, prepared)
+            actual = self._position_size(account, coin)
+            campaign["actualPositionSize"] = actual
+            campaign["updatedAt"] = now_iso()
+            self._save_locked()
+        return actual, open_orders
+
+    def _enter_recovery(
+        self,
+        campaign: dict[str, Any],
+        reason: str,
+        actual_size: float,
+        open_orders: list[dict[str, Any]],
+    ) -> None:
+        # Position and fills are delivered by separate Hyperliquid reads. A TP can
+        # close a partial level before its sell fill appears in the next fills
+        # response. Treat a plain size mismatch as provisional, re-read the venue,
+        # and recover only after repeated independent confirmations.
+        if reason.startswith("Расхождение позиции:") and campaign.get("status") != "recovery":
+            now = time.monotonic()
+            with self.lock:
+                candidate = campaign.get("mismatchCandidate") or {
+                    "firstMonotonic": now,
+                    "confirmations": 0,
+                    "reason": reason,
+                }
+                candidate["confirmations"] = int(candidate.get("confirmations") or 0) + 1
+                candidate["lastReason"] = reason
+                candidate["lastActual"] = actual_size
+                candidate["lastManaged"] = float(campaign.get("managedNetSize") or 0)
+                campaign["mismatchCandidate"] = candidate
+                self._event_locked(
+                    "risk",
+                    f"{campaign['coin']}: временное расхождение позиции; выполняется повторная сверка",
+                    campaignId=campaign["id"],
+                    actual=actual_size,
+                    managed=campaign.get("managedNetSize"),
+                    confirmation=candidate["confirmations"],
+                )
+                self._save_locked()
+
+            try:
+                refreshed_actual, refreshed_orders = self._refresh_owned_fill_state(campaign)
+            except Exception as exc:
+                refreshed_actual, refreshed_orders = actual_size, open_orders
+                with self.lock:
+                    campaign["lastError"] = f"Повторная сверка расхождения: {exc}"
+                    self._save_locked()
+
+            with self.lock:
+                managed = float(campaign.get("managedNetSize") or 0)
+                tolerance = self._size_tolerance(campaign["coin"])
+                candidate = campaign.get("mismatchCandidate") or {}
+                confirmations = int(candidate.get("confirmations") or 0)
+                elapsed = now - float(candidate.get("firstMonotonic") or now)
+                resolved = abs(refreshed_actual - managed) <= tolerance
+                if resolved:
+                    self._clear_mismatch_candidate_locked(campaign)
+                    campaign["lastError"] = None
+                    self._event_locked(
+                        "live",
+                        f"{campaign['coin']}: временное расхождение устранено повторной сверкой",
+                        campaignId=campaign["id"],
+                        actual=refreshed_actual,
+                        managed=managed,
+                    )
+                    self._save_locked()
+                    return
+                should_recover = (
+                    confirmations >= self._MISMATCH_CONFIRMATIONS
+                    or elapsed >= self._MISMATCH_GRACE_SECONDS
+                )
+                if not should_recover:
+                    campaign["lastError"] = (
+                        f"Ожидание подтверждения позиции: биржа {refreshed_actual:g}, "
+                        f"GALKA {managed:g}"
+                    )
+                    self._save_locked()
+                    try:
+                        if refreshed_actual > tolerance:
+                            self._ensure_target_coverage(campaign, refreshed_orders, refreshed_actual)
+                    except Exception as exc:
+                        campaign["lastError"] = f"Временное расхождение; target: {exc}"
+                        self._save_locked()
+                    return
+                reason = (
+                    f"Устойчивое расхождение после {confirmations} сверок: "
+                    f"биржа {refreshed_actual:g}, GALKA {managed:g}"
+                )
+                actual_size = refreshed_actual
+                open_orders = refreshed_orders
+                self._append_campaign_journal_locked(campaign, reason)
+                self._save_locked()
+
+        super()._enter_recovery(campaign, reason, actual_size, open_orders)
 
     def create_campaign(self, coin: str, galka_price: float, confirmation: str) -> dict[str, Any]:
         normalized = self._coin(coin)
