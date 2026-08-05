@@ -77,6 +77,30 @@ bash scripts/start-galka-live.sh
 
 URL каждой сессии содержит случайный token во фрагменте. Launcher передаёт его браузеру, JavaScript удаляет token из адресной строки и затем отправляет через `X-Galka-Session`.
 
+## Мобильный read-only API
+
+API приложения отключён, пока в приватном файле `~/.config/galka-live.env` не задан отдельный токен:
+
+```bash
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+chmod 600 ~/.config/galka-live.env
+```
+
+Полученное значение добавляется как `GALKA_APP_READ_ONLY_TOKEN`. Оно не должно совпадать с URL/session token браузера или `HL_API_SECRET_KEY`. Заголовок мобильного клиента — `X-Galka-App-Token`. Сервер принимает его только для `GET /api/app/snapshot`, `GET /api/app/candles` и `GET /api/app/events`; любые изменяющие методы под `/api/app/*` возвращают `405`, а существующие `/api/live/*` по-прежнему требуют `X-Galka-Session`.
+
+Engine остаётся на `127.0.0.1:8098`. Expo Go, запущенный на том же Android-устройстве, обращается к `http://127.0.0.1:8098`; порт не публикуется в Wi-Fi или интернет. Native-fetch не требует CORS. Для локального web-preview можно отдельно задать только loopback-origin, например `GALKA_APP_ALLOWED_ORIGIN=http://127.0.0.1:19006`; wildcard CORS не используется и торговые маршруты не получают новых CORS-заголовков.
+
+Лимиты на один loopback-клиент: snapshot — 5 запросов/сек., candles — 2/сек., events — 5/сек. Максимумы: 1000 свечей и 200 событий. Пример безопасного чтения:
+
+```bash
+curl -H "X-Galka-App-Token: $GALKA_APP_READ_ONLY_TOKEN" \
+  'http://127.0.0.1:8098/api/app/snapshot'
+curl -H "X-Galka-App-Token: $GALKA_APP_READ_ONLY_TOKEN" \
+  'http://127.0.0.1:8098/api/app/candles?coin=BTC&interval=15m&limit=300'
+```
+
+API проецирует уже рассчитанное состояние Engine и существующий слой свечей/ордеров. Он не содержит торговых расчётов, не подписывает транзакции и не вызывает order/cancel/leverage/recovery.
+
 ## Безопасный порядок допуска к LIVE
 
 1. Установить обновление и принудительно оставить `HL_LIVE_ENABLED=NO`.
