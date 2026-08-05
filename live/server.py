@@ -339,7 +339,12 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             since = query.get("since", [None])[0]
             events = sanitize_events(self.engine.status().get("events") or [])
             if since:
-                events = [event for event in events if event["id"] > since and str(event.get("timestamp") or "") > since]
+                matching = next((index for index, event in enumerate(events) if event["id"] == since), None)
+                if matching is not None:
+                    events = events[matching + 1:]
+                else:
+                    since_ms = parse_timestamp(since)
+                    events = [event for event in events if parse_timestamp(str(event.get("timestamp") or "")) and parse_timestamp(str(event.get("timestamp") or "")) > since_ms]
             return self._app_json(HTTPStatus.OK, {"ok": True, "data": events[-limit:]})
         except (TypeError, ValueError):
             return self._app_error(HTTPStatus.BAD_REQUEST, "Invalid read-only request parameters")

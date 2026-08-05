@@ -153,6 +153,14 @@ class LiveServerSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertNotIn("meta", json.loads(body)["data"][0])
 
+    def test_events_since_accepts_event_id_and_timestamp(self):
+        headers = self.app_headers("r" * 40)
+        _, _, body = self.request("GET", "/api/app/events", headers=headers)
+        event = json.loads(body)["data"][0]
+        status, _, body = self.request("GET", f"/api/app/events?since={event['id']}", headers=headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["data"], [])
+
     def test_app_rate_limit_returns_429_without_engine_mutation(self):
         GalkaRequestHandler.app_rate_limiter = SlidingWindowRateLimiter()
         statuses = [self.request("GET", "/api/app/snapshot", headers=self.app_headers("r" * 40))[0] for _ in range(6)]
