@@ -1,4 +1,4 @@
-"""Compatibility wrappers with latency diagnostics and manual near-market exit."""
+"""Compatibility wrappers with latency diagnostics, fast batch placement and manual exit."""
 
 from __future__ import annotations
 
@@ -8,14 +8,19 @@ from copy import deepcopy
 from typing import Any, Callable, TypeVar
 
 from .engine import GalkaLiveEngine, LiveEngineError, new_cloid, now_iso
-from .hyperliquid_gateway import GatewayError, HyperliquidGateway
-from .live_ladder import round_perp_price, round_size_down
+from .hyperliquid_gateway import (
+    EntryWithTarget,
+    GatewayError,
+    HyperliquidGateway,
+    PlacedOrder,
+)
+from .live_ladder import LadderLevel, round_perp_price, round_size_down
 
 T = TypeVar("T")
 
 
 class CompatibleHyperliquidGateway(HyperliquidGateway):
-    """Hardened gateway plus diagnostics and conservative leverage caching."""
+    """Hardened gateway with diagnostics, batch placement and best-effort WS invalidation."""
 
     def __init__(self, config: Any):
         super().__init__(config)
@@ -28,6 +33,53 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         self._trace_account_snapshot_at = 0.0
         self._confirmed_leverage: set[str] = set()
         self._leverage_lock = threading.RLock()
+        self._ws_ready = False
+        self._ws_error: str | None = None
+        self._ws_event = threading.Event()
+        self._ws_info: Any | None = None
+        threading.Thread(
+            target=self._start_ws_best_effort,
+            name="galka-hyperliquid-ws",
+            daemon=True,
+        ).start()
+
+    def _start_ws_best_effort(self) -> None:
+        """Subscribe to user events. HTTP remains authoritative if SDK WS is unavailable."""
+        try:
+            from hyperliquid.info import Info
+
+            info = Info(
+                self.base_url,
+                skip_ws=False,
+                timeout=self.config.request_timeout,
+            )
+            user = self.config.account_address
+            subscriptions = (
+                {"type": "orderUpdates", "user": user},
+                {"type": "userFills", "user": user},
+                {"type": "webData2", "user": user},
+            )
+            subscribed = 0
+            for subscription in subscriptions:
+                try:
+                    info.subscribe(subscription, self._on_ws_event)
+                    subscribed += 1
+                except Exception:
+                    continue
+            if subscribed:
+                self._ws_info = info
+                self._ws_ready = True
+            else:
+                self._ws_error = "SDK did not accept user subscriptions"
+        except Exception as exc:
+            self._ws_error = f"{type(exc).__name__}: {exc}"
+
+    def _on_ws_event(self, *_args: Any, **_kwargs: Any) -> None:
+        self._invalidate("open_orders", "account_state")
+        self._ws_event.set()
+
+    def websocket_status(self) -> dict[str, Any]:
+        return {"ready": self._ws_ready, "error": self._ws_error}
 
     def begin_trace(self, name: str) -> None:
         with self._trace_lock:
@@ -40,8 +92,17 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
 
     def finish_trace(self) -> dict[str, Any]:
         with self._trace_lock:
-            total_ms = round((time.monotonic() - self._trace_started) * 1000, 1) if self._trace_started else 0.0
-            result = {"name": self._trace_name, "totalMs": total_ms, "stages": deepcopy(self._trace_rows)}
+            total_ms = (
+                round((time.monotonic() - self._trace_started) * 1000, 1)
+                if self._trace_started
+                else 0.0
+            )
+            result = {
+                "name": self._trace_name,
+                "totalMs": total_ms,
+                "stages": deepcopy(self._trace_rows),
+                "websocket": self.websocket_status(),
+            }
             self._trace_name = None
             self._trace_started = 0.0
             self._trace_rows = []
@@ -61,7 +122,9 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
             elapsed_ms = round((time.monotonic() - started) * 1000, 1)
             with self._trace_lock:
                 if self._trace_name is not None:
-                    self._trace_rows.append({"stage": label, "ms": elapsed_ms, "ok": ok})
+                    self._trace_rows.append(
+                        {"stage": label, "ms": elapsed_ms, "ok": ok}
+                    )
 
     def set_leverage(self, coin: str) -> dict[str, Any]:
         normalized = self._coin(coin)
@@ -69,16 +132,117 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
             if normalized in self._confirmed_leverage:
                 return self._timed(
                     "set_leverage_cached",
-                    lambda: {"status": "ok", "response": {"type": "default", "data": {"cached": True}}},
+                    lambda: {
+                        "status": "ok",
+                        "response": {
+                            "type": "default",
+                            "data": {"cached": True},
+                        },
+                    },
                 )
             response = self._timed(
                 "set_leverage",
-                lambda: super(CompatibleHyperliquidGateway, self).set_leverage(normalized),
+                lambda: super(CompatibleHyperliquidGateway, self).set_leverage(
+                    normalized
+                ),
             )
             self._confirmed_leverage.add(normalized)
             return response
 
-    def place_entry_with_target(self, coin: str, level: Any, galka_price: float, entry_cloid: str | None = None, target_cloid: str | None = None) -> Any:
+    def place_ladder_batch(
+        self,
+        coin: str,
+        levels: list[LadderLevel],
+        galka_price: float,
+        entry_cloids: list[str],
+        target_cloids: list[str],
+    ) -> list[EntryWithTarget]:
+        """Place all 8 entries and all 8 independent reduce-only TP triggers in one action."""
+        self._require_live_write("place complete GALKA batch")
+        normalized = self._coin(coin)
+        if len(levels) != len(entry_cloids) or len(levels) != len(target_cloids):
+            raise GatewayError("Batch cloid/level count mismatch")
+        target = round_perp_price(float(galka_price), self.sz_decimals(normalized))
+        requests: list[dict[str, Any]] = []
+        order_levels: list[LadderLevel | None] = []
+        order_cloids: list[str | None] = []
+        for level, entry_cloid, target_cloid in zip(levels, entry_cloids, target_cloids):
+            requests.append(
+                {
+                    "coin": normalized,
+                    "is_buy": True,
+                    "sz": level.size,
+                    "limit_px": level.price,
+                    "order_type": {"limit": {"tif": "Alo"}},
+                    "reduce_only": False,
+                    "cloid": self._cloid(entry_cloid),
+                }
+            )
+            order_levels.append(level)
+            order_cloids.append(entry_cloid)
+            requests.append(
+                {
+                    "coin": normalized,
+                    "is_buy": False,
+                    "sz": level.size,
+                    "limit_px": target,
+                    "order_type": {
+                        "trigger": {
+                            "isMarket": False,
+                            "triggerPx": target,
+                            "tpsl": "tp",
+                        }
+                    },
+                    "reduce_only": True,
+                    "cloid": self._cloid(target_cloid),
+                }
+            )
+            order_levels.append(None)
+            order_cloids.append(target_cloid)
+
+        def submit() -> list[EntryWithTarget]:
+            with self._io_lock:
+                response = self.exchange.bulk_orders(requests, grouping="na")
+            self._invalidate("open_orders", "account_state")
+            rows = self._parse_order_response(response, order_levels, order_cloids)
+            if len(rows) != len(requests):
+                raise GatewayError(f"Incomplete batch response: {len(rows)}/{len(requests)}")
+            pairs: list[EntryWithTarget] = []
+            for index, level in enumerate(levels):
+                entry = rows[index * 2]
+                target_order = rows[index * 2 + 1]
+                pairs.append(
+                    EntryWithTarget(
+                        entry=PlacedOrder(
+                            oid=entry.oid,
+                            status=entry.status,
+                            level=level.index,
+                            price=level.price,
+                            size=level.size,
+                            cloid=entry_cloids[index],
+                        ),
+                        target=PlacedOrder(
+                            oid=target_order.oid,
+                            status=target_order.status,
+                            level=level.index,
+                            price=target,
+                            size=level.size,
+                            cloid=target_cloids[index],
+                        ),
+                    )
+                )
+            return pairs
+
+        return self._timed("batch_place_16", submit)
+
+    def place_entry_with_target(
+        self,
+        coin: str,
+        level: Any,
+        galka_price: float,
+        entry_cloid: str | None = None,
+        target_cloid: str | None = None,
+    ) -> Any:
         index = int(getattr(level, "index", 0) or 0)
         return self._timed(
             f"place_L{index}_with_TP",
@@ -88,7 +252,6 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         )
 
     def place_post_only_reduce_sell(self, coin: str, quantity: float, price: float, cloid: str) -> Any:
-        """Place one maker-only reduce-only sell. It can never open a short."""
         self._require_live_write("place near-market reduce-only exit")
         normalized = self._coin(coin)
         size = round_size_down(abs(float(quantity)), self.sz_decimals(normalized))
@@ -118,9 +281,6 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         )
 
     def fresh_account_state(self) -> dict[str, Any]:
-        # create_campaign reads the account once in preview and immediately once
-        # again in preflight. Reuse only that second read inside the same trace;
-        # the post-order verification remains a real fresh venue read.
         with self._trace_lock:
             trace_name = self._trace_name
             read_no = self._trace_account_reads
@@ -147,11 +307,14 @@ class CompatibleHyperliquidGateway(HyperliquidGateway):
         )
 
     def fills_since(self, start_ms: int) -> list[dict[str, Any]]:
-        return self._timed("fills_since", lambda: super(CompatibleHyperliquidGateway, self).fills_since(start_ms))
+        return self._timed(
+            "fills_since",
+            lambda: super(CompatibleHyperliquidGateway, self).fills_since(start_ms),
+        )
 
 
 class CompatibleGalkaLiveEngine(GalkaLiveEngine):
-    """Base hardened engine with latency reports and controlled recovery grace."""
+    """Base hardened engine with batch placement and controlled recovery grace."""
 
     _NEAR_MARKET_STEPS = {"BTC": 1.0, "ETH": 0.10, "SOL": 0.01}
     _MISMATCH_CONFIRMATIONS = 3
@@ -160,48 +323,61 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
     def _record_latency(self, operation: str, coin: str, trace: dict[str, Any], success: bool) -> None:
         stages = trace.get("stages") or []
         slowest = sorted(stages, key=lambda row: float(row.get("ms") or 0), reverse=True)[:5]
-        summary = " · ".join(f"{row.get('stage')} {float(row.get('ms') or 0):.0f} ms" for row in slowest) or "нет сетевых этапов"
+        summary = " · ".join(
+            f"{row.get('stage')} {float(row.get('ms') or 0):.0f} ms" for row in slowest
+        ) or "нет сетевых этапов"
         with self.lock:
             self._event_locked(
                 "latency" if success else "error",
-                f"{coin}: {operation} {'завершено' if success else 'ошибка'} за {float(trace.get('totalMs') or 0):.0f} ms; {summary}",
+                f"{coin}: {operation} {'завершено' if success else 'ошибка'} за "
+                f"{float(trace.get('totalMs') or 0):.0f} ms; {summary}",
                 operation=operation,
                 coin=coin,
                 success=success,
                 totalMs=trace.get("totalMs"),
                 stages=stages,
+                websocket=trace.get("websocket"),
             )
             self.state.setdefault("system", {})["lastLatency"] = {
-                "time": now_iso(), "operation": operation, "coin": coin, "success": success, **trace
+                "time": now_iso(),
+                "operation": operation,
+                "coin": coin,
+                "success": success,
+                **trace,
             }
             self._save_locked()
 
     def _campaign_snapshot_locked(self, campaign: dict[str, Any], reason: str) -> dict[str, Any]:
-        levels = []
-        for level in campaign.get("levels", []):
-            levels.append(
-                {
-                    "index": level.get("index"),
-                    "requestedSize": level.get("size"),
-                    "filledSize": level.get("filledSize"),
-                    "averageFillPrice": level.get("averageFillPrice"),
-                    "status": level.get("status"),
-                }
-            )
+        levels = [
+            {
+                "index": level.get("index"),
+                "requestedSize": level.get("size"),
+                "filledSize": level.get("filledSize"),
+                "averageFillPrice": level.get("averageFillPrice"),
+                "status": level.get("status"),
+            }
+            for level in campaign.get("levels", [])
+        ]
+        gross = float(campaign.get("cycleClosedPnl") or 0) + float(
+            campaign.get("l1RealizedPnl") or 0
+        )
+        fees = float(campaign.get("cycleFees") or 0)
         return {
             "time": now_iso(),
             "campaignId": campaign.get("id"),
             "coin": campaign.get("coin"),
             "reason": reason,
             "status": campaign.get("status"),
+            "startedAt": campaign.get("createdAt"),
+            "closedAt": campaign.get("completedAt"),
             "galkaPrice": campaign.get("galkaPrice"),
             "actualPositionSize": campaign.get("actualPositionSize"),
             "managedNetSize": campaign.get("managedNetSize"),
             "cycleDeepest": campaign.get("cycleDeepest"),
             "l1Cycles": campaign.get("l1Cycles"),
-            "l1RealizedPnl": campaign.get("l1RealizedPnl"),
-            "cycleClosedPnl": campaign.get("cycleClosedPnl"),
-            "cycleFees": campaign.get("cycleFees"),
+            "grossPnl": gross,
+            "fees": fees,
+            "netPnl": gross - fees,
             "levels": levels,
         }
 
@@ -236,10 +412,6 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
         actual_size: float,
         open_orders: list[dict[str, Any]],
     ) -> None:
-        # Position and fills are delivered by separate Hyperliquid reads. A TP can
-        # close a partial level before its sell fill appears in the next fills
-        # response. Treat a plain size mismatch as provisional, re-read the venue,
-        # and recover only after repeated independent confirmations.
         if reason.startswith("Расхождение позиции:") and campaign.get("status") != "recovery":
             now = time.monotonic()
             with self.lock:
@@ -290,14 +462,10 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
                     )
                     self._save_locked()
                     return
-                should_recover = (
-                    confirmations >= self._MISMATCH_CONFIRMATIONS
-                    or elapsed >= self._MISMATCH_GRACE_SECONDS
-                )
+                should_recover = confirmations >= self._MISMATCH_CONFIRMATIONS or elapsed >= self._MISMATCH_GRACE_SECONDS
                 if not should_recover:
                     campaign["lastError"] = (
-                        f"Ожидание подтверждения позиции: биржа {refreshed_actual:g}, "
-                        f"GALKA {managed:g}"
+                        f"Ожидание подтверждения позиции: биржа {refreshed_actual:g}, GALKA {managed:g}"
                     )
                     self._save_locked()
                     try:
@@ -318,16 +486,128 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
 
         super()._enter_recovery(campaign, reason, actual_size, open_orders)
 
+    def _create_campaign_fast(self, coin: str, galka_price: float, confirmation: str) -> dict[str, Any]:
+        self._require_live_writes()
+        if confirmation != "PLACE_REAL_ORDERS":
+            raise LiveEngineError("Не подтверждена отправка реальных ордеров")
+
+        with self.action_lock:
+            with self.lock:
+                system = self.state.get("system", {})
+                if system.get("safeMode"):
+                    raise LiveEngineError(
+                        "SAFE MODE: " + (system.get("safeModeReason") or "требуется сверка")
+                    )
+                if self.monitor_thread.ident is not None and not self.monitor_thread.is_alive():
+                    self._set_safe_mode_locked("Фоновый LIVE-монитор остановлен")
+                    self._save_locked()
+                    raise LiveEngineError("SAFE MODE: фоновый LIVE-монитор остановлен")
+                if self._active_campaign_locked(coin):
+                    raise LiveEngineError(
+                        f"Уже активна GALKA {coin}. Для каждой монеты разрешена только одна кампания."
+                    )
+
+            preview = self.preview(coin, galka_price)
+            account = self.gateway.fresh_account_state()
+            all_orders = self.gateway.fresh_open_orders()
+            selected_position = self._position_size(account, coin)
+            selected_orders = [row for row in all_orders if row.get("coin") == coin]
+            if abs(selected_position) > self._size_tolerance(coin):
+                raise LiveEngineError(
+                    f"На {coin} уже есть реальная позиция {selected_position:g}. Новая GALKA не создана."
+                )
+            if selected_orders:
+                raise LiveEngineError(
+                    f"На {coin} уже есть {len(selected_orders)} открытых ордеров. Сначала выполни сверку."
+                )
+
+            with self.lock:
+                reserved_margin = sum(
+                    float(active.get("actualNotional") or active.get("requestedNotional") or 0)
+                    / max(1, int(active.get("leverage") or self.config.leverage))
+                    for active in self._active_campaigns_locked()
+                )
+            allowed_margin = max(0.0, account["accountValue"] * self.config.max_margin_fraction)
+            aggregate_margin = reserved_margin + preview["requiredMargin"]
+            if aggregate_margin > allowed_margin:
+                raise LiveEngineError(
+                    f"Общий риск-лимит маржи: зарезервировано ${reserved_margin:.2f}, "
+                    f"новой GALKA нужно ${preview['requiredMargin']:.2f}, "
+                    f"разрешено не более ${allowed_margin:.2f} "
+                    f"({self.config.max_margin_fraction:.0%} от капитала ${account['accountValue']:.2f})."
+                )
+
+            self.gateway.set_leverage(coin)
+            levels = [LadderLevel(**row) for row in preview["levels"]]
+            campaign_id = f"HL-{coin}-{int(time.time() * 1000)}-{new_cloid()[-6:]}"
+            campaign = self._new_campaign(campaign_id, coin, galka_price, preview, levels)
+            with self.lock:
+                if self._active_campaign_locked(coin):
+                    raise LiveEngineError(f"Другая LIVE-кампания {coin} успела стать активной")
+                self.state.setdefault("campaigns", {})[coin] = campaign
+                self._save_locked()
+
+            try:
+                pairs = self.gateway.place_ladder_batch(
+                    coin,
+                    levels,
+                    galka_price,
+                    [str(row["entryCloid"]) for row in campaign["levels"]],
+                    [str(row["targetCloid"]) for row in campaign["levels"]],
+                )
+                with self.lock:
+                    for level_state, pair in zip(campaign["levels"], pairs):
+                        self._record_pair_locked(campaign, level_state, pair)
+                    campaign["updatedAt"] = now_iso()
+                    self._save_locked()
+
+                open_orders = self.gateway.fresh_open_orders(coin)
+                with self.lock:
+                    self._register_delayed_orders(campaign, open_orders)
+                entry_open = [
+                    row for row in open_orders if self._entry_owner(campaign, row) is not None
+                ]
+                if len(entry_open) != len(levels):
+                    raise LiveEngineError(
+                        f"Биржа подтвердила только {len(entry_open)} из {len(levels)} входов"
+                    )
+
+                account = self.gateway.fresh_account_state()
+                actual = self._position_size(account, coin)
+                with self.lock:
+                    campaign["status"] = "open" if actual > self._size_tolerance(coin) else "waiting"
+                    campaign["actualPositionSize"] = actual
+                    campaign["updatedAt"] = now_iso()
+                    self._event_locked(
+                        "live",
+                        f"{coin}: реальная GALKA {galka_price:g}, одним batch выставлено 8 входов и 8 TP",
+                        campaignId=campaign_id,
+                        actualNotional=preview["actualNotional"],
+                        batchOrders=16,
+                    )
+                    self._save_locked()
+
+                if actual > self._size_tolerance(coin):
+                    self._sync_campaign(campaign)
+                return deepcopy(campaign)
+            except Exception as exc:
+                self._creation_failure(campaign, exc)
+                raise LiveEngineError(
+                    f"GALKA создана не полностью и переведена в recovery: {exc}"
+                ) from exc
+
     def create_campaign(self, coin: str, galka_price: float, confirmation: str) -> dict[str, Any]:
         normalized = self._coin(coin)
         self.gateway.begin_trace("create_campaign")
         success = False
         try:
-            result = super().create_campaign(normalized, galka_price, confirmation)
+            result = self._create_campaign_fast(normalized, galka_price, confirmation)
             success = True
             return result
         finally:
-            self._record_latency("выставление GALKA", normalized, self.gateway.finish_trace(), success)
+            self._record_latency(
+                "выставление GALKA", normalized, self.gateway.finish_trace(), success
+            )
 
     def cancel_waiting_campaign(self, coin: str) -> dict[str, Any]:
         normalized = self._coin(coin)
@@ -338,10 +618,11 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
             success = True
             return result
         finally:
-            self._record_latency("отмена GALKA", normalized, self.gateway.finish_trace(), success)
+            self._record_latency(
+                "отмена GALKA", normalized, self.gateway.finish_trace(), success
+            )
 
     def close_near_market(self, coin: str, confirmation: str) -> dict[str, Any]:
-        """Cancel the GALKA orders and replace its TP with one maker-only exit near market."""
         normalized = self._coin(coin)
         self._require_live_writes()
         if confirmation != "CLOSE_NEAR_MARKET":
@@ -381,9 +662,13 @@ class CompatibleGalkaLiveEngine(GalkaLiveEngine):
                 mid = float(self.gateway.mids().get(normalized) or 0)
                 if mid <= 0:
                     raise LiveEngineError(f"Нет свежей рыночной цены {normalized}")
-                exit_price = round_perp_price(mid + step * multiplier, self.gateway.sz_decimals(normalized))
+                exit_price = round_perp_price(
+                    mid + step * multiplier, self.gateway.sz_decimals(normalized)
+                )
                 if exit_price <= mid:
-                    exit_price = round_perp_price(mid + step * (multiplier + 1), self.gateway.sz_decimals(normalized))
+                    exit_price = round_perp_price(
+                        mid + step * (multiplier + 1), self.gateway.sz_decimals(normalized)
+                    )
                 try:
                     placed = self.gateway.place_post_only_reduce_sell(
                         normalized, position_size, exit_price, cloid
