@@ -11,6 +11,17 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from .app_read_only import (
+    MAX_CANDLE_LIMIT,
+    MAX_EVENT_LIMIT,
+    SUPPORTED_COINS,
+    SUPPORTED_INTERVALS,
+    SlidingWindowRateLimiter,
+    build_snapshot,
+    normalize_candles,
+    parse_timestamp,
+    sanitize_events,
+)
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
 from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
@@ -69,6 +80,9 @@ class LiveProcessLock:
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
     engine: CompatibleGalkaLiveEngine
     session_token: str
+    app_read_only_token: str | None = None
+    app_allowed_origin: str | None = None
+    app_rate_limiter = SlidingWindowRateLimiter()
     server_port: int
 
     def __init__(self, *args, **kwargs):
@@ -91,7 +105,8 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        if not self.path.startswith("/api/app/"):
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
@@ -132,6 +147,43 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Недействительная локальная LIVE-сессия"})
         return False
 
+    def _app_origin_allowed(self) -> bool:
+        origin = self.headers.get("Origin")
+        return not origin or origin in self._allowed_origins() or origin == self.app_allowed_origin
+
+    def _require_app_read_only_auth(self) -> bool:
+        token = self.app_read_only_token
+        supplied = self.headers.get("X-Galka-App-Token") or ""
+        if token and self._app_origin_allowed() and hmac.compare_digest(supplied, token):
+            return True
+        self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Invalid read-only app credentials"})
+        return False
+
+    def _app_cors_headers(self) -> None:
+        origin = self.headers.get("Origin")
+        if origin and self._app_origin_allowed():
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
+    def _app_json(self, status: int, payload: dict | list) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self._app_cors_headers()
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _app_error(self, status: int, message: str) -> None:
+        self._app_json(status, {"ok": False, "error": message})
+
+    def _app_rate_allowed(self, route: str, maximum: int) -> bool:
+        client = self.client_address[0] if self.client_address else "local"
+        if self.app_rate_limiter.allow(client, route, maximum):
+            return True
+        self._app_error(HTTPStatus.TOO_MANY_REQUESTS, "Read-only API rate limit exceeded")
+        return False
+
     def _read_json(self) -> dict:
         content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
         if content_type != "application/json":
@@ -152,6 +204,8 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/app/"):
+            return self._handle_app_get(parsed)
         if parsed.path.startswith("/api/"):
             if not self._require_api_auth():
                 return
@@ -187,6 +241,8 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/app/"):
+            return self._app_error(HTTPStatus.METHOD_NOT_ALLOWED, "Read-only API accepts GET only")
         if not parsed.path.startswith("/api/"):
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
         if not self._require_api_auth():
@@ -223,6 +279,75 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             )
         return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
+    def do_PUT(self) -> None:  # noqa: N802
+        self._reject_app_mutation()
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        self._reject_app_mutation()
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        self._reject_app_mutation()
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/app/") or not self._app_origin_allowed():
+            return self._app_error(HTTPStatus.FORBIDDEN, "Origin is not allowed")
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self._app_cors_headers()
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "X-Galka-App-Token")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
+
+    def _reject_app_mutation(self) -> None:
+        if urlparse(self.path).path.startswith("/api/app/"):
+            return self._app_error(HTTPStatus.METHOD_NOT_ALLOWED, "Read-only API accepts GET only")
+        return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
+
+    def _handle_app_get(self, parsed) -> None:
+        if parsed.path not in {"/api/app/snapshot", "/api/app/candles", "/api/app/events"}:
+            return self._app_error(HTTPStatus.NOT_FOUND, "Read-only endpoint not found")
+        if not self._require_app_read_only_auth():
+            return
+        limits = {"/api/app/snapshot": 5, "/api/app/candles": 2, "/api/app/events": 5}
+        if not self._app_rate_allowed(parsed.path, limits[parsed.path]):
+            return
+        try:
+            query = parse_qs(parsed.query)
+            if parsed.path == "/api/app/snapshot":
+                status = self.engine.status()
+                orders = self.engine.gateway.open_orders()
+                return self._app_json(HTTPStatus.OK, {"ok": True, "data": build_snapshot(status, orders)})
+            if parsed.path == "/api/app/candles":
+                coin = query.get("coin", [""])[0].upper()
+                interval = query.get("interval", [""])[0]
+                if coin not in SUPPORTED_COINS or interval not in SUPPORTED_INTERVALS:
+                    return self._app_error(HTTPStatus.BAD_REQUEST, "Invalid coin or interval")
+                limit = int(query.get("limit", ["300"])[0])
+                if limit < 1:
+                    raise ValueError("invalid limit")
+                limit = min(limit, MAX_CANDLE_LIMIT)
+                from_ms = parse_timestamp(query.get("from", [None])[0])
+                to_ms = parse_timestamp(query.get("to", [None])[0])
+                rows = self.engine.candles(coin, interval, limit)
+                data = normalize_candles(rows, from_ms=from_ms, to_ms=to_ms)[-limit:]
+                return self._app_json(HTTPStatus.OK, {"ok": True, "data": data})
+            limit = int(query.get("limit", ["50"])[0])
+            if limit < 1:
+                raise ValueError("invalid limit")
+            limit = min(limit, MAX_EVENT_LIMIT)
+            since = query.get("since", [None])[0]
+            events = sanitize_events(self.engine.status().get("events") or [])
+            if since:
+                events = [event for event in events if event["id"] > since and str(event.get("timestamp") or "") > since]
+            return self._app_json(HTTPStatus.OK, {"ok": True, "data": events[-limit:]})
+        except (TypeError, ValueError):
+            return self._app_error(HTTPStatus.BAD_REQUEST, "Invalid read-only request parameters")
+        except Exception as exc:
+            sys.stderr.write(f"App read-only API error: {type(exc).__name__}\n")
+            sys.stderr.flush()
+            return self._app_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Read-only API unavailable")
+
     def _handle(self, action) -> None:
         try:
             result = action()
@@ -248,6 +373,8 @@ def main() -> int:
         token = secrets.token_urlsafe(32)
         GalkaRequestHandler.engine = engine
         GalkaRequestHandler.session_token = token
+        GalkaRequestHandler.app_read_only_token = config.app_read_only_token
+        GalkaRequestHandler.app_allowed_origin = config.app_allowed_origin
         GalkaRequestHandler.server_port = config.port
         server = ThreadingHTTPServer((config.host, config.port), GalkaRequestHandler)
         server.daemon_threads = True

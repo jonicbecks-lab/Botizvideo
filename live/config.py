@@ -29,6 +29,8 @@ ALLOWED_KEYS = {
     "GALKA_HOST",
     "GALKA_PORT",
     "GALKA_DATA_DIR",
+    "GALKA_APP_READ_ONLY_TOKEN",
+    "GALKA_APP_ALLOWED_ORIGIN",
 }
 
 
@@ -49,6 +51,8 @@ class LiveConfig:
     port: int
     config_path: Path
     data_dir: Path
+    app_read_only_token: str | None = None
+    app_allowed_origin: str | None = None
     request_timeout: float = 8.0
     max_margin_fraction: float = 0.60
     maker_fee_rate: float = 0.00015
@@ -233,6 +237,13 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     except OSError:
         pass
 
+    app_read_only_token = values.get("GALKA_APP_READ_ONLY_TOKEN", "").strip() or None
+    if app_read_only_token is not None and len(app_read_only_token) < 32:
+        raise ConfigError("GALKA_APP_READ_ONLY_TOKEN must contain at least 32 characters")
+    app_allowed_origin = values.get("GALKA_APP_ALLOWED_ORIGIN", "").strip() or None
+    if app_allowed_origin is not None and not app_allowed_origin.startswith(("http://127.0.0.1:", "http://localhost:")):
+        raise ConfigError("GALKA_APP_ALLOWED_ORIGIN must remain a loopback HTTP origin")
+
     return LiveConfig(
         account_address=account_address.lower(),
         api_secret_key=api_secret_key,
@@ -245,6 +256,8 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
         port=port,
         config_path=config_path,
         data_dir=data_dir,
+        app_read_only_token=app_read_only_token,
+        app_allowed_origin=app_allowed_origin,
         request_timeout=request_timeout,
         max_margin_fraction=max_margin_fraction,
         maker_fee_rate=maker_fee_rate,
