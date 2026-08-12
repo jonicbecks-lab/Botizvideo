@@ -180,8 +180,8 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
         raise ConfigError("HL_REQUEST_TIMEOUT must be between 2 and 30 seconds")
 
     max_margin_fraction = _finite_float(values, "HL_MAX_MARGIN_FRACTION", "0.95")
-    if max_margin_fraction < 0.10 or max_margin_fraction > 0.97:
-        raise ConfigError("HL_MAX_MARGIN_FRACTION must be between 0.10 and 0.97")
+    if max_margin_fraction < 0.10 or max_margin_fraction > 1.0:
+        raise ConfigError("HL_MAX_MARGIN_FRACTION must be between 0.10 and 1.00")
 
     maker_fee_rate = _finite_float(values, "HL_MAKER_FEE_RATE", "0.00015")
     taker_fee_rate = _finite_float(values, "HL_TAKER_FEE_RATE", "0.00045")
