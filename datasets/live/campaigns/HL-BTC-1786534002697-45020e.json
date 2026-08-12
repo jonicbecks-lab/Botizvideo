@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-12T20:35:11Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-12T20:35:26Z",
+  "reason": "event:risk",
   "campaignId": "HL-BTC-1786534002697-45020e",
   "coin": "BTC",
-  "status": "recovery",
+  "status": "recovery_closed",
   "createdAt": "2026-08-12T11:26:42Z",
   "createdMs": 1786534002698,
-  "completedAt": null,
+  "completedAt": "2026-08-12T20:35:26Z",
   "galkaPrice": 63528.0,
   "setupMidPrice": 64158.5,
   "setupDistancePct": 0.9924757587205679,
@@ -28,7 +28,7 @@
   "grossPnl": 2.91512,
   "netPnlApprox": 2.381354,
   "actualPositionSize": 0.0,
-  "managedNetSize": 5.204170427930421e-18,
+  "managedNetSize": 0.0,
   "recoveryReason": "Цикл закрыт без доказанного owned TP; rearm запрещён",
   "lastError": null,
   "levels": [
@@ -114,7 +114,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
