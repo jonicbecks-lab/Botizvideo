@@ -1,16 +1,19 @@
 """Production-safe compatibility layer for Galka LIVE.
 
 Keeps the exchange-tested pair-wise normalTpsl placement path, fixes validation
-of rounded fallback targets, and records non-secret research data independently
-from trading state.
+of rounded fallback targets, adds a fast two-phase cancel path for empty GALKA
+campaigns, and records non-secret research data independently from trading state.
 """
 
 from __future__ import annotations
 
 import threading
+import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .engine import LiveEngineError, now_iso
 from .hyperliquid_compat import (
     CompatibleGalkaLiveEngine as _OptimizedEngine,
     CompatibleHyperliquidGateway as _BatchGateway,
@@ -175,9 +178,153 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
         self.research_journal.upsert_campaign(campaign, reason="cycle_finished_or_rearmed")
 
     def cancel_waiting_campaign(self, coin: str) -> dict[str, Any]:
-        result = super().cancel_waiting_campaign(coin)
-        self.research_journal.upsert_campaign(result, reason="cancelled")
-        return result
+        """Fast, race-safe cancellation for a GALKA that has no position.
+
+        The old path performed a full campaign sync, then multiple account/order
+        confirmation loops. For an empty waiting ladder that made cancellation
+        take roughly as long as recovery. This path instead:
+
+        1. Reads current open orders once.
+        2. Cancels owned ENTRY orders first in one batch, preventing new exposure.
+        3. Reads the account once after entry cancellation.
+        4. Only if the account is flat, cancels owned TARGET orders in one batch.
+        5. Performs one final open-order verification, with one retry for delayed
+           cancellation visibility.
+
+        Targets are deliberately kept alive until flatness is confirmed, so a
+        fill racing with the cancel request remains protected.
+        """
+        normalized = self._coin(coin)
+        self._require_live_writes()
+        self.gateway.begin_trace("cancel_campaign")
+        success = False
+        campaign: dict[str, Any] | None = None
+        result: dict[str, Any] | None = None
+
+        try:
+            with self.action_lock:
+                with self.lock:
+                    campaign = self._active_campaign_locked(normalized)
+                    if not campaign:
+                        raise LiveEngineError(f"Для {normalized} нет активной GALKA")
+                    campaign["autoRearmBlocked"] = True
+                    campaign["status"] = "canceling"
+                    campaign["updatedAt"] = now_iso()
+                    self._save_locked()
+
+                # Phase 1: stop new exposure first. Do not cancel TP targets yet.
+                open_orders = self.gateway.fresh_open_orders(normalized)
+                entry_oids = [
+                    int(row.get("oid") or 0)
+                    for row in open_orders
+                    if self._entry_owner(campaign, row) is not None and int(row.get("oid") or 0) > 0
+                ]
+                target_oids = [
+                    int(row.get("oid") or 0)
+                    for row in open_orders
+                    if self._target_owner(campaign, row) is not None and int(row.get("oid") or 0) > 0
+                ]
+
+                if entry_oids:
+                    self.gateway.cancel_oids(normalized, entry_oids)
+
+                # Give the exchange/event stream a very short propagation window;
+                # the cancel response itself remains authoritative for submission.
+                time.sleep(0.12)
+                account = self.gateway.fresh_account_state()
+                actual = self._position_size(account, normalized)
+                tolerance = self._size_tolerance(normalized)
+
+                if abs(actual) > tolerance:
+                    latest_orders = self.gateway.fresh_open_orders(normalized)
+                    self._enter_recovery(
+                        campaign,
+                        "Быстрая отмена остановлена: во время снятия входов биржа показала позицию",
+                        actual,
+                        latest_orders,
+                    )
+                    raise LiveEngineError(
+                        "Во время отмены появился реальный fill. Входы сняты, защитные TP сохранены; включён recovery."
+                    )
+
+                # Phase 2: once flatness is confirmed, targets can be removed safely.
+                if target_oids:
+                    self.gateway.cancel_oids(normalized, target_oids)
+
+                time.sleep(0.12)
+                remaining = self.gateway.fresh_open_orders(normalized)
+                owned_remaining = self._owned_open_orders(campaign, remaining)
+
+                # One compact retry handles delayed order visibility without the
+                # old 4x account/order confirmation loop.
+                if owned_remaining:
+                    retry_oids = [int(row.get("oid") or 0) for row in owned_remaining if int(row.get("oid") or 0) > 0]
+                    if retry_oids:
+                        self.gateway.cancel_oids(normalized, retry_oids)
+                        time.sleep(0.12)
+                    remaining = self.gateway.fresh_open_orders(normalized)
+                    owned_remaining = self._owned_open_orders(campaign, remaining)
+
+                if owned_remaining:
+                    self._enter_recovery(
+                        campaign,
+                        "Быстрая отмена не получила подтверждение удаления всех owned-ордеров",
+                        0.0,
+                        remaining,
+                    )
+                    raise LiveEngineError(
+                        "Биржа не подтвердила удаление всех ордеров GALKA; включён recovery."
+                    )
+
+                with self.lock:
+                    campaign["status"] = "canceled"
+                    campaign["actualPositionSize"] = 0.0
+                    campaign["managedNetSize"] = 0.0
+                    campaign["completedAt"] = now_iso()
+                    campaign["updatedAt"] = now_iso()
+                    self._event_locked(
+                        "live",
+                        f"{normalized}: GALKA быстро отменена без позиции",
+                        campaignId=campaign["id"],
+                        fastCancel=True,
+                        entryOrders=len(entry_oids),
+                        targetOrders=len(target_oids),
+                    )
+                    self._save_locked()
+                    result = deepcopy(campaign)
+
+            success = True
+            assert result is not None
+            self.research_journal.upsert_campaign(result, reason="cancelled_fast")
+            return result
+
+        except Exception as exc:
+            # If the fast path itself fails before recovery was established,
+            # reconstruct current exchange state and fail closed rather than
+            # guessing that cancellation succeeded.
+            if campaign is not None and campaign.get("status") != "recovery":
+                try:
+                    latest_account = self.gateway.fresh_account_state()
+                    latest_orders = self.gateway.fresh_open_orders(normalized)
+                    latest_actual = self._position_size(latest_account, normalized)
+                    self._enter_recovery(
+                        campaign,
+                        f"Ошибка быстрой отмены: {exc}",
+                        latest_actual,
+                        latest_orders,
+                    )
+                except Exception:
+                    pass
+            if isinstance(exc, LiveEngineError):
+                raise
+            raise LiveEngineError(str(exc)) from exc
+        finally:
+            self._record_latency(
+                "быстрая отмена GALKA",
+                normalized,
+                self.gateway.finish_trace(),
+                success,
+            )
 
     def close_near_market(self, coin: str, confirmation: str) -> dict[str, Any]:
         result = super().close_near_market(coin, confirmation)
