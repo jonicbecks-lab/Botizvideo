@@ -174,8 +174,43 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
         self.research_journal.upsert_campaign(campaign, reason=f"recovery:{reason}")
 
     def _finish_cycle(self, campaign: dict[str, Any]) -> None:
+        deepest = int(campaign.get("cycleDeepest") or 0)
+        force_finish_after_l1 = (
+            deepest == 1
+            and not campaign.get("autoRearmBlocked")
+            and not campaign.get("abortAfterClose")
+        )
+        if force_finish_after_l1:
+            campaign["abortAfterClose"] = True
+
         super()._finish_cycle(campaign)
-        self.research_journal.upsert_campaign(campaign, reason="cycle_finished_or_rearmed")
+
+        with self.lock:
+            had_position = (
+                bool(campaign.get("hadPosition"))
+                or deepest > 0
+                or any(
+                    float(level.get("filledSize") or 0) > 0
+                    for level in campaign.get("levels", [])
+                )
+            )
+            if had_position:
+                campaign["hadPosition"] = True
+            if force_finish_after_l1 and campaign.get("status") == "error_closed":
+                campaign["status"] = "completed"
+                campaign["abortAfterClose"] = False
+                campaign["lastError"] = None
+                campaign["recoveryReason"] = None
+                self._event_locked(
+                    "live",
+                    f"{campaign['coin']}: L1 закрыта на GALKA, вся кампания завершена; L1 rearm отключён",
+                    campaignId=campaign["id"],
+                    deepest=1,
+                    pnl=campaign.get("finalClosedPnl"),
+                )
+            self._save_locked()
+
+        self.research_journal.upsert_campaign(campaign, reason="cycle_finished_no_l1_rearm")
 
     def cancel_waiting_campaign(self, coin: str) -> dict[str, Any]:
         """Fast, race-safe cancellation for a GALKA that has no position.
@@ -212,7 +247,6 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
                     campaign["updatedAt"] = now_iso()
                     self._save_locked()
 
-                # Phase 1: stop new exposure first. Do not cancel TP targets yet.
                 open_orders = self.gateway.fresh_open_orders(normalized)
                 entry_oids = [
                     int(row.get("oid") or 0)
@@ -228,8 +262,6 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
                 if entry_oids:
                     self.gateway.cancel_oids(normalized, entry_oids)
 
-                # Give the exchange/event stream a very short propagation window;
-                # the cancel response itself remains authoritative for submission.
                 time.sleep(0.12)
                 account = self.gateway.fresh_account_state()
                 actual = self._position_size(account, normalized)
@@ -247,7 +279,6 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
                         "Во время отмены появился реальный fill. Входы сняты, защитные TP сохранены; включён recovery."
                     )
 
-                # Phase 2: once flatness is confirmed, targets can be removed safely.
                 if target_oids:
                     self.gateway.cancel_oids(normalized, target_oids)
 
@@ -255,8 +286,6 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
                 remaining = self.gateway.fresh_open_orders(normalized)
                 owned_remaining = self._owned_open_orders(campaign, remaining)
 
-                # One compact retry handles delayed order visibility without the
-                # old 4x account/order confirmation loop.
                 if owned_remaining:
                     retry_oids = [int(row.get("oid") or 0) for row in owned_remaining if int(row.get("oid") or 0) > 0]
                     if retry_oids:
@@ -299,9 +328,6 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
             return result
 
         except Exception as exc:
-            # If the fast path itself fails before recovery was established,
-            # reconstruct current exchange state and fail closed rather than
-            # guessing that cancellation succeeded.
             if campaign is not None and campaign.get("status") != "recovery":
                 try:
                     latest_account = self.gateway.fresh_account_state()
