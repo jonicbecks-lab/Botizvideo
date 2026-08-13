@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-13T16:35:55Z",
-  "reason": "event:risk",
+  "updatedAt": "2026-08-13T16:41:03Z",
+  "reason": "fills_updated",
   "campaignId": "HL-BTC-1786630561088-d5dcb3",
   "coin": "BTC",
-  "status": "open",
+  "status": "closing",
   "createdAt": "2026-08-13T14:16:01Z",
   "createdMs": 1786630561089,
   "completedAt": null,
@@ -20,15 +20,15 @@
   "makerFeeRate": null,
   "takerFeeRate": null,
   "hadPosition": true,
-  "cycleDeepest": 2,
+  "cycleDeepest": 4,
   "l1Cycles": 1,
   "l1RealizedPnl": 1.176539,
   "cycleClosedPnl": 0.0,
-  "fees": 0.224545,
+  "fees": 0.29461099999999996,
   "grossPnl": 1.176539,
-  "netPnlApprox": 0.951994,
-  "actualPositionSize": 0.02361,
-  "managedNetSize": 0.02361,
+  "netPnlApprox": 0.881928,
+  "actualPositionSize": 0.031,
+  "managedNetSize": 0.031,
   "recoveryReason": null,
   "lastError": null,
   "levels": [
@@ -58,9 +58,9 @@
       "price": 63247.0,
       "requestedSize": 0.00443,
       "notional": 280.18421,
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.00443,
+      "averageFillPrice": 63247.0,
+      "status": "filled"
     },
     {
       "index": 4,
@@ -68,9 +68,9 @@
       "price": 63151.0,
       "requestedSize": 0.00296,
       "notional": 186.92696,
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.00296,
+      "averageFillPrice": 63151.00000000001,
+      "status": "filled"
     },
     {
       "index": 5,
