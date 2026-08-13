@@ -88,6 +88,14 @@ class ResearchJournal:
                 return [ResearchJournal._json_safe(v) for v in value]
             return str(value)
 
+    @staticmethod
+    def _historically_had_position(campaign: dict[str, Any]) -> bool:
+        if bool(campaign.get("hadPosition")):
+            return True
+        if int(campaign.get("cycleDeepest") or 0) > 0:
+            return True
+        return any(float(level.get("filledSize") or 0) > 0 for level in campaign.get("levels", []))
+
     def _append_jsonl(self, path: Path, payload: dict[str, Any]) -> None:
         with self._lock:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -211,7 +219,7 @@ class ResearchJournal:
                 "estimatedPnlAtGalka": campaign.get("estimatedPnlAtGalka"),
                 "makerFeeRate": campaign.get("makerFeeRate"),
                 "takerFeeRate": campaign.get("takerFeeRate"),
-                "hadPosition": campaign.get("hadPosition"),
+                "hadPosition": self._historically_had_position(campaign),
                 "cycleDeepest": campaign.get("cycleDeepest"),
                 "l1Cycles": campaign.get("l1Cycles"),
                 "l1RealizedPnl": campaign.get("l1RealizedPnl"),
