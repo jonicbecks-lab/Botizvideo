@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-13T08:15:22Z",
-  "reason": "cancelled_fast",
-  "campaignId": "HL-ETH-1786607240816-191951",
-  "coin": "ETH",
-  "status": "canceled",
-  "createdAt": "2026-08-13T07:47:20Z",
-  "createdMs": 1786607240816,
-  "completedAt": "2026-08-13T08:15:22Z",
-  "galkaPrice": 1891.25,
-  "setupMidPrice": 1895.95,
-  "setupDistancePct": 0.24851288830138873,
+  "updatedAt": "2026-08-13T08:16:58Z",
+  "reason": "fills_updated",
+  "campaignId": "HL-BTC-1786608932427-c3c66f",
+  "coin": "BTC",
+  "status": "waiting",
+  "createdAt": "2026-08-13T08:15:32Z",
+  "createdMs": 1786608932427,
+  "completedAt": null,
+  "galkaPrice": 63726.21,
+  "setupMidPrice": 63793.5,
+  "setupDistancePct": 0.10559234575537868,
   "leverage": 10,
   "isolated": true,
   "requestedNotional": 2340.0,
-  "actualNotional": 2339.16392,
+  "actualNotional": 2337.3642,
   "weightedAverage": null,
   "estimatedPnlAtGalka": null,
   "makerFeeRate": null,
@@ -35,9 +35,9 @@
     {
       "index": 1,
       "depthPct": 0.15,
-      "price": 1888.4,
-      "requestedSize": 0.5204,
-      "notional": 982.72336,
+      "price": 63631.0,
+      "requestedSize": 0.01544,
+      "notional": 982.46264,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -45,9 +45,9 @@
     {
       "index": 2,
       "depthPct": 0.3,
-      "price": 1885.6,
-      "requestedSize": 0.273,
-      "notional": 514.7688,
+      "price": 63535.0,
+      "requestedSize": 0.0081,
+      "notional": 514.6335,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -55,9 +55,9 @@
     {
       "index": 3,
       "depthPct": 0.45,
-      "price": 1882.7,
-      "requestedSize": 0.1491,
-      "notional": 280.71057,
+      "price": 63439.0,
+      "requestedSize": 0.00442,
+      "notional": 280.40038,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -65,9 +65,9 @@
     {
       "index": 4,
       "depthPct": 0.6,
-      "price": 1879.9,
-      "requestedSize": 0.0995,
-      "notional": 187.05005,
+      "price": 63344.0,
+      "requestedSize": 0.00295,
+      "notional": 186.8648,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -75,9 +75,9 @@
     {
       "index": 5,
       "depthPct": 0.9,
-      "price": 1874.2,
-      "requestedSize": 0.0749,
-      "notional": 140.37758,
+      "price": 63153.0,
+      "requestedSize": 0.00222,
+      "notional": 140.19966,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -85,9 +85,9 @@
     {
       "index": 6,
       "depthPct": 1.2,
-      "price": 1868.6,
-      "requestedSize": 0.05,
-      "notional": 93.43,
+      "price": 62961.0,
+      "requestedSize": 0.00148,
+      "notional": 93.18228,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -95,9 +95,9 @@
     {
       "index": 7,
       "depthPct": 1.5,
-      "price": 1862.9,
-      "requestedSize": 0.0376,
-      "notional": 70.04504,
+      "price": 62770.0,
+      "requestedSize": 0.00111,
+      "notional": 69.6747,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -105,16 +105,16 @@
     {
       "index": 8,
       "depthPct": 2.0,
-      "price": 1853.4,
-      "requestedSize": 0.0378,
-      "notional": 70.05852,
+      "price": 62452.0,
+      "requestedSize": 0.00112,
+      "notional": 69.94624,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
     }
   ],
   "postExitResearch": {
-    "status": "pending",
+    "status": "not_ready",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
