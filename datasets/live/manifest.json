@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "description": "Galka LIVE research dataset. No wallet keys or session secrets.",
-  "updatedAt": "2026-08-14T18:19:13Z",
+  "updatedAt": "2026-08-14T18:24:18Z",
   "files": {
     "events": "events.jsonl",
     "fills": "fills.jsonl",
