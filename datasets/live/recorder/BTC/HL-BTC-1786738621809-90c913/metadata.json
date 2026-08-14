@@ -20,8 +20,8 @@
   "returnToGalka": null,
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
-  "maxDeviationBelowGalkaPct": 0.0569520498121901,
-  "minimumObservedPrice": 62789.0,
+  "maxDeviationBelowGalkaPct": 0.07446106456719599,
+  "minimumObservedPrice": 62778.0,
   "maximumObservedPrice": 62973.5,
   "levels": [
     {
@@ -187,7 +187,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-14T22:16:35.321Z",
+  "updatedAt": "2026-08-14T22:21:42.345Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
