@@ -5,8 +5,8 @@
   if (!charts || typeof charts.createChart !== 'function') return;
 
   const originalCreateChart = charts.createChart.bind(charts);
-  const HOLD_MS = 450;
-  const MOVE_SLOP = 9;
+  const HOLD_MS = 650;
+  const MOVE_SLOP = 7;
   const DOUBLE_TAP_MS = 320;
   const SYNTHETIC_MOUSE_BLOCK_MS = 900;
 
@@ -212,6 +212,17 @@
       event.stopImmediatePropagation();
     }
 
+    function onNativePlotPanStart(event) {
+      const pointerId = Number(event.detail?.pointerId);
+      const gesture = state.gesture;
+      if (!gesture || gesture.type !== 'pending' || gesture.pointerId !== pointerId) return;
+      clearHold();
+      state.gesture = { type: 'native-pan', pointerId };
+      chart.crosshair = null;
+      plus.classList.add('hidden');
+      crosshairAction?.classList.add('hidden');
+    }
+
     function onPointerDown(event) {
       if (event.pointerType !== 'touch') return;
       stopEvent(event);
@@ -385,6 +396,7 @@
     }
     document.getElementById('symbolSelect')?.addEventListener('change', clearPinnedCrosshair);
 
+    canvas.addEventListener('galka:native-plot-pan-start', onNativePlotPanStart);
     canvas.addEventListener('pointerdown', onPointerDown, { capture: true, passive: false });
     canvas.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
     canvas.addEventListener('pointerup', onPointerEnd, { capture: true, passive: false });
