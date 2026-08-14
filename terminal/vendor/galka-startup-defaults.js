@@ -12,4 +12,4 @@ if (interval) {
   }
 }
 
-await import('./galka-trade-history-loader.js?v=1');
+await import('./galka-trade-history-loader.js?v=2');
