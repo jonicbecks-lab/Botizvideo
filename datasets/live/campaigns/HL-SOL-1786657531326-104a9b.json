@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-14T06:30:00Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-14T06:30:44Z",
+  "reason": "cancelled_fast",
   "campaignId": "HL-SOL-1786657531326-104a9b",
   "coin": "SOL",
-  "status": "waiting",
+  "status": "canceled",
   "createdAt": "2026-08-13T21:45:31Z",
   "createdMs": 1786657531326,
-  "completedAt": null,
+  "completedAt": "2026-08-14T06:30:44Z",
   "galkaPrice": 75.0459,
   "setupMidPrice": 76.1615,
   "setupDistancePct": 1.4865568938476237,
@@ -114,7 +114,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
