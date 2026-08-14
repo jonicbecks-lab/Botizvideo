@@ -11,3 +11,5 @@ if (interval) {
     await interval.onchange();
   }
 }
+
+await import('./galka-trade-history-loader.js?v=1');
