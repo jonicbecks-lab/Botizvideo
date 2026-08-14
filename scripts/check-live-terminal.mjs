@@ -23,6 +23,7 @@ const researchEngine = fs.readFileSync('live/research_engine.py', 'utf8');
 const researchRecorder = fs.readFileSync('live/research_recorder.py', 'utf8');
 const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
 const futurePan = fs.readFileSync('terminal/vendor/galka-future-pan.js', 'utf8');
+const nativePlotPan = fs.readFileSync('terminal/vendor/galka-native-plot-pan.js', 'utf8');
 const visibilityRecovery = fs.readFileSync('terminal/vendor/galka-visibility-recovery.js', 'utf8');
 const liveSession = fs.readFileSync('terminal/vendor/galka-live-session.js', 'utf8');
 const dexActions = fs.readFileSync('terminal/vendor/galka-dex-actions.js', 'utf8');
@@ -53,8 +54,9 @@ const checks = [
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=3') && html.includes('live-chart.css?v=3') && chartShim.includes('LightweightCharts')],
   ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
+  ['native plot pan dependency', html.includes('vendor/galka-native-plot-pan.js?v=3') && nativePlotPan.includes('PAN_START_SLOP = 7') && nativePlotPan.includes("galka:native-plot-pan-start")],
   ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=2') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
-  ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=2') && touchActions.includes('installTouchActions')],
+  ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=3') && touchActions.includes('installTouchActions')],
   ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=2') && dexActions.includes('installDesktopActions')],
   ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
@@ -68,7 +70,8 @@ const checks = [
   ['axis double-click reset', chartShim.includes("addEventListener('dblclick'") && chartShim.includes('resetPriceScale') && chartShim.includes('fitContent')],
   ['precise chart crosshair', chartShim.includes('drawCrosshair') && chartShim.includes('setCrosshair') && chartShim.includes('priceLabel') && chartShim.includes('timeWidth')],
   ['crosshair does not replace desktop pan', chartShim.includes("this.gesture.type === 'pan'") && chartShim.includes('this.setCrosshair(point)')],
-  ['TradingView-style touch pan and hold', touchActions.includes('HOLD_MS = 450') && touchActions.includes("type: 'pending'") && touchActions.includes("gesture.type = 'pan'") && touchActions.includes("type: 'crosshair'")],
+  ['TradingView-style touch pan and hold', touchActions.includes('HOLD_MS = 650') && touchActions.includes('MOVE_SLOP = 7') && touchActions.includes("type: 'pending'") && touchActions.includes("gesture.type = 'pan'") && touchActions.includes("type: 'crosshair'")],
+  ['native vertical pan cancels crosshair hold', touchActions.includes('onNativePlotPanStart') && touchActions.includes("type: 'native-pan'") && touchActions.includes("galka:native-plot-pan-start")],
   ['persistent touch crosshair', touchActions.includes('crosshairPinned') && touchActions.includes('DOUBLE_TAP_MS') && touchActions.includes('activatedByHold') && touchActions.includes('onPointerLeave')],
   ['relative pinned crosshair movement', touchActions.includes('crosshairStartX') && touchActions.includes('touchStartX') && touchActions.includes('gesture.crosshairStartX + dx')],
   ['stable crosshair on finger release', touchActions.includes("Deliberately do not apply the finger's absolute release coordinate") && touchActions.includes('SYNTHETIC_MOUSE_BLOCK_MS') && touchActions.includes('lastTouchEndAt')],
@@ -96,6 +99,7 @@ for (const [name, ok] of checks) {
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-chart.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-future-pan.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-native-plot-pan.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-visibility-recovery.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-live-session.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-dex-actions.js'], { stdio: 'inherit' });
