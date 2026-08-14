@@ -5,6 +5,7 @@
   if (!charts?.createChart) return;
 
   const originalCreateChart = charts.createChart;
+  const PAN_START_SLOP = 7;
 
   function installPlotPan(chart) {
     const canvas = chart?.canvas;
@@ -58,9 +59,15 @@
       const dx = event.clientX - gesture.startX;
       const dy = event.clientY - gesture.startY;
       if (gesture.mode === 'pending') {
-        if (Math.hypot(dx, dy) < 7) return;
+        if (Math.hypot(dx, dy) < PAN_START_SLOP) return;
         if (Math.abs(dy) > Math.abs(dx) * 0.85) {
           gesture.mode = 'vertical';
+          // Tell the touch controller immediately that this finger became a pan.
+          // Without this handshake its long-hold timer can still fire while the
+          // native vertical pan is consuming pointermove with stopImmediatePropagation.
+          canvas.dispatchEvent(new CustomEvent('galka:native-plot-pan-start', {
+            detail: { pointerId: event.pointerId },
+          }));
         } else {
           gesture.mode = 'horizontal';
           return;
