@@ -15,6 +15,7 @@ from .config import ConfigError, load_config
 from .engine import LiveEngineError
 from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
 from .hyperliquid_gateway import GatewayError
+from .trade_history import build_chart_history
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TERMINAL_ROOT = REPO_ROOT / "terminal"
@@ -141,6 +142,16 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
                 return
             if parsed.path == "/api/live/status":
                 return self._handle(lambda: self.engine.status())
+            if parsed.path == "/api/live/history":
+                query = parse_qs(parsed.query)
+                coin = query.get("coin", [""])[0]
+                try:
+                    limit = int(query.get("limit", ["24"])[0])
+                except ValueError:
+                    return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
+                return self._handle(
+                    lambda: build_chart_history(self.engine.config.data_dir, coin, limit)
+                )
             if parsed.path == "/api/live/candles":
                 query = parse_qs(parsed.query)
                 coin = query.get("coin", [""])[0]
