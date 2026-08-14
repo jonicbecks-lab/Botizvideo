@@ -21,7 +21,20 @@ function mergeMarkers(coin, markers) {
   store[coin] ||= {};
   for (const marker of markers || []) {
     if (!marker?.key || !(Number(marker.time) > 0)) continue;
-    store[coin][marker.key] = { ...store[coin][marker.key], ...marker, coin };
+    const previous = store[coin][marker.key] || {};
+    const next = { ...previous, ...marker, coin };
+
+    // A journal snapshot can know that a campaign finished but temporarily lack
+    // the exact owned exit fill. Never let its neutral price=0 overwrite the
+    // more precise marker captured live from status/events.
+    if (!(Number(marker.price) > 0) && Number(previous.price) > 0) {
+      next.price = previous.price;
+    }
+    if (!Number.isFinite(Number(marker.pnl)) && Number.isFinite(Number(previous.pnl))) {
+      next.pnl = previous.pnl;
+    }
+
+    store[coin][marker.key] = next;
   }
   const rows = Object.values(store[coin])
     .sort((left, right) => Number(left.time || 0) - Number(right.time || 0))
