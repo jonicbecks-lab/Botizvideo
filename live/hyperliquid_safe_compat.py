@@ -2,11 +2,13 @@
 
 Keeps the exchange-tested pair-wise normalTpsl placement path, fixes validation
 of rounded fallback targets, adds a fast two-phase cancel path for empty GALKA
-campaigns, and records non-secret research data independently from trading state.
+campaigns, auto-sizes new campaigns from current equity, and records non-secret
+research data independently from trading state.
 """
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from copy import deepcopy
@@ -19,7 +21,13 @@ from .hyperliquid_compat import (
     CompatibleHyperliquidGateway as _BatchGateway,
 )
 from .hyperliquid_gateway import EntryWithTarget
-from .live_ladder import LadderLevel, round_perp_price
+from .live_ladder import (
+    LadderLevel,
+    estimated_target_pnl,
+    estimated_target_pnl_mixed,
+    round_perp_price,
+    weighted_average,
+)
 from .research_journal import ResearchJournal
 
 
@@ -60,6 +68,93 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
         repo_root = Path(__file__).resolve().parents[1]
         self.research_journal = ResearchJournal(config.data_dir, repo_root)
         super().__init__(config, gateway)
+
+    def preview(self, coin: str, galka_price: float) -> dict[str, Any]:
+        """Size a new GALKA from current account equity instead of a stale fixed notional.
+
+        HL_MAX_MARGIN_FRACTION is both the aggregate margin ceiling and the target
+        fraction for a fresh campaign. Existing active campaigns are reserved first,
+        so the combined full-fill margin can never exceed the configured fraction.
+        """
+        normalized = self._coin(coin)
+        price = float(galka_price)
+        if not math.isfinite(price) or price <= 0:
+            raise LiveEngineError("Цена GALKA должна быть конечным числом больше нуля")
+
+        mid = float(self.gateway.mids().get(normalized) or 0)
+        if mid <= 0:
+            raise LiveEngineError(f"Нет текущей цены {normalized}")
+        if mid <= price:
+            raise LiveEngineError(
+                f"Текущая цена {mid:g} уже не выше GALKA {price:g}. Сетка должна ждать падения сверху."
+            )
+
+        account = self.gateway.fresh_account_state()
+        account_value = float(account.get("accountValue") or 0)
+        with self.lock:
+            reserved_margin = sum(
+                float(active.get("actualNotional") or active.get("requestedNotional") or 0)
+                / max(1, int(active.get("leverage") or self.config.leverage))
+                for active in self._active_campaigns_locked()
+            )
+
+        allowed_margin = max(0.0, account_value * self.config.max_margin_fraction)
+        target_margin = max(0.0, allowed_margin - reserved_margin)
+        requested_notional = target_margin * self.config.leverage
+        if requested_notional < 80:
+            raise LiveEngineError(
+                f"Недостаточно свободной маржи для новой GALKA: доступно ${target_margin:.2f} "
+                f"из лимита {self.config.max_margin_fraction:.0%} капитала ${account_value:.2f}."
+            )
+
+        levels = self.gateway.preview_ladder(normalized, price, requested_notional)
+        actual_notional = sum(level.notional for level in levels)
+        return {
+            "coin": normalized,
+            "galkaPrice": price,
+            "currentPrice": mid,
+            "levels": [level.to_dict() for level in levels],
+            "requestedNotional": requested_notional,
+            "actualNotional": actual_notional,
+            "requiredMargin": actual_notional / self.config.leverage,
+            "leverage": self.config.leverage,
+            "isolated": self.config.isolated,
+            "weightedAverage": weighted_average(levels),
+            "estimatedPnlAtGalka": estimated_target_pnl(
+                levels, price, self.config.maker_fee_rate
+            ),
+            "estimatedPnlMakerMaker": estimated_target_pnl(
+                levels, price, self.config.maker_fee_rate
+            ),
+            "estimatedPnlMakerTaker": estimated_target_pnl_mixed(
+                levels,
+                price,
+                self.config.maker_fee_rate,
+                self.config.taker_fee_rate,
+            ),
+            "makerFeeRate": self.config.maker_fee_rate,
+            "takerFeeRate": self.config.taker_fee_rate,
+            "accountValue": account_value,
+            "withdrawable": account.get("withdrawable"),
+            "reservedMargin": reserved_margin,
+            "targetMargin": target_margin,
+            "autoSizedFromEquity": True,
+            "liveEnabled": self.config.live_enabled,
+        }
+
+    def _new_campaign(
+        self,
+        campaign_id: str,
+        coin: str,
+        galka_price: float,
+        preview: dict[str, Any],
+        levels: list[LadderLevel],
+    ) -> dict[str, Any]:
+        campaign = super()._new_campaign(campaign_id, coin, galka_price, preview, levels)
+        campaign["requestedNotional"] = float(preview.get("requestedNotional") or 0)
+        campaign["autoSizedFromEquity"] = True
+        campaign["targetMarginFraction"] = self.config.max_margin_fraction
+        return campaign
 
     def start(self) -> None:
         super().start()
