@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-14T20:12:59Z",
+  "updatedAt": "2026-08-14T20:16:12Z",
   "reason": "cancelled_fast",
-  "campaignId": "HL-BTC-1786722898540-3e5706",
+  "campaignId": "HL-BTC-1786738398049-04234f",
   "coin": "BTC",
   "status": "canceled",
-  "createdAt": "2026-08-14T15:54:58Z",
-  "createdMs": 1786722898540,
-  "completedAt": "2026-08-14T20:12:59Z",
-  "galkaPrice": 62528.32,
-  "setupMidPrice": 62984.5,
-  "setupDistancePct": 0.7295574229405188,
+  "createdAt": "2026-08-14T20:13:18Z",
+  "createdMs": 1786738398050,
+  "completedAt": "2026-08-14T20:16:12Z",
+  "galkaPrice": 62818.45,
+  "setupMidPrice": 62987.5,
+  "setupDistancePct": 0.2691088366554739,
   "leverage": 10,
   "isolated": true,
   "requestedNotional": 2439.13342959,
-  "actualNotional": 2435.99463,
+  "actualNotional": 2437.27668,
   "weightedAverage": null,
   "estimatedPnlAtGalka": null,
   "makerFeeRate": null,
@@ -35,9 +35,9 @@
     {
       "index": 1,
       "depthPct": 0.15,
-      "price": 62435.0,
-      "requestedSize": 0.0164,
-      "notional": 1023.934,
+      "price": 62724.0,
+      "requestedSize": 0.01633,
+      "notional": 1024.28292,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -45,9 +45,9 @@
     {
       "index": 2,
       "depthPct": 0.3,
-      "price": 62341.0,
-      "requestedSize": 0.0086,
-      "notional": 536.1326,
+      "price": 62630.0,
+      "requestedSize": 0.00856,
+      "notional": 536.1128,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -55,9 +55,9 @@
     {
       "index": 3,
       "depthPct": 0.45,
-      "price": 62247.0,
-      "requestedSize": 0.0047,
-      "notional": 292.5609,
+      "price": 62536.0,
+      "requestedSize": 0.00468,
+      "notional": 292.66848,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -65,9 +65,9 @@
     {
       "index": 4,
       "depthPct": 0.6,
-      "price": 62153.0,
-      "requestedSize": 0.00313,
-      "notional": 194.53889,
+      "price": 62442.0,
+      "requestedSize": 0.00312,
+      "notional": 194.81904,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -75,9 +75,9 @@
     {
       "index": 5,
       "depthPct": 0.9,
-      "price": 61966.0,
-      "requestedSize": 0.00236,
-      "notional": 146.23976,
+      "price": 62253.0,
+      "requestedSize": 0.00235,
+      "notional": 146.29455,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -85,9 +85,9 @@
     {
       "index": 6,
       "depthPct": 1.2,
-      "price": 61778.0,
+      "price": 62065.0,
       "requestedSize": 0.00157,
-      "notional": 96.99146,
+      "notional": 97.44205,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -95,9 +95,9 @@
     {
       "index": 7,
       "depthPct": 1.5,
-      "price": 61590.0,
+      "price": 61876.0,
       "requestedSize": 0.00118,
-      "notional": 72.6762,
+      "notional": 73.01368,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
@@ -105,9 +105,9 @@
     {
       "index": 8,
       "depthPct": 2.0,
-      "price": 61278.0,
-      "requestedSize": 0.00119,
-      "notional": 72.92082,
+      "price": 61562.0,
+      "requestedSize": 0.00118,
+      "notional": 72.64316,
       "filledSize": 0.0,
       "averageFillPrice": 0.0,
       "status": "resting"
