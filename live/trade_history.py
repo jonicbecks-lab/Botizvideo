@@ -155,13 +155,13 @@ def build_chart_history(data_dir: Path, coin: str, limit: int = 24) -> dict[str,
             )
 
         exit_time = 0
-        exit_price = _finite(campaign.get("galkaPrice"))
+        exit_price = 0.0
         if exit_rows:
             exchange_times = [int(row.get("exchangeTimeMs") or 0) for row in exit_rows]
             exchange_times = [value for value in exchange_times if value > 0]
             if exchange_times:
                 exit_time = max(exchange_times) // 1000
-            exit_price = _weighted_price(exit_rows, exit_price)
+            exit_price = _weighted_price(exit_rows, _finite(campaign.get("galkaPrice")))
         if not exit_time:
             exit_time = _iso_seconds(campaign.get("completedAt"))
         if exit_time:
