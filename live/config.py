@@ -29,6 +29,18 @@ ALLOWED_KEYS = {
     "GALKA_HOST",
     "GALKA_PORT",
     "GALKA_DATA_DIR",
+    "GALKA_RESEARCH_RECORDER_ENABLED",
+    "GALKA_RESEARCH_RECORDER_DIR",
+    "GALKA_RESEARCH_L2_DEPTH",
+    "GALKA_RESEARCH_WINDOWS_MS",
+    "GALKA_RESEARCH_FEATURE_INTERVAL_MS",
+    "GALKA_RESEARCH_BOOK_BPS",
+    "GALKA_RESEARCH_IMBALANCE_RATIO",
+    "GALKA_RESEARCH_STACKED_LEVELS",
+    "GALKA_RESEARCH_LARGE_TRADE_QUANTILE",
+    "GALKA_RESEARCH_BASELINE_SECONDS",
+    "GALKA_RESEARCH_FOOTPRINT_PRICE_STEP",
+    "GALKA_RESEARCH_QUEUE_MAX",
 }
 
 
@@ -55,6 +67,18 @@ class LiveConfig:
     taker_fee_rate: float = 0.00045
     monitor_interval: float = 6.0
     global_check_interval: float = 30.0
+    research_recorder_enabled: bool = False
+    research_recorder_dir: Path | None = None
+    research_l2_depth: int = 20
+    research_windows_ms: tuple[int, ...] = (100, 250, 500, 1000, 5000, 10000)
+    research_feature_interval_ms: int = 100
+    research_book_bps: tuple[float, ...] = (1.0, 2.5, 5.0, 10.0, 25.0)
+    research_imbalance_ratio: float = 3.0
+    research_stacked_levels: int = 3
+    research_large_trade_quantile: float = 0.95
+    research_baseline_seconds: int = 60
+    research_footprint_price_step: float = 0.0
+    research_queue_max: int = 50_000
 
     @property
     def network_name(self) -> str:
@@ -149,6 +173,33 @@ def _finite_float(values: dict[str, str], key: str, default: str) -> float:
     return value
 
 
+def _integer(values: dict[str, str], key: str, default: str) -> int:
+    try:
+        return int(values.get(key, default))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{key} must be an integer") from exc
+
+
+def _csv_numbers(
+    values: dict[str, str],
+    key: str,
+    default: str,
+    *,
+    integer: bool = False,
+) -> tuple[int, ...] | tuple[float, ...]:
+    raw = values.get(key, default)
+    parts = [part.strip() for part in str(raw).split(",") if part.strip()]
+    if not parts:
+        raise ConfigError(f"{key} must contain at least one comma-separated number")
+    try:
+        parsed = tuple(int(part) for part in parts) if integer else tuple(float(part) for part in parts)
+    except ValueError as exc:
+        raise ConfigError(f"{key} must contain comma-separated numbers") from exc
+    if not all(math.isfinite(float(value)) for value in parsed):
+        raise ConfigError(f"{key} must contain only finite numbers")
+    return parsed
+
+
 def load_config(path: str | Path | None = None) -> LiveConfig:
     config_path = Path(
         path
@@ -164,10 +215,7 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     if not SECRET_RE.fullmatch(api_secret_key):
         raise ConfigError("HL_API_SECRET_KEY must be the 0x private key of the approved API wallet")
 
-    try:
-        leverage = int(values.get("HL_LEVERAGE", "10"))
-    except (TypeError, ValueError) as exc:
-        raise ConfigError("HL_LEVERAGE must be an integer") from exc
+    leverage = _integer(values, "HL_LEVERAGE", "10")
     if leverage < 1 or leverage > 10:
         raise ConfigError("HL_LEVERAGE must be between 1 and 10")
 
@@ -211,10 +259,7 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
     host = values.get("GALKA_HOST", "127.0.0.1").strip()
     if host not in {"127.0.0.1", "localhost"}:
         raise ConfigError("GALKA_HOST must remain 127.0.0.1 or localhost")
-    try:
-        port = int(values.get("GALKA_PORT", "8098"))
-    except (TypeError, ValueError) as exc:
-        raise ConfigError("GALKA_PORT must be an integer") from exc
+    port = _integer(values, "GALKA_PORT", "8098")
     if not 1024 <= port <= 65535:
         raise ConfigError("GALKA_PORT is invalid")
 
@@ -232,6 +277,82 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
         data_dir.chmod(0o700)
     except OSError:
         pass
+
+    research_recorder_enabled = _bool(values, "GALKA_RESEARCH_RECORDER_ENABLED", False)
+    research_recorder_dir = Path(
+        values.get(
+            "GALKA_RESEARCH_RECORDER_DIR",
+            str(data_dir / "research" / "galka_campaigns"),
+        )
+    ).expanduser().absolute()
+    if _is_inside_repo(research_recorder_dir):
+        raise ConfigError("GALKA_RESEARCH_RECORDER_DIR must remain outside the Git repository")
+    if research_recorder_dir.is_symlink():
+        raise ConfigError("GALKA_RESEARCH_RECORDER_DIR must not be a symlink")
+    if research_recorder_enabled:
+        research_recorder_dir.mkdir(parents=True, exist_ok=True)
+        if not research_recorder_dir.is_dir():
+            raise ConfigError("GALKA_RESEARCH_RECORDER_DIR must be a directory")
+        try:
+            research_recorder_dir.chmod(0o700)
+        except OSError:
+            pass
+
+    research_l2_depth = _integer(values, "GALKA_RESEARCH_L2_DEPTH", "20")
+    if not 1 <= research_l2_depth <= 20:
+        raise ConfigError("GALKA_RESEARCH_L2_DEPTH must be between 1 and 20")
+
+    research_windows_ms = _csv_numbers(
+        values,
+        "GALKA_RESEARCH_WINDOWS_MS",
+        "100,250,500,1000,5000,10000",
+        integer=True,
+    )
+    if any(int(window) < 50 or int(window) > 60_000 for window in research_windows_ms):
+        raise ConfigError("GALKA_RESEARCH_WINDOWS_MS values must be between 50 and 60000 ms")
+    research_windows_ms = tuple(sorted(set(int(window) for window in research_windows_ms)))
+
+    research_feature_interval_ms = _integer(values, "GALKA_RESEARCH_FEATURE_INTERVAL_MS", "100")
+    if not 50 <= research_feature_interval_ms <= 5_000:
+        raise ConfigError("GALKA_RESEARCH_FEATURE_INTERVAL_MS must be between 50 and 5000 ms")
+
+    research_book_bps = _csv_numbers(
+        values,
+        "GALKA_RESEARCH_BOOK_BPS",
+        "1,2.5,5,10,25",
+        integer=False,
+    )
+    if any(float(bps) <= 0 or float(bps) > 500 for bps in research_book_bps):
+        raise ConfigError("GALKA_RESEARCH_BOOK_BPS values must be greater than 0 and at most 500")
+    research_book_bps = tuple(sorted(set(float(bps) for bps in research_book_bps)))
+
+    research_imbalance_ratio = _finite_float(values, "GALKA_RESEARCH_IMBALANCE_RATIO", "3")
+    if not 1.0 <= research_imbalance_ratio <= 100.0:
+        raise ConfigError("GALKA_RESEARCH_IMBALANCE_RATIO must be between 1 and 100")
+
+    research_stacked_levels = _integer(values, "GALKA_RESEARCH_STACKED_LEVELS", "3")
+    if not 2 <= research_stacked_levels <= 20:
+        raise ConfigError("GALKA_RESEARCH_STACKED_LEVELS must be between 2 and 20")
+
+    research_large_trade_quantile = _finite_float(
+        values, "GALKA_RESEARCH_LARGE_TRADE_QUANTILE", "0.95"
+    )
+    if not 0.50 <= research_large_trade_quantile < 1.0:
+        raise ConfigError("GALKA_RESEARCH_LARGE_TRADE_QUANTILE must be >= 0.50 and < 1.00")
+
+    research_baseline_seconds = _integer(values, "GALKA_RESEARCH_BASELINE_SECONDS", "60")
+    if not 10 <= research_baseline_seconds <= 3_600:
+        raise ConfigError("GALKA_RESEARCH_BASELINE_SECONDS must be between 10 and 3600")
+
+    research_footprint_price_step = _finite_float(
+        values, "GALKA_RESEARCH_FOOTPRINT_PRICE_STEP", "0"
+    )
+    if research_footprint_price_step < 0:
+        raise ConfigError("GALKA_RESEARCH_FOOTPRINT_PRICE_STEP must be zero or positive")
+
+    research_queue_max = _integer(values, "GALKA_RESEARCH_QUEUE_MAX", "50000")
+    if not 1_000 <= research_queue_max <= 500_000:
+        raise ConfigError("GALKA_RESEARCH_QUEUE_MAX must be between 1000 and 500000")
 
     return LiveConfig(
         account_address=account_address.lower(),
@@ -251,4 +372,16 @@ def load_config(path: str | Path | None = None) -> LiveConfig:
         taker_fee_rate=taker_fee_rate,
         monitor_interval=monitor_interval,
         global_check_interval=global_check_interval,
+        research_recorder_enabled=research_recorder_enabled,
+        research_recorder_dir=research_recorder_dir,
+        research_l2_depth=research_l2_depth,
+        research_windows_ms=research_windows_ms,
+        research_feature_interval_ms=research_feature_interval_ms,
+        research_book_bps=research_book_bps,
+        research_imbalance_ratio=research_imbalance_ratio,
+        research_stacked_levels=research_stacked_levels,
+        research_large_trade_quantile=research_large_trade_quantile,
+        research_baseline_seconds=research_baseline_seconds,
+        research_footprint_price_step=research_footprint_price_step,
+        research_queue_max=research_queue_max,
     )
