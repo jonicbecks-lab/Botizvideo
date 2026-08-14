@@ -1,2 +1,3 @@
 {"event":"galka_event","recordedAt":"2026-08-14T20:19:32.486Z","localReceiveTimestampNs":1786738772486746562,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1786738621809-90c913","resumeAtMs":1786738772486,"recordingWasActive":false}}
 {"event":"crossed_below_galka","exchangeTimestampMs":1786745701761,"exchangeTimestamp":"2026-08-14T22:15:01.761Z","localReceiveTimestampNs":1786745702064809375,"localReceiveTimestampMs":1786745702064,"price":62823.5,"basis":"bbo_mid"}
+{"event":"return_to_galka","exchangeTimestampMs":1786746641170,"exchangeTimestamp":"2026-08-14T22:30:41.170Z","localReceiveTimestampNs":1786746641405439570,"localReceiveTimestampMs":1786746641405,"price":62825.5,"basis":"bbo_mid"}
