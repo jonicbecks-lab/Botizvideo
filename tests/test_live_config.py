@@ -43,11 +43,50 @@ class LiveConfigTests(unittest.TestCase):
     def test_defaults_include_bounded_risk_and_fee_estimates(self):
         config = load_config(self.write_config())
         self.assertEqual(config.request_timeout, 8.0)
-        self.assertEqual(config.max_margin_fraction, 0.60)
+        self.assertEqual(config.max_margin_fraction, 0.95)
         self.assertEqual(config.maker_fee_rate, 0.00015)
         self.assertEqual(config.taker_fee_rate, 0.00045)
         self.assertEqual(config.monitor_interval, 6.0)
         self.assertEqual(config.global_check_interval, 30.0)
+
+    def test_research_recorder_defaults_are_opt_in(self):
+        config = load_config(self.write_config())
+        self.assertFalse(config.research_recorder_enabled)
+        self.assertEqual(config.research_l2_depth, 20)
+        self.assertEqual(config.research_windows_ms, (100, 250, 500, 1000, 5000, 10000))
+        self.assertEqual(config.research_feature_interval_ms, 100)
+        self.assertEqual(config.research_book_bps, (1.0, 2.5, 5.0, 10.0, 25.0))
+        self.assertEqual(config.research_large_trade_quantile, 0.95)
+        self.assertTrue(str(config.research_recorder_dir).endswith("research/galka_campaigns"))
+
+    def test_research_recorder_parameters_are_validated(self):
+        config = load_config(
+            self.write_config(
+                {
+                    "GALKA_RESEARCH_RECORDER_ENABLED": "true",
+                    "GALKA_RESEARCH_L2_DEPTH": "12",
+                    "GALKA_RESEARCH_WINDOWS_MS": "100,500,1000",
+                    "GALKA_RESEARCH_BOOK_BPS": "1,5,10",
+                    "GALKA_RESEARCH_IMBALANCE_RATIO": "2.5",
+                    "GALKA_RESEARCH_STACKED_LEVELS": "4",
+                }
+            )
+        )
+        self.assertTrue(config.research_recorder_enabled)
+        self.assertEqual(config.research_l2_depth, 12)
+        self.assertEqual(config.research_windows_ms, (100, 500, 1000))
+        self.assertEqual(config.research_book_bps, (1.0, 5.0, 10.0))
+        self.assertEqual(config.research_imbalance_ratio, 2.5)
+        self.assertEqual(config.research_stacked_levels, 4)
+
+        for key, value in [
+            ("GALKA_RESEARCH_L2_DEPTH", "21"),
+            ("GALKA_RESEARCH_WINDOWS_MS", "0,100"),
+            ("GALKA_RESEARCH_LARGE_TRADE_QUANTILE", "1"),
+            ("GALKA_RESEARCH_QUEUE_MAX", "50"),
+        ]:
+            with self.subTest(key=key), self.assertRaises(ConfigError):
+                load_config(self.write_config({key: value}))
 
     def test_nan_and_infinity_are_rejected(self):
         for key, value in [
@@ -56,6 +95,7 @@ class LiveConfigTests(unittest.TestCase):
             ("HL_MAX_MARGIN_FRACTION", "-inf"),
             ("HL_MAKER_FEE_RATE", "nan"),
             ("HL_MONITOR_INTERVAL", "inf"),
+            ("GALKA_RESEARCH_IMBALANCE_RATIO", "nan"),
         ]:
             path = self.write_config({key: value})
             with self.subTest(key=key), self.assertRaises(ConfigError):
@@ -67,11 +107,11 @@ class LiveConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "Unsafe permissions"):
             load_config(path)
 
-    def test_notional_cap_is_1000(self):
-        config = load_config(self.write_config({"HL_TOTAL_NOTIONAL": "1000"}))
-        self.assertEqual(config.total_notional, 1000)
+    def test_notional_cap_is_5000(self):
+        config = load_config(self.write_config({"HL_TOTAL_NOTIONAL": "5000"}))
+        self.assertEqual(config.total_notional, 5000)
         with self.assertRaises(ConfigError):
-            load_config(self.write_config({"HL_TOTAL_NOTIONAL": "1000.01"}))
+            load_config(self.write_config({"HL_TOTAL_NOTIONAL": "5000.01"}))
 
     def test_cross_margin_is_rejected(self):
         with self.assertRaisesRegex(ConfigError, "HL_ISOLATED"):
@@ -88,6 +128,8 @@ class LiveConfigTests(unittest.TestCase):
             load_config(self.write_config({"HL_MAINNET": "treu"}))
         with self.assertRaisesRegex(ConfigError, "HL_LIVE_ENABLED"):
             load_config(self.write_config({"HL_LIVE_ENABLED": "MAYBE"}))
+        with self.assertRaisesRegex(ConfigError, "GALKA_RESEARCH_RECORDER_ENABLED"):
+            load_config(self.write_config({"GALKA_RESEARCH_RECORDER_ENABLED": "maybe"}))
 
     def test_config_and_data_must_remain_outside_repository(self):
         repo_config = self.write_config(parent=REPO_ROOT)
@@ -98,6 +140,18 @@ class LiveConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "outside the Git repository"):
             load_config(self.write_config({"GALKA_DATA_DIR": str(repo_data)}))
         self.assertFalse(repo_data.exists())
+
+        repo_research = REPO_ROOT / f".galka-research-test-{uuid4().hex}"
+        with self.assertRaisesRegex(ConfigError, "outside the Git repository"):
+            load_config(
+                self.write_config(
+                    {
+                        "GALKA_RESEARCH_RECORDER_ENABLED": "true",
+                        "GALKA_RESEARCH_RECORDER_DIR": str(repo_research),
+                    }
+                )
+            )
+        self.assertFalse(repo_research.exists())
 
     def test_config_and_data_symlinks_are_rejected(self):
         target = self.write_config()
