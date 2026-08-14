@@ -284,7 +284,7 @@
         "timeToMaximumMs": 36817
       }
     },
-    "completedAt": "2026-08-14T23:22:52.400Z"
+    "completedAt": "2026-08-14T23:27:58.407Z"
   },
   "stream": {
     "reconnects": 2,
@@ -329,7 +329,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-14T23:22:52.622Z",
+  "updatedAt": "2026-08-14T23:27:58.669Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
