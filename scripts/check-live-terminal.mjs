@@ -18,6 +18,9 @@ const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
 const gateway = fs.readFileSync('live/hyperliquid_gateway.py', 'utf8');
 const server = fs.readFileSync('live/server.py', 'utf8');
 const persistentServer = fs.readFileSync('live/persistent_server.py', 'utf8');
+const researchServer = fs.readFileSync('live/research_server.py', 'utf8');
+const researchEngine = fs.readFileSync('live/research_engine.py', 'utf8');
+const researchRecorder = fs.readFileSync('live/research_recorder.py', 'utf8');
 const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
 const futurePan = fs.readFileSync('terminal/vendor/galka-future-pan.js', 'utf8');
 const visibilityRecovery = fs.readFileSync('terminal/vendor/galka-visibility-recovery.js', 'utf8');
@@ -50,7 +53,7 @@ const checks = [
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=3') && html.includes('live-chart.css?v=3') && chartShim.includes('LightweightCharts')],
   ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
-  ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=1') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
+  ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=2') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
   ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=2') && touchActions.includes('installTouchActions')],
   ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=2') && dexActions.includes('installDesktopActions')],
   ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.')],
@@ -80,7 +83,8 @@ const checks = [
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
   ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + futurePan + visibilityRecovery + liveSession + startupDefaults)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
-  ['persistent background launcher', launcher.includes('galka-live-start.sh') && persistentStart.includes('nohup') && persistentStart.includes('setsid') && persistentStart.includes('termux-wake-lock') && persistentStart.includes('live.persistent_server')],
+  ['persistent background launcher', launcher.includes('galka-live-start.sh') && persistentStart.includes('nohup') && persistentStart.includes('setsid') && persistentStart.includes('termux-wake-lock') && persistentStart.includes('live.research_server') && researchServer.includes('persistent_server')],
+  ['research sidecar is isolated', researchEngine.includes('GalkaResearchRecorder') && researchRecorder.includes('researchOnly') && !researchRecorder.includes('place_entry_with_target') && !researchRecorder.includes('cancel_oids') && !researchRecorder.includes('emergency_market_close')],
   ['separate open status stop', persistentOpen.includes('termux-open-url') && persistentOpen.includes('#token=') && persistentStatus.includes('Galka LIVE: RUNNING') && persistentStop.includes('STOP_GALKA_LIVE')],
   ['loopback runtime guard', persistentCommon.includes('127.0.0.1') && persistentCommon.includes('/healthz') && persistentCommon.includes('browser-session.token')],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
