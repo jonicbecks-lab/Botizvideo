@@ -21,7 +21,7 @@
     chart.__galkaCrosshairLocked = false;
     canvas.setAttribute(
       'aria-label',
-      'График свечей. Одним пальцем двигай график. Удерживай палец, чтобы включить перекрестие. Когда перекрестие включено, движение графика блокируется и палец двигает только перекрестие.',
+      'График свечей. Одним пальцем двигай график. Удерживай палец, чтобы включить перекрестие. Когда перекрестие включено, движение графика полностью блокируется и палец двигает только перекрестие.',
     );
 
     const svgNs = 'http://www.w3.org/2000/svg';
@@ -33,7 +33,7 @@
     plus.classList.add('galka-touch-plus', 'hidden');
     plus.setAttribute('role', 'button');
     plus.setAttribute('tabindex', '0');
-    plus.setAttribute('aria-label', 'Поставить GALKA по цене перекрестия');
+    plus.setAttribute('aria-label', 'Выбрать цену GALKA или AUTO GALKA по перекрестию');
 
     const plusCircle = document.createElementNS(svgNs, 'circle');
     plusCircle.classList.add('galka-touch-plus-circle');
@@ -102,8 +102,10 @@
     }
 
     function positionPlus() {
-      const input = document.getElementById('galkaInput');
-      if (!state.crosshairPinned || !chart.crosshair || input?.disabled) {
+      // The side '+' remains available while a normal GALKA is active: in that
+      // case its selected price becomes an AUTO-queue draft instead of a live
+      // preview. The backend still decides whether queuing is permitted.
+      if (!state.crosshairPinned || !chart.crosshair) {
         plus.classList.add('hidden');
         return;
       }
