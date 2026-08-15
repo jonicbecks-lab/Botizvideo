@@ -284,10 +284,10 @@
         "timeToMaximumMs": 36817
       }
     },
-    "completedAt": "2026-08-15T02:05:44.276Z"
+    "completedAt": "2026-08-15T02:10:48.865Z"
   },
   "stream": {
-    "reconnects": 2,
+    "reconnects": 4,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -300,6 +300,18 @@
         "startedAtMs": 1786749004036,
         "endedAtMs": 1786749005408,
         "recordedAt": "2026-08-14T23:10:05.408Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1786759705355,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T02:08:25.356Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1786759705355,
+        "endedAtMs": 1786759706796,
+        "recordedAt": "2026-08-15T02:08:26.796Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -329,7 +341,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-15T02:05:44.557Z",
+  "updatedAt": "2026-08-15T02:10:49.113Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
