@@ -29,6 +29,10 @@
     }
 
     function start(event) {
+      if (chart.__galkaCrosshairLocked) {
+        gesture = null;
+        return;
+      }
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       const geometry = chart.geometry?.();
       const rect = canvas.getBoundingClientRect();
@@ -50,6 +54,10 @@
     }
 
     function move(event) {
+      if (chart.__galkaCrosshairLocked) {
+        gesture = null;
+        return;
+      }
       if (!gesture || gesture.pointerId !== event.pointerId) return;
       if ((chart.activePointers?.size || 0) >= 2) {
         gesture = null;
@@ -62,9 +70,6 @@
         if (Math.hypot(dx, dy) < PAN_START_SLOP) return;
         if (Math.abs(dy) > Math.abs(dx) * 0.85) {
           gesture.mode = 'vertical';
-          // Tell the touch controller immediately that this finger became a pan.
-          // Without this handshake its long-hold timer can still fire while the
-          // native vertical pan is consuming pointermove with stopImmediatePropagation.
           canvas.dispatchEvent(new CustomEvent('galka:native-plot-pan-start', {
             detail: { pointerId: event.pointerId },
           }));
@@ -95,8 +100,11 @@
       if (gesture?.pointerId === event.pointerId) gesture = null;
     }
 
-    // Capture phase is intentional: once a drag is clearly vertical, prevent the
-    // built-in horizontal pan handler from consuming the same touch movement.
+    function onCrosshairLock(event) {
+      if (event.detail?.locked) gesture = null;
+    }
+
+    canvas.addEventListener('galka:crosshair-lock', onCrosshairLock);
     canvas.addEventListener('pointerdown', start, { capture: true, passive: true });
     canvas.addEventListener('pointermove', move, { capture: true, passive: false });
     canvas.addEventListener('pointerup', finish, { capture: true, passive: true });
