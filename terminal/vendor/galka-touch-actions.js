@@ -18,9 +18,10 @@
     if (!chart?.canvas || typeof chart.pointFromEvent !== 'function') return;
 
     const canvas = chart.canvas;
+    chart.__galkaCrosshairLocked = false;
     canvas.setAttribute(
       'aria-label',
-      'График свечей. Одним пальцем двигай график. Удерживай палец, чтобы включить перекрестие. После этого касанием двигай перекрестие, а кнопкой плюс выбирай цену GALKA.',
+      'График свечей. Одним пальцем двигай график. Удерживай палец, чтобы включить перекрестие. Когда перекрестие включено, движение графика блокируется и палец двигает только перекрестие.',
     );
 
     const svgNs = 'http://www.w3.org/2000/svg';
@@ -63,6 +64,13 @@
 
     function plotPointers() {
       return [...state.pointers.values()].filter((point) => point.zone === 'plot');
+    }
+
+    function setCrosshairLock(locked) {
+      chart.__galkaCrosshairLocked = Boolean(locked);
+      canvas.dispatchEvent(new CustomEvent('galka:crosshair-lock', {
+        detail: { locked: Boolean(locked) },
+      }));
     }
 
     function currentCrosshairPrice() {
@@ -115,6 +123,7 @@
 
     function setPinnedCrosshair(point) {
       state.crosshairPinned = true;
+      setCrosshairLock(true);
       chart.setCrosshair(point);
       chart.gesture = null;
       chart.setInteractionClass('plot');
@@ -125,6 +134,7 @@
     function clearPinnedCrosshair() {
       clearHold();
       state.crosshairPinned = false;
+      setCrosshairLock(false);
       chart.crosshair = null;
       chart.gesture = null;
       chart.setInteractionClass('plot');
@@ -147,16 +157,18 @@
     }
 
     function startPinch() {
+      if (state.crosshairPinned) return;
       clearHold();
       const points = plotPointers();
       if (points.length < 2) return;
-      chart.crosshair = state.crosshairPinned ? chart.crosshair : null;
+      chart.crosshair = null;
       chart.startPinch(points[0], points[1]);
       state.gesture = { type: 'pinch' };
       redraw();
     }
 
     function updatePinch() {
+      if (state.crosshairPinned) return;
       const points = plotPointers();
       if (points.length < 2) return;
       if (state.gesture?.type !== 'pinch') startPinch();
@@ -166,6 +178,7 @@
 
     function startTouch(event, point) {
       if (point.zone === 'price') {
+        if (state.crosshairPinned) return;
         clearHold();
         chart.crosshair = null;
         chart.startPriceScale(point);
@@ -174,6 +187,7 @@
         return;
       }
       if (point.zone === 'time') {
+        if (state.crosshairPinned) return;
         clearHold();
         chart.crosshair = null;
         chart.startTimeScale(point);
@@ -213,6 +227,7 @@
     }
 
     function onNativePlotPanStart(event) {
+      if (state.crosshairPinned) return;
       const pointerId = Number(event.detail?.pointerId);
       const gesture = state.gesture;
       if (!gesture || gesture.type !== 'pending' || gesture.pointerId !== pointerId) return;
@@ -226,11 +241,20 @@
     function onPointerDown(event) {
       if (event.pointerType !== 'touch') return;
       stopEvent(event);
+
+      if (state.crosshairPinned && state.pointers.size >= 1) {
+        return;
+      }
+
       const point = chart.pointFromEvent(event);
       state.pointers.set(event.pointerId, point);
       canvas.setPointerCapture(event.pointerId);
       canvas.focus({ preventScroll: true });
 
+      if (state.crosshairPinned) {
+        startTouch(event, point);
+        return;
+      }
       if (plotPointers().length >= 2) {
         startPinch();
         return;
@@ -258,7 +282,7 @@
       const point = chart.pointFromEvent(event);
       state.pointers.set(event.pointerId, point);
 
-      if (plotPointers().length >= 2) {
+      if (!state.crosshairPinned && plotPointers().length >= 2) {
         updatePinch();
         return;
       }
@@ -332,12 +356,9 @@
           }
           state.lastTapAt = now;
         }
-        // Deliberately do not apply the finger's absolute release coordinate.
-        // The final crosshair position is the last relative position calculated
-        // during pointermove and must remain unchanged on pointerup.
       }
 
-      if (state.pointers.size >= 2) {
+      if (!state.crosshairPinned && state.pointers.size >= 2) {
         startPinch();
         return;
       }
