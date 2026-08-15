@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "HL-ETH-1786788435100-1b0370",
+  "symbol": "ETH",
+  "finalizedAt": "2026-08-15T11:31:18.980Z",
+  "storagePolicy": {
+    "raw": "local-only by default because L2 snapshots make Git history very large",
+    "github": "compact metadata/events/footprint/manifest only",
+    "parquet": "materialize from raw JSONL later on a host with a Parquet writer"
+  },
+  "files": [
+    {
+      "name": "metadata.json",
+      "bytes": 5229,
+      "sha256": "7ae42ab43ae92c9804179dbf55cbf0eee5db2ba7d3801ce752123128bf28955d",
+      "gitSync": true
+    },
+    {
+      "name": "events.jsonl",
+      "bytes": 767,
+      "sha256": "f71ae574a6fd5454b8ece2b8d202e867ccffba255a6b12b3fc218b33cd627fdd",
+      "gitSync": true
+    },
+    {
+      "name": "footprint.json",
+      "bytes": 230,
+      "sha256": "4012f1619c53d767fa7e2a7a9d73e17eb536bb2e3ed3b628c23622f3805527e9",
+      "gitSync": true
+    }
+  ]
+}

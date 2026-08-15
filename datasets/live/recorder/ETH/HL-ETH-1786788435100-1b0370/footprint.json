@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "HL-ETH-1786788435100-1b0370",
+  "symbol": "ETH",
+  "priceAggregationStep": 0.0,
+  "imbalanceRatioThreshold": 3.0,
+  "stackedLevelsThreshold": 3,
+  "levels": [],
+  "stackedImbalances": []
+}
