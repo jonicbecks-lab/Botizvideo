@@ -151,8 +151,87 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 0,
-    "gaps": [],
+    "reconnects": 13,
+    "gaps": [
+      {
+        "message": "WebSocketConnectionClosedException: Connection to remote host was lost.",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:00.066Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.30.3', 'date': 'Sat, 15 Aug 2026 08:05:01 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 0530d51d2f2c72765a4aee4504a6a664.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'jOGla6tEGeJzAEAOy_o1vXjZ3sK5tda7kBayS7LZ9fzIcEX9G3jF_w=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.30.3</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:01.359Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.30.3', 'date': 'Sat, 15 Aug 2026 08:05:02 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 4ecb87f89fb78847d0c397cc575bc254.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'TEiCKse0X8FyV29Q1vavsLb3TaDODNT6D0UlSnB1o7xWes1oA7zMbg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.30.3</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:03.118Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:05:05 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 f3eb7b5e20267dea293dbfae056ecd62.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '2iFwWp5SvKHR-V1NYI8g9b0DHixDX53DhS_oNJfB2tduBOtNCoa4cw=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:05.599Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:05:09 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 0530d51d2f2c72765a4aee4504a6a664.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '4yz-ebaNxltlRBuJEsdaSV1QbUtWq44kl4tKgXa7D-UGAC3n58HRNQ=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:09.357Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.30.3', 'date': 'Sat, 15 Aug 2026 08:05:15 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 2f1d504785a7b18c010970da2bd4ab8c.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'MOwgI1BZp8oBrzxhpF04ZqHMKokikbEAaD__ODXDuqOQq6mpzXAAxg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.30.3</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:15.519Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:05:25 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 6a7eeeb375db56eafe74d447721ccbb8.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'LHtX_yBZakbBu3CtusA0MC6WNA1j_HtV_umi7w8EvhmIYMoJiqpwvQ=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:25.796Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.30.3', 'date': 'Sat, 15 Aug 2026 08:05:36 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 ceb77ae2808ed96bb38d1b2c27dcb6aa.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'sTEkLebxV93bBZsyk2hyqrXr12lG_RDDmBpRSgtLwAp2r6VVn9vLSg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.30.3</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:36.596Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:05:47 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 8c3a87d110aff35fe17513b9a9ad30cc.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '0B1H0dYAFAuFf_jQdPul8vUUeZaGE6IPdjFHClW_3XZ3lLjZIweM4Q=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:47.591Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:05:58 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 b0a74a1c8b6a1560cd851a637b999ff4.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'u2EONzbwNbLLMAUFed16c-c6724FiVmGGUE3YisNzJm43abMDbHzPQ=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:05:58.553Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:06:09 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 a82071c7a558f0fabf37ee3b940ad600.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '4RdhtVXS7FRC7Z6BzQg_HqSzTzvhaJTBov5l1Deh28e3rLgjhM8w7w=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:06:09.410Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 15 Aug 2026 08:06:20 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 2f1d504785a7b18c010970da2bd4ab8c.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'Ur5pT4WGBg-e7rpGyK0-c-XDbKSTlNzN4n_Bu8x5NB7yiks3Nf21Ow=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T08:06:20.227Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1786781100065,
+        "endedAtMs": 1786781191020,
+        "recordedAt": "2026-08-15T08:06:31.020Z"
+      }
+    ],
     "droppedQueueMessages": 0,
     "writerError": null
   },
@@ -180,7 +259,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-15T08:04:49.651Z",
+  "updatedAt": "2026-08-15T08:09:56.238Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
