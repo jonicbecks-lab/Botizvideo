@@ -29,7 +29,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.07446106456719599,
   "minimumObservedPrice": 62778.0,
-  "maximumObservedPrice": 63128.0,
+  "maximumObservedPrice": 63131.0,
   "levels": [
     {
       "index": 1,
@@ -284,7 +284,7 @@
         "timeToMaximumMs": 36817
       }
     },
-    "completedAt": "2026-08-15T02:56:33.869Z"
+    "completedAt": "2026-08-15T03:01:39.048Z"
   },
   "stream": {
     "reconnects": 4,
@@ -341,7 +341,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-15T02:56:34.087Z",
+  "updatedAt": "2026-08-15T03:01:39.555Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
