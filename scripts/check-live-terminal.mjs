@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 const html = fs.readFileSync('terminal/live.html', 'utf8');
 const css = fs.readFileSync('terminal/live.css', 'utf8');
 const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
+const autoQueueCss = fs.readFileSync('terminal/auto-queue.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
@@ -21,6 +22,7 @@ const persistentServer = fs.readFileSync('live/persistent_server.py', 'utf8');
 const researchServer = fs.readFileSync('live/research_server.py', 'utf8');
 const researchEngine = fs.readFileSync('live/research_engine.py', 'utf8');
 const researchRecorder = fs.readFileSync('live/research_recorder.py', 'utf8');
+const autoQueueEngine = fs.readFileSync('live/auto_queue_engine.py', 'utf8');
 const chartShim = fs.readFileSync('terminal/vendor/galka-chart.js', 'utf8');
 const futurePan = fs.readFileSync('terminal/vendor/galka-future-pan.js', 'utf8');
 const nativePlotPan = fs.readFileSync('terminal/vendor/galka-native-plot-pan.js', 'utf8');
@@ -28,6 +30,7 @@ const visibilityRecovery = fs.readFileSync('terminal/vendor/galka-visibility-rec
 const liveSession = fs.readFileSync('terminal/vendor/galka-live-session.js', 'utf8');
 const dexActions = fs.readFileSync('terminal/vendor/galka-dex-actions.js', 'utf8');
 const touchActions = fs.readFileSync('terminal/vendor/galka-touch-actions.js', 'utf8');
+const autoQueue = fs.readFileSync('terminal/vendor/galka-auto-queue.js', 'utf8');
 const startupDefaults = fs.readFileSync('terminal/vendor/galka-startup-defaults.js', 'utf8');
 
 const checks = [
@@ -56,8 +59,8 @@ const checks = [
   ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
   ['native plot pan dependency', html.includes('vendor/galka-native-plot-pan.js?v=4') && nativePlotPan.includes('PAN_START_SLOP = 7') && nativePlotPan.includes("galka:native-plot-pan-start")],
   ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=2') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
-  ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=4') && touchActions.includes('installTouchActions')],
-  ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=2') && dexActions.includes('installDesktopActions')],
+  ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=5') && touchActions.includes('installTouchActions')],
+  ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=3') && dexActions.includes('installDesktopActions')],
   ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
   ['grab-style pan direction', chartShim.includes('const draggedBars = deltaX / geometry.plotWidth') && chartShim.includes('this.gesture.startOffset + draggedBars')],
@@ -77,15 +80,19 @@ const checks = [
   ['relative pinned crosshair movement', touchActions.includes('crosshairStartX') && touchActions.includes('touchStartX') && touchActions.includes('gesture.crosshairStartX + dx')],
   ['stable crosshair on finger release', touchActions.includes('SYNTHETIC_MOUSE_BLOCK_MS') && touchActions.includes('lastTouchEndAt')],
   ['touch GALKA plus', chartCss.includes('.galka-touch-plus') && touchActions.includes("new CustomEvent('galka:select-price'") && dexActions.includes("addEventListener('galka:select-price'")],
+  ['active crosshair can draft AUTO price', dexActions.includes("galka:auto-queue-price") && touchActions.includes('side') && !touchActions.includes('!state.crosshairPinned || !chart.crosshair || input?.disabled')],
   ['crosshair GALKA action', html.includes('id="crosshairGalkaAction"') && html.includes('Поставить GALKA') && chartCss.includes('.crosshair-galka-action') && touchActions.includes('updateCrosshairAction') && touchActions.includes('preview.click()') && touchActions.includes('input.value = formatted')],
+  ['AUTO queue UI', html.includes('id="autoQueueButton"') && html.includes('galka-auto-queue.js?v=1') && html.includes('auto-queue.css?v=1') && autoQueue.includes('QUEUE_REAL_GALKA') && autoQueueCss.includes('.auto-queue-button')],
+  ['AUTO queue backend', researchServer.includes('/api/live/queue') && researchServer.includes('AutoQueueGalkaLiveEngine') && autoQueueEngine.includes('sourceCampaignId') && autoQueueEngine.includes('historyValidation') && autoQueueEngine.includes('cached_mid_touch')],
+  ['AUTO only after normal completion', autoQueueEngine.includes('should_activate = source_status == "completed"') && autoQueueEngine.includes('recovery_closed') && autoQueueEngine.includes('emergency_closed')],
   ['safe right-click GALKA draft', dexActions.includes("addEventListener('contextmenu'") && dexActions.includes('/api/live/preview') && dexActions.includes('preview.levels')],
   ['right-click remains desktop-only', dexActions.includes("state.lastPointerType !== 'mouse'")],
-  ['browser price actions cannot place orders', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !visibilityRecovery.includes('/api/live/campaign') && !liveSession.includes('/api/live/campaign')],
+  ['browser price actions cannot place orders directly', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !visibilityRecovery.includes('/api/live/campaign') && !liveSession.includes('/api/live/campaign')],
   ['touch-safe chart surface', chartCss.includes('touch-action: none') && chartCss.includes('overscroll-behavior: contain')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + futurePan + visibilityRecovery + liveSession + startupDefaults)],
+  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + autoQueue + futurePan + visibilityRecovery + liveSession + startupDefaults)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
   ['persistent background launcher', launcher.includes('galka-live-start.sh') && persistentStart.includes('nohup') && persistentStart.includes('setsid') && persistentStart.includes('termux-wake-lock') && persistentStart.includes('live.research_server') && researchServer.includes('persistent_server')],
   ['research sidecar is isolated', researchEngine.includes('GalkaResearchRecorder') && researchRecorder.includes('researchOnly') && !researchRecorder.includes('place_entry_with_target') && !researchRecorder.includes('cancel_oids') && !researchRecorder.includes('emergency_market_close')],
@@ -105,5 +112,6 @@ execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-visibility-rec
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-live-session.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-dex-actions.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-touch-actions.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-auto-queue.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-startup-defaults.js'], { stdio: 'inherit' });
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
