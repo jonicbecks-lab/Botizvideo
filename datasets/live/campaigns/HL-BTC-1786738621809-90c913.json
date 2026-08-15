@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-15T06:46:25Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-15T06:46:52Z",
+  "reason": "cancelled_fast",
   "campaignId": "HL-BTC-1786738621809-90c913",
   "coin": "BTC",
-  "status": "waiting",
+  "status": "canceled",
   "createdAt": "2026-08-14T20:17:01Z",
   "createdMs": 1786738621809,
-  "completedAt": null,
+  "completedAt": "2026-08-15T06:46:52Z",
   "galkaPrice": 62824.78,
   "setupMidPrice": 62935.5,
   "setupDistancePct": 0.17623619215221265,
@@ -30,7 +30,7 @@
   "actualPositionSize": 0.0,
   "managedNetSize": 0.0,
   "recoveryReason": null,
-  "lastError": "Hyperliquid read failed (frontend_open_orders): HTTPSConnectionPool(host='api.hyperliquid.xyz', port=443): Max retries exceeded with url: /info (Caused by NameResolutionError(\"HTTPSConnection(host='api.hyperliquid.xyz', port=443): Failed to resolve 'api.hyperliquid.xyz' ([Errno 7] No address associated with hostname)\"))",
+  "lastError": null,
   "levels": [
     {
       "index": 1,
@@ -114,7 +114,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,

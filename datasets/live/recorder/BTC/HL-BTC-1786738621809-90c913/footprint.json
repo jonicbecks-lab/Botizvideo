@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "HL-BTC-1786738621809-90c913",
+  "symbol": "BTC",
+  "priceAggregationStep": 0.0,
+  "imbalanceRatioThreshold": 3.0,
+  "stackedLevelsThreshold": 3,
+  "levels": [
+    {
+      "price": 63047.0,
+      "aggressiveBuyVolume": 0.0,
+      "aggressiveSellVolume": 0.4097199999999999,
+      "delta": -0.4097199999999999,
+      "totalVolume": 0.4097199999999999,
+      "tradeCount": 13,
+      "buyDiagonalRatio": null,
+      "buyDiagonalImbalance": false,
+      "sellDiagonalRatio": 0.5950302801458089,
+      "sellDiagonalImbalance": false
+    },
+    {
+      "price": 63048.0,
+      "aggressiveBuyVolume": 0.6885700000000005,
+      "aggressiveSellVolume": 0.0,
+      "delta": 0.6885700000000005,
+      "totalVolume": 0.6885700000000005,
+      "tradeCount": 39,
+      "buyDiagonalRatio": 1.6805867421653826,
+      "buyDiagonalImbalance": false,
+      "sellDiagonalRatio": null,
+      "sellDiagonalImbalance": false
+    }
+  ],
+  "stackedImbalances": []
+}
