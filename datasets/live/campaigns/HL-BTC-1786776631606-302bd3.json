@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-15T10:02:01Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-15T10:06:32Z",
+  "reason": "cancelled_fast",
   "campaignId": "HL-BTC-1786776631606-302bd3",
   "coin": "BTC",
-  "status": "waiting",
+  "status": "canceled",
   "createdAt": "2026-08-15T06:50:31Z",
   "createdMs": 1786776631607,
-  "completedAt": null,
+  "completedAt": "2026-08-15T10:06:32Z",
   "galkaPrice": 62775.74,
   "setupMidPrice": 63058.5,
   "setupDistancePct": 0.4504287802899798,
@@ -114,7 +114,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
