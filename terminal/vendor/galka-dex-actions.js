@@ -53,14 +53,20 @@
     const symbol = document.getElementById('symbolSelect');
     if (!input || !symbol) return;
 
-    if (input.disabled) {
-      showToast('Нельзя выбрать новую GALKA: текущая кампания активна или включён SAFE MODE', 'error');
-      return;
-    }
-
     const coin = symbol.value;
     const galkaPrice = Number(selectedPrice);
     if (!(galkaPrice > 0)) return;
+
+    if (input.disabled) {
+      // While a live campaign is active the normal GALKA input is deliberately
+      // locked and continuously shows the active level. Crosshair selection must
+      // still be useful: hand the selected price to the separate AUTO queue UI.
+      document.dispatchEvent(new CustomEvent('galka:auto-queue-price', {
+        detail: { coin, price: galkaPrice, source: 'crosshair' },
+      }));
+      showToast(`AUTO цена выбрана: ${formatPrice(galkaPrice, coin)}. Нажми AUTO.`);
+      return;
+    }
 
     input.value = formatPrice(galkaPrice, coin);
     const token = sessionStorage.getItem('galkaLiveSession') || '';
