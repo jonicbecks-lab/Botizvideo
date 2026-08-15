@@ -11,13 +11,14 @@
   <link rel="stylesheet" href="live.css?v=2">
   <link rel="stylesheet" href="live-chart.css?v=3">
   <link rel="stylesheet" href="vertical-price-pan.css?v=1">
+  <link rel="stylesheet" href="auto-queue.css?v=1">
   <script src="vendor/galka-chart.js?v=3"></script>
   <script src="vendor/galka-future-pan.js?v=1"></script>
   <script src="vendor/galka-native-plot-pan.js?v=4"></script>
   <script src="vendor/galka-visibility-recovery.js?v=2"></script>
   <script src="vendor/galka-resume-refresh.js?v=1"></script>
-  <script src="vendor/galka-dex-actions.js?v=2"></script>
-  <script src="vendor/galka-touch-actions.js?v=4"></script>
+  <script src="vendor/galka-dex-actions.js?v=3"></script>
+  <script src="vendor/galka-touch-actions.js?v=5"></script>
   <script src="vendor/galka-live-session.js?v=1"></script>
   <script src="vendor/galka-safe-notification.js?v=1"></script>
 </head>
@@ -38,6 +39,10 @@
       <div id="chart"></div>
       <div class="watermark" id="watermark">BTC · 5m · HYPERLIQUID</div>
       <button class="crosshair-galka-action hidden" id="crosshairGalkaAction" type="button">Поставить GALKA</button>
+      <div class="auto-queue-controls" aria-label="Следующая GALKA">
+        <button class="auto-queue-button" id="autoQueueButton" type="button" disabled>AUTO</button>
+        <button class="auto-queue-clear hidden" id="autoQueueClear" type="button" aria-label="Удалить AUTO GALKA">×</button>
+      </div>
       <button class="details-button" id="detailsButton" type="button">Счёт</button>
       <div class="loading" id="loading">Загрузка Hyperliquid…</div>
       <div class="toast hidden" id="toast"></div>
@@ -88,6 +93,7 @@
   <script src="vendor/galka-trade-markers-v2.js?v=2"></script>
   <script src="vendor/galka-pnl-log.js?v=1"></script>
   <script type="module" src="live.js?v=2"></script>
+  <script type="module" src="vendor/galka-auto-queue.js?v=1"></script>
   <script type="module" src="vendor/galka-startup-defaults.js?v=2"></script>
   <script type="module" src="vendor/galka-quick-cancel.js?v=1"></script>
   <script type="module" src="vendor/galka-near-market-exit.js?v=1"></script>
