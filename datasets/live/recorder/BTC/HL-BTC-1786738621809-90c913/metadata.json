@@ -284,10 +284,10 @@
         "timeToMaximumMs": 36817
       }
     },
-    "completedAt": "2026-08-15T05:08:49.643Z"
+    "completedAt": "2026-08-15T06:46:26.985Z"
   },
   "stream": {
-    "reconnects": 6,
+    "reconnects": 12,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -324,6 +324,42 @@
         "startedAtMs": 1786770155944,
         "endedAtMs": 1786770157421,
         "recordedAt": "2026-08-15T05:02:37.421Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:17.913Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:18.422Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:19.329Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:20.954Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:23.878Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786770737912,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-15T05:12:29.142Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -353,7 +389,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-15T05:08:49.932Z",
+  "updatedAt": "2026-08-15T06:46:27.319Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
