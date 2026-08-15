@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 63006.5,
-  "maximumObservedPrice": 63132.5,
+  "maximumObservedPrice": 63143.5,
   "levels": [
     {
       "index": 1,
@@ -205,7 +205,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-15T21:40:16.070Z",
+  "updatedAt": "2026-08-15T21:45:23.573Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
