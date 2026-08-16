@@ -265,7 +265,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-16T12:30:16.224Z",
+  "updatedAt": "2026-08-16T12:35:22.533Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
