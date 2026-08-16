@@ -6,15 +6,22 @@
   "galkaLevel": 62925.1,
   "campaignActivatedAt": "2026-08-16T13:25:40Z",
   "campaignActivatedAtMs": 1786886740584,
-  "status": "armed",
-  "recordingStartedAt": null,
+  "status": "recording",
+  "recordingStartedAt": "2026-08-16T21:40:05.640Z",
   "recordingStoppedAt": null,
-  "crossedBelowGalka": null,
+  "crossedBelowGalka": {
+    "exchangeTimestampMs": 1786916405076,
+    "exchangeTimestamp": "2026-08-16T21:40:05.076Z",
+    "localReceiveTimestampNs": 1786916405640678398,
+    "localReceiveTimestampMs": 1786916405640,
+    "price": 62921.0,
+    "basis": "bbo_mid"
+  },
   "returnToGalka": null,
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
-  "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 62979.5,
+  "maxDeviationBelowGalkaPct": 0.2989268193455371,
+  "minimumObservedPrice": 62737.0,
   "maximumObservedPrice": 63362.5,
   "levels": [
     {
@@ -27,9 +34,9 @@
       "targetOid": 517634553237,
       "entryCloid": "0x02417dc2a1384d9596c17285f6c05d68",
       "targetCloid": "0x72b4d3d729c54748b44ae16f7e6af01e",
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.0163,
+      "averageFillPrice": 62831.0,
+      "status": "filled"
     },
     {
       "index": 2,
@@ -130,9 +137,25 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1786916406115,
+      "localReceiveTimestampNs": 1786916412512236289,
+      "ownerKind": "entry",
+      "ownerLevel": 1,
+      "oid": 517634553236,
+      "cloid": "0x02417dc2a1384d9596c17285f6c05d68",
+      "side": "B",
+      "price": 62831.0,
+      "size": 0.0163,
+      "fee": 0.153621,
+      "closedPnl": 0.0,
+      "hash": "0x2550764c10ed74a026ca0442521b0202058c0031abe09372c919219ecfe14e8a"
+    }
+  ],
   "actualRealizedPnl": 0.0,
-  "fees": 0.0,
+  "fees": 0.153621,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -217,7 +240,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-16T21:39:09.933Z",
-  "campaignStatus": "waiting",
+  "updatedAt": "2026-08-16T21:44:17.288Z",
+  "campaignStatus": "closing",
   "lastCampaignUpdateReason": "fills_updated"
 }
