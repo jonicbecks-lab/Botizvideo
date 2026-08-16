@@ -6,9 +6,9 @@
   "galkaLevel": 62925.1,
   "campaignActivatedAt": "2026-08-16T13:25:40Z",
   "campaignActivatedAtMs": 1786886740584,
-  "status": "recording",
+  "status": "post_return_pending",
   "recordingStartedAt": "2026-08-16T21:40:05.640Z",
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-16T21:48:44.078Z",
   "crossedBelowGalka": {
     "exchangeTimestampMs": 1786916405076,
     "exchangeTimestamp": "2026-08-16T21:40:05.076Z",
@@ -17,9 +17,16 @@
     "price": 62921.0,
     "basis": "bbo_mid"
   },
-  "returnToGalka": null,
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "returnToGalka": {
+    "exchangeTimestampMs": 1786916916601,
+    "exchangeTimestamp": "2026-08-16T21:48:36.601Z",
+    "localReceiveTimestampNs": 1786916916881764570,
+    "localReceiveTimestampMs": 1786916916881,
+    "price": 62927.5,
+    "basis": "bbo_mid"
+  },
+  "campaignCompletedAt": "2026-08-16T21:48:43Z",
+  "campaignCompletedAtMs": 1786916923000,
   "maxDeviationBelowGalkaPct": 0.2989268193455371,
   "minimumObservedPrice": 62737.0,
   "maximumObservedPrice": 63362.5,
@@ -152,10 +159,25 @@
       "fee": 0.153621,
       "closedPnl": 0.0,
       "hash": "0x2550764c10ed74a026ca0442521b0202058c0031abe09372c919219ecfe14e8a"
+    },
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1786916916532,
+      "localReceiveTimestampNs": 1786916922123400664,
+      "ownerKind": "target",
+      "ownerLevel": 0,
+      "oid": 517796482658,
+      "cloid": "0x1cffa37c4fde4d208e742a4bf4c0f959",
+      "side": "A",
+      "price": 62925.0,
+      "size": 0.0163,
+      "fee": 0.153851,
+      "closedPnl": 1.5322,
+      "hash": "0x108af6af45153ea9120404425236fc0201650094e0185d7bb453a20204191893"
     }
   ],
-  "actualRealizedPnl": 0.0,
-  "fees": 0.153621,
+  "actualRealizedPnl": 1.224728,
+  "fees": 0.30747199999999997,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -171,7 +193,83 @@
   ],
   "postReturnOutcome": {
     "complete": false,
-    "horizons": {}
+    "horizons": {
+      "1000": {
+        "targetTimestampMs": 1786916917601,
+        "observedTimestampMs": 1786916917468,
+        "price": 62927.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 0.5,
+        "maeAbs": -0.5,
+        "mfePct": 0.0007945651742113924,
+        "maePct": -0.0007945651742113924,
+        "maximumPrice": 62928.0,
+        "minimumPrice": 62927.0,
+        "maximumTimestampMs": 1786916917003,
+        "minimumTimestampMs": 1786916917269,
+        "timeToMaximumMs": 402
+      },
+      "3000": {
+        "targetTimestampMs": 1786916919601,
+        "observedTimestampMs": 1786916919483,
+        "price": 62927.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 0.5,
+        "maeAbs": -0.5,
+        "mfePct": 0.0007945651742113924,
+        "maePct": -0.0007945651742113924,
+        "maximumPrice": 62928.0,
+        "minimumPrice": 62927.0,
+        "maximumTimestampMs": 1786916917003,
+        "minimumTimestampMs": 1786916917269,
+        "timeToMaximumMs": 402
+      },
+      "5000": {
+        "targetTimestampMs": 1786916921601,
+        "observedTimestampMs": 1786916921427,
+        "price": 62927.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 0.5,
+        "maeAbs": -0.5,
+        "mfePct": 0.0007945651742113924,
+        "maePct": -0.0007945651742113924,
+        "maximumPrice": 62928.0,
+        "minimumPrice": 62927.0,
+        "maximumTimestampMs": 1786916917003,
+        "minimumTimestampMs": 1786916917269,
+        "timeToMaximumMs": 402
+      },
+      "10000": {
+        "targetTimestampMs": 1786916926601,
+        "observedTimestampMs": 1786916926536,
+        "price": 62932.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 5.0,
+        "maeAbs": -0.5,
+        "mfePct": 0.00794565174209172,
+        "maePct": -0.0007945651742113924,
+        "maximumPrice": 62932.5,
+        "minimumPrice": 62927.0,
+        "maximumTimestampMs": 1786916926200,
+        "minimumTimestampMs": 1786916917269,
+        "timeToMaximumMs": 9599
+      },
+      "30000": {
+        "targetTimestampMs": 1786916946601,
+        "observedTimestampMs": 1786916946558,
+        "price": 62918.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 5.0,
+        "maeAbs": -9.0,
+        "mfePct": 0.00794565174209172,
+        "maePct": -0.014302173135749552,
+        "maximumPrice": 62932.5,
+        "minimumPrice": 62918.5,
+        "maximumTimestampMs": 1786916926200,
+        "minimumTimestampMs": 1786916945036,
+        "timeToMaximumMs": 9599
+      }
+    }
   },
   "stream": {
     "reconnects": 6,
@@ -240,7 +338,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-16T21:44:17.288Z",
-  "campaignStatus": "closing",
-  "lastCampaignUpdateReason": "fills_updated"
+  "updatedAt": "2026-08-16T21:49:23.719Z",
+  "campaignStatus": "completed",
+  "lastCampaignUpdateReason": "campaign_completed"
 }
