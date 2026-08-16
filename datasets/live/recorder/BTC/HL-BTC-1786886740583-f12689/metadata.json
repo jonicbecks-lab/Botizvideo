@@ -6,7 +6,7 @@
   "galkaLevel": 62925.1,
   "campaignActivatedAt": "2026-08-16T13:25:40Z",
   "campaignActivatedAtMs": 1786886740584,
-  "status": "post_return_pending",
+  "status": "completed",
   "recordingStartedAt": "2026-08-16T21:40:05.640Z",
   "recordingStoppedAt": "2026-08-16T21:48:44.078Z",
   "crossedBelowGalka": {
@@ -192,7 +192,7 @@
     300000
   ],
   "postReturnOutcome": {
-    "complete": false,
+    "complete": true,
     "horizons": {
       "1000": {
         "targetTimestampMs": 1786916917601,
@@ -268,8 +268,54 @@
         "maximumTimestampMs": 1786916926200,
         "minimumTimestampMs": 1786916945036,
         "timeToMaximumMs": 9599
+      },
+      "60000": {
+        "targetTimestampMs": 1786916976601,
+        "observedTimestampMs": 1786916976522,
+        "price": 62915.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 5.0,
+        "maeAbs": -15.0,
+        "mfePct": 0.00794565174209172,
+        "maePct": -0.023836955226252954,
+        "maximumPrice": 62932.5,
+        "minimumPrice": 62912.5,
+        "maximumTimestampMs": 1786916926200,
+        "minimumTimestampMs": 1786916960406,
+        "timeToMaximumMs": 9599
+      },
+      "120000": {
+        "targetTimestampMs": 1786917036601,
+        "observedTimestampMs": 1786917034815,
+        "price": 62947.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 20.0,
+        "maeAbs": -15.0,
+        "mfePct": 0.03178260696834467,
+        "maePct": -0.023836955226252954,
+        "maximumPrice": 62947.5,
+        "minimumPrice": 62912.5,
+        "maximumTimestampMs": 1786917019271,
+        "minimumTimestampMs": 1786916960406,
+        "timeToMaximumMs": 102670
+      },
+      "300000": {
+        "targetTimestampMs": 1786917216601,
+        "observedTimestampMs": 1786917216572,
+        "price": 62932.5,
+        "startPrice": 62927.5,
+        "mfeAbs": 22.0,
+        "maeAbs": -15.0,
+        "mfePct": 0.03496086766516804,
+        "maePct": -0.023836955226252954,
+        "maximumPrice": 62949.5,
+        "minimumPrice": 62912.5,
+        "maximumTimestampMs": 1786917095129,
+        "minimumTimestampMs": 1786916960406,
+        "timeToMaximumMs": 178528
       }
-    }
+    },
+    "completedAt": "2026-08-16T21:53:36.971Z"
   },
   "stream": {
     "reconnects": 6,
@@ -338,7 +384,8 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-16T21:49:23.719Z",
+  "updatedAt": "2026-08-16T21:53:37.484Z",
   "campaignStatus": "completed",
-  "lastCampaignUpdateReason": "campaign_completed"
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-16T21:53:37.426Z"
 }
