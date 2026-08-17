@@ -287,7 +287,7 @@
     }
   },
   "stream": {
-    "reconnects": 4,
+    "reconnects": 6,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -312,6 +312,18 @@
         "startedAtMs": 1786963639040,
         "endedAtMs": 1786963640377,
         "recordedAt": "2026-08-17T10:47:20.377Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1786971901192,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-17T13:05:01.200Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1786971901192,
+        "endedAtMs": 1786971902464,
+        "recordedAt": "2026-08-17T13:05:02.464Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -341,7 +353,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-17T13:04:04.885Z",
+  "updatedAt": "2026-08-17T13:09:16.474Z",
   "campaignStatus": "completed",
   "lastCampaignUpdateReason": "campaign_completed"
 }
