@@ -6,15 +6,22 @@
   "galkaLevel": 1897.45,
   "campaignActivatedAt": "2026-08-17T07:15:58Z",
   "campaignActivatedAtMs": 1786950958667,
-  "status": "armed",
-  "recordingStartedAt": null,
+  "status": "recording",
+  "recordingStartedAt": "2026-08-17T08:05:35.987Z",
   "recordingStoppedAt": null,
-  "crossedBelowGalka": null,
+  "crossedBelowGalka": {
+    "exchangeTimestampMs": 1786953935648,
+    "exchangeTimestamp": "2026-08-17T08:05:35.648Z",
+    "localReceiveTimestampNs": 1786953935987114781,
+    "localReceiveTimestampMs": 1786953935987,
+    "price": 1897.4,
+    "basis": "bbo_mid"
+  },
   "returnToGalka": null,
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
-  "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 1897.55,
+  "maxDeviationBelowGalkaPct": 0.16601227963846693,
+  "minimumObservedPrice": 1894.3,
   "maximumObservedPrice": 1904.85,
   "levels": [
     {
@@ -27,9 +34,9 @@
       "targetOid": 518045177719,
       "entryCloid": "0x6304a18ecdf047868b139de17206380e",
       "targetCloid": "0x1ea0b4eece694cd1a4c240145713706f",
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.5434,
+      "averageFillPrice": 1894.5999999999997,
+      "status": "filled"
     },
     {
       "index": 2,
@@ -130,9 +137,25 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1786954100340,
+      "localReceiveTimestampNs": 1786954104325112946,
+      "ownerKind": "entry",
+      "ownerLevel": 1,
+      "oid": 518045177718,
+      "cloid": "0x6304a18ecdf047868b139de17206380e",
+      "side": "B",
+      "price": 1894.6,
+      "size": 0.5434,
+      "fee": 0.154428,
+      "closedPnl": 0.0,
+      "hash": "0x9743b7264a95574398bd04425a1cfb020742000be59876153b0c62790999312e"
+    }
+  ],
   "actualRealizedPnl": 0.0,
-  "fees": 0.0,
+  "fees": 0.154428,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -193,7 +216,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-17T08:03:58.431Z",
-  "campaignStatus": "waiting",
+  "updatedAt": "2026-08-17T08:09:04.992Z",
+  "campaignStatus": "closing",
   "lastCampaignUpdateReason": "fills_updated"
 }
