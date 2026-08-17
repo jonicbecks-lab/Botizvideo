@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 62678.5,
-  "maximumObservedPrice": 63221.5,
+  "maximumObservedPrice": 63506.5,
   "levels": [
     {
       "index": 1,
@@ -167,7 +167,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 4,
+    "reconnects": 7,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -192,6 +192,24 @@
         "startedAtMs": 1786930741508,
         "endedAtMs": 1786930742911,
         "recordedAt": "2026-08-17T01:39:02.912Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1786933027450,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-17T02:17:07.450Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786933027450,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-17T02:17:07.962Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1786933027450,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-17T02:17:08.875Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -221,7 +239,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-17T02:16:05.866Z",
+  "updatedAt": "2026-08-17T04:58:29.815Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
