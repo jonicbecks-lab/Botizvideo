@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-17T08:19:22Z",
+  "updatedAt": "2026-08-17T08:24:32Z",
   "reason": "fills_updated",
   "campaignId": "HL-ETH-1786950958667-29f5b1",
   "coin": "ETH",
@@ -20,15 +20,15 @@
   "makerFeeRate": null,
   "takerFeeRate": null,
   "hadPosition": true,
-  "cycleDeepest": 1,
+  "cycleDeepest": 2,
   "l1Cycles": 0,
   "l1RealizedPnl": 0.0,
   "cycleClosedPnl": 0.0,
-  "fees": 0.154428,
+  "fees": 0.235302,
   "grossPnl": 0.0,
-  "netPnlApprox": -0.154428,
-  "actualPositionSize": 0.5434,
-  "managedNetSize": 0.5434,
+  "netPnlApprox": -0.235302,
+  "actualPositionSize": 0.8284,
+  "managedNetSize": 0.8284,
   "recoveryReason": null,
   "lastError": null,
   "levels": [
@@ -48,9 +48,9 @@
       "price": 1891.8,
       "requestedSize": 0.285,
       "notional": 539.163,
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.285,
+      "averageFillPrice": 1891.7999999999997,
+      "status": "filled"
     },
     {
       "index": 3,
