@@ -44,8 +44,8 @@ fi
 git -C "$SYNC_ROOT" remote set-url origin "$REMOTE_URL" >/dev/null 2>&1 || exit 0
 
 copy_dataset() {
-  # Keep the checked-out cluster directory: it is the remote side of a
-  # bidirectional merge. Other generated research views are rebuilt as before.
+  # Keep the checked-out cluster directory: it is the remote side of the merge.
+  # Other generated research views are rebuilt as before.
   mkdir -p "$DATASET_DIR"
   rm -rf "$DATASET_DIR/campaigns" "$RECORDER_DST"
   rm -f "$DATASET_DIR/manifest.json" "$DATASET_DIR/events.jsonl" "$DATASET_DIR/fills.jsonl"
@@ -79,10 +79,10 @@ copy_dataset() {
     )
   fi
 
-  # Cluster cells are deliberately compact (minute x base-price buckets), not
-  # raw trades. Merge remote+phone by deterministic time/price key so a reinstall
-  # or another sync cannot delete older GitHub history. The merged archive is
-  # mirrored back to the phone and is immediately usable by the chart API.
+  # Cluster cells are compact minute x price buckets, not raw trades. Merge the
+  # phone snapshot into the checked-out remote snapshot by deterministic key.
+  # Local files stay read-only during sync so the live websocket cannot lose an
+  # append if a GitHub sync happens at the same moment.
   if [[ -f "$CLUSTER_MERGER" ]]; then
     python3 "$CLUSTER_MERGER" "$CLUSTER_SRC" "$CLUSTER_DST" >/dev/null 2>&1 || true
   fi
