@@ -13,3 +13,4 @@
 {"event":"galka_execution","exchangeTimestampMs":1786962596829,"localReceiveTimestampNs":1786962601722288688,"ownerKind":"target","ownerLevel":0,"oid":518073534027,"cloid":"0xab54b62458114b8b88438de97aa3649d","side":"A","price":1897.4,"size":0.802,"fee":0.228257,"closedPnl":3.02354,"hash":"0xc9f8f63257b5dcd7cb7204425bec9c0205ff0017f2b8fba96dc1a18516b9b6c2"}
 {"event":"galka_event","recordedAt":"2026-08-17T10:30:07.442Z","localReceiveTimestampNs":1786962607442500992,"type":"live","message":"ETH: L2 достигнута, позиция закрыта owned TP, кампания завершена","meta":{"campaignId":"HL-ETH-1786950958667-29f5b1","deepest":2,"pnl":2.651996}}
 {"event":"campaign_completed","recordedAt":"2026-08-17T10:30:07.444Z","campaignStatus":"completed","actualRealizedPnl":2.651996,"fees":0.471072}
+{"event":"shutdown_flush","recordedAt":"2026-08-18T14:28:05.828Z"}
