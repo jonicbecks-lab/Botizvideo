@@ -69,6 +69,39 @@
     return originalFetch(input, init);
   };
 
+  // Android browsers can start native text selection while a finger is held on
+  // an interactive chart. That conflicts with Galka's hold-to-crosshair gesture
+  // and produces the Copy/Translate toolbar. Keep form fields selectable, but
+  // suppress page selection everywhere else in the terminal.
+  document.addEventListener('selectstart', (event) => {
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
+    event.preventDefault();
+  }, { capture: true });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'touch') return;
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
+    try {
+      window.getSelection()?.removeAllRanges();
+    } catch (_) {
+      // Native selection cleanup is best-effort and must not affect the chart.
+    }
+  }, { capture: true });
+
   window.GalkaClusterHistoryRange = Object.freeze({
     visibleRange,
   });
