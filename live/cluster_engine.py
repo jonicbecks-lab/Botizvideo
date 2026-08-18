@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from .auto_queue_engine import AutoQueueGalkaLiveEngine
-from .cluster_volume import ClusterVolumeService
+from .cluster_archive import PersistentClusterVolumeService
 
 
 class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
-    """AUTO+research engine with an isolated display-only cluster volume feed."""
+    """AUTO+research engine with isolated persistent chart-cluster telemetry."""
 
     def __init__(self, config: Any, gateway: Any):
-        self.cluster_volume = ClusterVolumeService(config)
+        self.cluster_volume = PersistentClusterVolumeService(config)
         super().__init__(config, gateway)
 
     def start(self) -> None:
@@ -32,8 +32,10 @@ class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
         coin: str,
         interval: str,
         aggregation: str = "auto",
+        from_ms: int | None = None,
+        to_ms: int | None = None,
     ) -> dict[str, Any]:
-        return self.cluster_volume.snapshot(coin, interval, aggregation)
+        return self.cluster_volume.snapshot(coin, interval, aggregation, from_ms, to_ms)
 
     def status(self) -> dict[str, Any]:
         result = super().status()
