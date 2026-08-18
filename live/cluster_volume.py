@@ -23,7 +23,7 @@ BASE_PRICE_STEPS = {
 }
 RETENTION_MS = 12 * 60 * 60 * 1000
 MAX_DEDUPE_IDS = 60_000
-MAX_RETURN_CELLS = 3_000
+MAX_RETURN_CELLS = 1_500
 
 
 def _now_ms() -> int:
@@ -51,6 +51,19 @@ def _percentile(values: list[float], quantile: float) -> float:
         return rows[low]
     weight = position - low
     return rows[low] * (1.0 - weight) + rows[high] * weight
+
+
+def _metric_summary(values: list[float]) -> dict[str, float | int]:
+    rows = [value for value in values if value >= 0 and math.isfinite(value)]
+    return {
+        "count": len(rows),
+        "q50": _percentile(rows, 0.50),
+        "q75": _percentile(rows, 0.75),
+        "q90": _percentile(rows, 0.90),
+        "q95": _percentile(rows, 0.95),
+        "q99": _percentile(rows, 0.99),
+        "max": max(rows) if rows else 0.0,
+    }
 
 
 class ClusterVolumeService:
@@ -273,7 +286,6 @@ class ClusterVolumeService:
             target["lastTradeMs"] = max(target["lastTradeMs"], int(row["lastTradeMs"]))
 
         cells: list[dict[str, Any]] = []
-        notionals: list[float] = []
         for row in grouped.values():
             total = float(row["quoteNotional"])
             if total <= 0:
@@ -296,17 +308,14 @@ class ClusterVolumeService:
                     "lastTradeMs": int(row["lastTradeMs"]),
                 }
             )
-            notionals.append(total)
 
-        summary = {
-            "count": len(cells),
-            "q50": _percentile(notionals, 0.50),
-            "q75": _percentile(notionals, 0.75),
-            "q90": _percentile(notionals, 0.90),
-            "q95": _percentile(notionals, 0.95),
-            "q99": _percentile(notionals, 0.99),
-            "max": max(notionals) if notionals else 0.0,
+        summary_by_metric = {
+            "total": _metric_summary([float(row["totalNotional"]) for row in cells]),
+            "buy": _metric_summary([float(row["buyNotional"]) for row in cells]),
+            "sell": _metric_summary([float(row["sellNotional"]) for row in cells]),
+            "delta": _metric_summary([abs(float(row["deltaNotional"])) for row in cells]),
         }
+        summary = summary_by_metric["total"]
 
         if len(cells) > MAX_RETURN_CELLS:
             cells = sorted(cells, key=lambda row: float(row["totalNotional"]), reverse=True)[:MAX_RETURN_CELLS]
@@ -320,6 +329,7 @@ class ClusterVolumeService:
             "retentionHours": RETENTION_MS / 3_600_000,
             "cells": cells,
             "summary": summary,
+            "summaryByMetric": summary_by_metric,
             "stream": status,
             "serverTimeMs": _now_ms(),
         }
