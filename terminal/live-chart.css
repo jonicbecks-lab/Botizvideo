@@ -6,6 +6,7 @@
   overscroll-behavior: contain;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   cursor: grab;
   outline: none;
 }
@@ -37,6 +38,9 @@
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .galka-touch-plus {
@@ -44,6 +48,9 @@
   cursor: pointer;
   touch-action: manipulation;
   outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .galka-touch-plus-circle {
@@ -60,6 +67,7 @@
   dominant-baseline: central;
   pointer-events: none;
   user-select: none;
+  -webkit-user-select: none;
 }
 
 .galka-touch-plus:focus-visible .galka-touch-plus-circle {
@@ -88,6 +96,9 @@
   font-size: 15px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.48);
   white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .crosshair-galka-action:active {
