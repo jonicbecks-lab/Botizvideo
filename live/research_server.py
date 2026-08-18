@@ -8,6 +8,16 @@ from .cluster_engine import ClusterAwareGalkaLiveEngine
 from .engine import LiveEngineError
 
 
+def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
+    raw = query.get(name, [""])[0]
+    if raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError) as exc:
+        raise LiveEngineError(f"Некорректный параметр {name}") from exc
+
+
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
     """Persistent LIVE handler plus AUTO queue and chart-cluster controls."""
 
@@ -25,7 +35,21 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
             return
         interval = query.get("interval", ["5m"])[0]
         aggregation = query.get("aggregation", ["auto"])[0]
-        self._handle(lambda: self.engine.cluster_snapshot(coin, interval, aggregation))
+        try:
+            from_ms = _optional_int(query, "fromMs")
+            to_ms = _optional_int(query, "toMs")
+        except LiveEngineError as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            return
+        self._handle(
+            lambda: self.engine.cluster_snapshot(
+                coin,
+                interval,
+                aggregation,
+                from_ms,
+                to_ms,
+            )
+        )
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
