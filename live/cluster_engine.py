@@ -27,6 +27,30 @@ class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
         finally:
             super().stop()
 
+    @staticmethod
+    def _balance_auto_threshold(result: dict[str, Any]) -> dict[str, Any]:
+        """Keep AUTO useful on history instead of letting one recent spike hide it.
+
+        The browser currently reads the q90 field for AUTO. For persistent history
+        we deliberately expose q75 there: manual mode still uses the exact USD
+        threshold slider, while AUTO shows a broader set of historically large
+        clusters across the visible range.
+        """
+        summaries = result.get("summaryByMetric")
+        if not isinstance(summaries, dict):
+            return result
+        for summary in summaries.values():
+            if not isinstance(summary, dict):
+                continue
+            try:
+                q75 = float(summary.get("q75") or 0)
+            except (TypeError, ValueError):
+                q75 = 0.0
+            if q75 > 0:
+                summary["q90"] = q75
+        result["autoFilterPolicy"] = "history_balanced_q75"
+        return result
+
     def cluster_snapshot(
         self,
         coin: str,
@@ -35,7 +59,8 @@ class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
         from_ms: int | None = None,
         to_ms: int | None = None,
     ) -> dict[str, Any]:
-        return self.cluster_volume.snapshot(coin, interval, aggregation, from_ms, to_ms)
+        result = self.cluster_volume.snapshot(coin, interval, aggregation, from_ms, to_ms)
+        return self._balance_auto_threshold(result)
 
     def status(self) -> dict[str, Any]:
         result = super().status()
