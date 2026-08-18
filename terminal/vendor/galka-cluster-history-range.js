@@ -21,17 +21,43 @@
     '1d': 86_400_000,
   };
 
+  // Keep enough cluster archive around the current chart to make panning feel
+  // continuous instead of waiting for a new request every time the user drags.
+  // 5m deliberately gets about five days because the candle endpoint below is
+  // expanded to 1500 bars (1500 * 5m ~= 5.2 days).
+  const HISTORY_LOOKBACK_MS = {
+    '1m': 24 * 60 * 60 * 1000,
+    '3m': 3 * 24 * 60 * 60 * 1000,
+    '5m': 5 * 24 * 60 * 60 * 1000,
+    '15m': 10 * 24 * 60 * 60 * 1000,
+    '30m': 20 * 24 * 60 * 60 * 1000,
+    '1h': 45 * 24 * 60 * 60 * 1000,
+    '2h': 60 * 24 * 60 * 60 * 1000,
+    '4h': 89 * 24 * 60 * 60 * 1000,
+    '8h': 89 * 24 * 60 * 60 * 1000,
+    '12h': 89 * 24 * 60 * 60 * 1000,
+    '1d': 89 * 24 * 60 * 60 * 1000,
+  };
+  const MAX_CLUSTER_QUERY_MS = 89 * 24 * 60 * 60 * 1000;
+
   function visibleRange() {
     const rows = chart?.visibleWindow?.()?.rows || [];
     if (!rows.length) return null;
     const interval = String(document.getElementById('intervalSelect')?.value || '5m');
-    const pad = (INTERVAL_MS[interval] || 300_000) * 2;
+    const intervalMs = INTERVAL_MS[interval] || 300_000;
+    const pad = intervalMs * 2;
     const first = Number(rows[0]?.time || 0) * 1000;
     const last = Number(rows.at(-1)?.time || 0) * 1000;
     if (!(first > 0) || !(last >= first)) return null;
+
+    const now = Date.now();
+    const lookback = HISTORY_LOOKBACK_MS[interval] || (5 * 24 * 60 * 60 * 1000);
+    const desiredFrom = Math.min(first - pad, now - lookback);
+    const desiredTo = Math.max(last + pad, now + pad);
+    const fromMs = Math.max(1, desiredTo - MAX_CLUSTER_QUERY_MS, desiredFrom);
     return {
-      fromMs: Math.max(1, Math.floor(first - pad)),
-      toMs: Math.floor(last + pad),
+      fromMs: Math.floor(fromMs),
+      toMs: Math.floor(desiredTo),
     };
   }
 
@@ -62,9 +88,23 @@
             }
           }
         }
+      } else if (raw.includes('/api/live/candles')) {
+        // live.js asks for 600 bars on a full reload. The backend safely caps
+        // candle snapshots at 1500, so expand only the full-history request and
+        // leave the tiny periodic refresh requests unchanged.
+        const url = new URL(raw, window.location.origin);
+        const limit = Number(url.searchParams.get('limit') || 0);
+        if (limit >= 600 && limit < 1500) {
+          url.searchParams.set('limit', '1500');
+          if (typeof input === 'string') {
+            input = `${url.pathname}${url.search}`;
+          } else if (input instanceof Request) {
+            input = new Request(url.toString(), input);
+          }
+        }
       }
     } catch (_) {
-      // If chart/range inspection fails, the existing 12h default endpoint works.
+      // If chart/range inspection fails, the existing endpoint behavior remains.
     }
     return originalFetch(input, init);
   };
@@ -104,5 +144,6 @@
 
   window.GalkaClusterHistoryRange = Object.freeze({
     visibleRange,
+    historyLookbackMs: HISTORY_LOOKBACK_MS,
   });
 })();
