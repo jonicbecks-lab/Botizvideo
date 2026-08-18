@@ -14,7 +14,7 @@
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 64245.5,
+  "minimumObservedPrice": 64228.5,
   "maximumObservedPrice": 64249.5,
   "levels": [
     {
@@ -151,8 +151,21 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 0,
-    "gaps": [],
+    "reconnects": 2,
+    "gaps": [
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1787043371617,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-18T08:56:11.618Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787043371617,
+        "endedAtMs": 1787043372712,
+        "recordedAt": "2026-08-18T08:56:12.712Z"
+      }
+    ],
     "droppedQueueMessages": 0,
     "writerError": null
   },
@@ -180,7 +193,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-18T08:52:13.636Z",
+  "updatedAt": "2026-08-18T08:57:27.836Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
