@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="live-chart.css?v=3">
   <link rel="stylesheet" href="vertical-price-pan.css?v=1">
   <link rel="stylesheet" href="auto-queue.css?v=1">
+  <link rel="stylesheet" href="cluster-volume.css?v=1">
   <script src="vendor/galka-chart.js?v=3"></script>
   <script src="vendor/galka-future-pan.js?v=1"></script>
   <script src="vendor/galka-native-plot-pan.js?v=4"></script>
@@ -29,6 +30,7 @@
       <div class="market-controls">
         <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>SOL</option></select>
         <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+        <button class="cluster-toggle" id="clusterToggle" type="button" aria-pressed="false" title="Кластеры объёма; удерживай для настроек">CL</button>
       </div>
       <div class="ticker" id="ticker">—</div>
       <a class="mode-link" href="pro.html">PAPER</a>
@@ -74,6 +76,27 @@
     <div id="events" class="events"></div>
   </aside>
 
+  <div class="cluster-settings-backdrop hidden" id="clusterSettingsBackdrop">
+    <section class="cluster-settings" role="dialog" aria-modal="true" aria-labelledby="clusterSettingsTitle">
+      <div class="cluster-settings-head">
+        <div><small>ИНДИКАТОР</small><b id="clusterSettingsTitle">Кластерный объём</b></div>
+        <button id="clusterSettingsClose" type="button" aria-label="Закрыть настройки">×</button>
+      </div>
+      <div class="cluster-setting-grid">
+        <label class="cluster-setting"><span>Что измеряем</span><select id="clusterMode"><option value="total">Total volume</option><option value="buy">Aggressive buy</option><option value="sell">Aggressive sell</option><option value="delta">|Delta|</option></select></label>
+        <label class="cluster-setting"><span>Цена × время</span><select id="clusterAggregation"><option value="auto">Auto</option><option value="fine">Fine</option><option value="normal">Normal</option><option value="coarse">Coarse</option></select></label>
+        <div class="cluster-setting"><span>Авто-фильтр</span><button id="clusterAutoThreshold" type="button">AUTO ✓</button></div>
+        <label class="cluster-setting"><span>Размер пузырей</span><input id="clusterBubbleScale" type="range" min="0.6" max="1.6" step="0.1" value="1"></label>
+      </div>
+      <label class="cluster-range">
+        <span class="cluster-range-head"><small>Минимальный объём, USD notional</small><b id="clusterThresholdLabel">—</b></span>
+        <input id="clusterThreshold" type="range" min="0" max="100" step="1" value="50">
+      </label>
+      <div class="cluster-stats" id="clusterStats">Подключение…</div>
+      <div class="cluster-hint">Размер круга = объём. Цвет = направление delta. Двигай фильтр вправо, чтобы убирать шум. Удерживай CL для повторного открытия настроек.</div>
+    </section>
+  </div>
+
   <div class="modal hidden" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
     <div class="modal-card">
       <div class="modal-head"><div><small>РЕАЛЬНЫЕ ОРДЕРА</small><b id="previewTitle">Проверка GALKA</b></div><button id="closePreview" type="button">×</button></div>
@@ -89,6 +112,8 @@
     </div>
   </div>
 
+  <!-- Cluster layer loads before trade markers so entry/exit markers stay on top. -->
+  <script src="vendor/galka-cluster-volume.js?v=1"></script>
   <!-- Must load after galka-future-pan: that patch replaces chart.draw(). -->
   <script src="vendor/galka-trade-markers-v2.js?v=2"></script>
   <script src="vendor/galka-pnl-log.js?v=1"></script>
