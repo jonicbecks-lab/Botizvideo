@@ -1,3 +1,5 @@
 {"event":"galka_event","recordedAt":"2026-08-18T14:04:10.103Z","localReceiveTimestampNs":1787061850103748476,"type":"live","message":"BTC: реальная GALKA 64012.7, одним batch выставлено 8 входов и 8 TP","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","actualNotional":2488.08329,"batchOrders":16}}
 {"event":"shutdown_flush","recordedAt":"2026-08-18T14:28:05.858Z"}
 {"event":"galka_event","recordedAt":"2026-08-18T14:28:13.308Z","localReceiveTimestampNs":1787063293308277539,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787063293308,"recordingWasActive":false}}
+{"event":"shutdown_flush","recordedAt":"2026-08-18T15:20:53.249Z"}
+{"event":"galka_event","recordedAt":"2026-08-18T15:20:59.699Z","localReceiveTimestampNs":1787066459699467304,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787066459699,"recordingWasActive":false}}
