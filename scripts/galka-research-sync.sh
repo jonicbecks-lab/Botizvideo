@@ -4,14 +4,18 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/galka-live-common.sh"
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RESEARCH_ROOT="$GALKA_LIVE_DATA_DIR/research"
 CAMPAIGN_SRC="$RESEARCH_ROOT/campaigns"
 RECORDER_SRC="$RESEARCH_ROOT/galka_campaigns"
+CLUSTER_SRC="$RESEARCH_ROOT/clusters/archive"
+CLUSTER_MERGER="$REPO_ROOT/scripts/merge-cluster-archive.py"
 SYNC_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/galka-research-sync"
 REMOTE_BRANCH="data/galka-live-journal"
 REMOTE_URL="https://github.com/jonicbecks-lab/Botizvideo.git"
 DATASET_DIR="$SYNC_ROOT/datasets/live"
 RECORDER_DST="$DATASET_DIR/recorder"
+CLUSTER_DST="$DATASET_DIR/clusters"
 LOCK_DIR="${SYNC_ROOT}.lock"
 
 [[ "${1:-}" == "--once" ]] || {
@@ -40,8 +44,13 @@ fi
 git -C "$SYNC_ROOT" remote set-url origin "$REMOTE_URL" >/dev/null 2>&1 || exit 0
 
 copy_dataset() {
-  rm -rf "$DATASET_DIR"
-  mkdir -p "$DATASET_DIR/campaigns" "$RECORDER_DST"
+  # Keep the checked-out cluster directory: it is the remote side of a
+  # bidirectional merge. Other generated research views are rebuilt as before.
+  mkdir -p "$DATASET_DIR"
+  rm -rf "$DATASET_DIR/campaigns" "$RECORDER_DST"
+  rm -f "$DATASET_DIR/manifest.json" "$DATASET_DIR/events.jsonl" "$DATASET_DIR/fills.jsonl"
+  mkdir -p "$DATASET_DIR/campaigns" "$RECORDER_DST" "$CLUSTER_DST" "$CLUSTER_SRC"
+
   if [[ -f "$RESEARCH_ROOT/manifest.json" ]]; then
     cp -f "$RESEARCH_ROOT/manifest.json" "$DATASET_DIR/manifest.json"
   fi
@@ -68,6 +77,14 @@ copy_dataset() {
         \( -name 'metadata.json' -o -name 'events.jsonl' -o -name 'footprint.json' -o -name 'dataset_manifest.json' \) \
         -print
     )
+  fi
+
+  # Cluster cells are deliberately compact (minute x base-price buckets), not
+  # raw trades. Merge remote+phone by deterministic time/price key so a reinstall
+  # or another sync cannot delete older GitHub history. The merged archive is
+  # mirrored back to the phone and is immediately usable by the chart API.
+  if [[ -f "$CLUSTER_MERGER" ]]; then
+    python3 "$CLUSTER_MERGER" "$CLUSTER_SRC" "$CLUSTER_DST" >/dev/null 2>&1 || true
   fi
 }
 
