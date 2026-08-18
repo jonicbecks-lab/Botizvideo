@@ -6,9 +6,9 @@
   "galkaLevel": 64045.7,
   "campaignActivatedAt": "2026-08-18T08:51:43Z",
   "campaignActivatedAtMs": 1787043103431,
-  "status": "recording",
+  "status": "completed",
   "recordingStartedAt": "2026-08-18T13:23:04.769Z",
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-18T14:03:51.172Z",
   "crossedBelowGalka": {
     "exchangeTimestampMs": 1787059384476,
     "exchangeTimestamp": "2026-08-18T13:23:04.476Z",
@@ -25,8 +25,8 @@
     "price": 64046.5,
     "basis": "bbo_mid"
   },
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "campaignCompletedAt": "2026-08-18T14:03:51Z",
+  "campaignCompletedAtMs": 1787061831000,
   "maxDeviationBelowGalkaPct": 0.046373136682083406,
   "minimumObservedPrice": 64016.0,
   "maximumObservedPrice": 64375.5,
@@ -284,7 +284,7 @@
         "timeToMaximumMs": 168744
       }
     },
-    "completedAt": "2026-08-18T13:59:41.899Z"
+    "completedAt": "2026-08-18T14:03:51.134Z"
   },
   "stream": {
     "reconnects": 6,
@@ -353,7 +353,8 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-18T13:59:42.193Z",
-  "campaignStatus": "waiting",
-  "lastCampaignUpdateReason": "fills_updated"
+  "updatedAt": "2026-08-18T14:03:53.333Z",
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-18T14:03:53.097Z"
 }
