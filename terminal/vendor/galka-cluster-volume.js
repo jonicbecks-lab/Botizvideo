@@ -5,11 +5,12 @@
   const VALID_COINS = new Set(['BTC', 'ETH', 'SOL']);
   const MAX_VISIBLE_BUBBLES = 160;
   const HOLD_SETTINGS_MS = 500;
-  const POLL_MS = 1200;
+  const POLL_MS = 2000;
 
   let chart = null;
   let cells = [];
   let streamMeta = null;
+  let metricSummaries = null;
   let pollTimer = null;
   let busy = false;
   let suppressToggleClick = false;
@@ -86,6 +87,14 @@
   }
 
   function thresholdBounds() {
+    const server = metricSummaries?.[settings.mode];
+    if (server && finite(server.max) > 0) {
+      const max = finite(server.max);
+      const q50 = finite(server.q50);
+      const q90 = finite(server.q90);
+      const min = Math.max(100, Math.min(q50 * 0.2 || max * 0.01, max));
+      return { min, max: Math.max(max, min * 1.01), auto: Math.max(q90, min) };
+    }
     const values = metricDistribution();
     if (!values.length) return { min: 100, max: 1000, auto: 1000 };
     const max = Math.max(...values);
@@ -261,8 +270,9 @@
     els.thresholdLabel.textContent = `${compactMoney(threshold)}+`;
     els.bubble.value = String(finite(settings.bubbleScale, 1));
     const shown = cells.filter((row) => metric(row) >= threshold).length;
+    const totalCount = Number(metricSummaries?.[settings.mode]?.count || cells.length);
     const connection = streamMeta?.connected ? 'LIVE' : (streamMeta?.lastError ? 'нет WS' : 'подключение…');
-    els.stats.textContent = `${connection} · ${shown}/${cells.length} кластеров выше фильтра`;
+    els.stats.textContent = `${connection} · ${shown} получено выше фильтра · база ${totalCount}`;
     chart?.draw?.();
   }
 
@@ -305,8 +315,10 @@
       if (!response.ok || payload?.ok === false) throw new Error(payload?.error || `HTTP ${response.status}`);
       cells = Array.isArray(payload?.data?.cells) ? payload.data.cells : [];
       streamMeta = payload?.data?.stream || null;
+      metricSummaries = payload?.data?.summaryByMetric || null;
     } catch (error) {
       cells = [];
+      metricSummaries = null;
       streamMeta = { connected: false, lastError: String(error?.message || error) };
     } finally {
       busy = false;
@@ -319,6 +331,7 @@
     pollTimer = null;
     if (!settings.enabled) {
       cells = [];
+      metricSummaries = null;
       chart?.draw?.();
       renderUi();
       return;
@@ -390,11 +403,13 @@
 
     document.getElementById('symbolSelect')?.addEventListener('change', () => {
       cells = [];
+      metricSummaries = null;
       if (settings.enabled) fetchClusters();
       else renderUi();
     });
     document.getElementById('intervalSelect')?.addEventListener('change', () => {
       cells = [];
+      metricSummaries = null;
       if (settings.enabled) fetchClusters();
       else renderUi();
     });
