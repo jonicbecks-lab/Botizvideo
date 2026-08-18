@@ -3,3 +3,5 @@
 {"event":"galka_event","recordedAt":"2026-08-18T14:28:13.308Z","localReceiveTimestampNs":1787063293308277539,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787063293308,"recordingWasActive":false}}
 {"event":"shutdown_flush","recordedAt":"2026-08-18T15:20:53.249Z"}
 {"event":"galka_event","recordedAt":"2026-08-18T15:20:59.699Z","localReceiveTimestampNs":1787066459699467304,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787066459699,"recordingWasActive":false}}
+{"event":"shutdown_flush","recordedAt":"2026-08-18T18:27:40.104Z"}
+{"event":"galka_event","recordedAt":"2026-08-18T18:27:46.501Z","localReceiveTimestampNs":1787077666501553242,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787077666501,"recordingWasActive":false}}
