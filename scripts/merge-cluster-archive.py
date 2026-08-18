@@ -50,14 +50,17 @@ def write(path: Path, rows: dict[tuple[int, int], dict[str, Any]]) -> None:
         for key in sorted(rows):
             handle.write(json.dumps(rows[key], separators=(",", ":"), allow_nan=False))
             handle.write("\n")
-    try:
-        os.chmod(temporary, 0o600)
-    except OSError:
-        pass
     os.replace(temporary, path)
 
 
 def merge_roots(local_root: Path, git_root: Path) -> None:
+    """Merge phone rows into the checked-out Git archive without rewriting phone files.
+
+    The live cluster websocket may append to the local archive while Git sync runs.
+    Therefore the sync process treats local files as read-only. Older rows already
+    present on the remote data branch are retained in git_root, and newer local
+    versions win by deterministic (time, price) key.
+    """
     local_root.mkdir(parents=True, exist_ok=True)
     git_root.mkdir(parents=True, exist_ok=True)
     relative_paths = {
@@ -79,10 +82,8 @@ def merge_roots(local_root: Path, git_root: Path) -> None:
             previous = merged.get(key)
             if previous is None or version(row) > version(previous):
                 merged[key] = row
-        if not merged:
-            continue
-        write(git_path, merged)
-        write(local_path, merged)
+        if merged:
+            write(git_path, merged)
 
 
 if __name__ == "__main__":
