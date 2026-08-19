@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 2,
+    "reconnects": 10,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -164,6 +164,54 @@
         "startedAtMs": 1787144137980,
         "endedAtMs": 1787144139177,
         "recordedAt": "2026-08-19T12:55:39.178Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:04:57.055Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:04:57.590Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:04:58.502Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:05:00.132Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:05:03.054Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:05:08.308Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T13:05:17.765Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787144697055,
+        "endedAtMs": 1787144728541,
+        "recordedAt": "2026-08-19T13:05:28.542Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -193,7 +241,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-19T13:01:04.971Z",
+  "updatedAt": "2026-08-19T13:06:21.442Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
