@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 64255.5,
-  "maximumObservedPrice": 64267.5,
+  "maximumObservedPrice": 64318.5,
   "levels": [
     {
       "index": 1,
@@ -151,8 +151,21 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 0,
-    "gaps": [],
+    "reconnects": 2,
+    "gaps": [
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1787122534792,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-19T06:55:34.797Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787122534792,
+        "endedAtMs": 1787122536117,
+        "recordedAt": "2026-08-19T06:55:36.118Z"
+      }
+    ],
     "droppedQueueMessages": 0,
     "writerError": null
   },
@@ -180,7 +193,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-19T06:53:00.838Z",
+  "updatedAt": "2026-08-19T06:58:17.334Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
