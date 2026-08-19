@@ -7,3 +7,5 @@
 {"event":"galka_event","recordedAt":"2026-08-18T18:27:46.501Z","localReceiveTimestampNs":1787077666501553242,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787077666501,"recordingWasActive":false}}
 {"event":"shutdown_flush","recordedAt":"2026-08-18T18:42:13.542Z"}
 {"event":"galka_event","recordedAt":"2026-08-18T18:42:20.287Z","localReceiveTimestampNs":1787078540287226796,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","resumeAtMs":1787078540287,"recordingWasActive":false}}
+{"event":"galka_event","recordedAt":"2026-08-19T06:51:22.805Z","localReceiveTimestampNs":1787122282806071015,"type":"live","message":"BTC: GALKA быстро отменена без позиции","meta":{"campaignId":"HL-BTC-1787061847511-73e4b5","fastCancel":true,"entryOrders":8,"targetOrders":0}}
+{"event":"campaign_completed","recordedAt":"2026-08-19T06:51:22.813Z","campaignStatus":"canceled","actualRealizedPnl":0.0,"fees":0.0}

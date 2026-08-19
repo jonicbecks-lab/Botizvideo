@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "HL-BTC-1787061847511-73e4b5",
+  "symbol": "BTC",
+  "finalizedAt": "2026-08-19T06:51:23.425Z",
+  "storagePolicy": {
+    "raw": "local-only by default because L2 snapshots make Git history very large",
+    "github": "compact metadata/events/footprint/manifest only",
+    "parquet": "materialize from raw JSONL later on a host with a Parquet writer"
+  },
+  "files": [
+    {
+      "name": "metadata.json",
+      "bytes": 7239,
+      "sha256": "e03a83ab9470c04b12e948b533cb54129505e607d353e7619684feac43a25ecf",
+      "gitSync": true
+    },
+    {
+      "name": "events.jsonl",
+      "bytes": 2171,
+      "sha256": "85709871260eac5b0eeb5af849d5d6f46a3d1091e7ee3ebb7986f50d54e83d8a",
+      "gitSync": true
+    },
+    {
+      "name": "footprint.json",
+      "bytes": 230,
+      "sha256": "30ae6dc8c71afa1ce2a542fc1a2457041bf01399001f2b3004038b5f21fb2777",
+      "gitSync": true
+    }
+  ]
+}
