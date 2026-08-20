@@ -1,1 +1,3 @@
 {"event":"galka_event","recordedAt":"2026-08-20T11:52:18.815Z","localReceiveTimestampNs":1787226738815477070,"type":"live","message":"ETH: реальная GALKA 2280.73, одним batch выставлено 8 входов и 8 TP","meta":{"campaignId":"HL-ETH-1787226734804-e1be8d","actualNotional":2488.4611800000002,"batchOrders":16}}
+{"event":"shutdown_flush","recordedAt":"2026-08-20T11:56:37.260Z"}
+{"event":"galka_event","recordedAt":"2026-08-20T11:56:43.648Z","localReceiveTimestampNs":1787227003648516132,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-ETH-1787226734804-e1be8d","resumeAtMs":1787227003648,"recordingWasActive":false}}
