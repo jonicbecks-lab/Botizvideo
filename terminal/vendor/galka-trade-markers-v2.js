@@ -77,6 +77,10 @@
     const previous = store[coin][marker.key] || {};
     const next = { ...previous, ...marker, coin };
     if (!(Number(marker.price) > 0) && Number(previous.price) > 0) next.price = previous.price;
+    // Completion events kept in state can legitimately have no PnL field
+    // (notably recovery_closed). Such a low-information status refresh must not
+    // erase the authoritative PnL previously loaded from the research journal.
+    if (marker.pnl == null && previous.pnl != null) next.pnl = previous.pnl;
     store[coin][marker.key] = next;
   }
 
@@ -169,7 +173,7 @@
       }
       result.push({
         ...exit,
-        text: Number.isFinite(Number(exit.pnl))
+        text: exit.pnl != null && Number.isFinite(Number(exit.pnl))
           ? `${Number(exit.pnl) >= 0 ? '+' : ''}$${Number(exit.pnl).toFixed(2)}`
           : '✓',
       });
