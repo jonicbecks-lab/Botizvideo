@@ -130,7 +130,23 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787233097030,
+      "localReceiveTimestampNs": 1787243140847801328,
+      "ownerKind": null,
+      "ownerLevel": null,
+      "oid": 520867175863,
+      "cloid": "0x467d9a5339b64ee7b91bfd1c88d8cbc0",
+      "side": "A",
+      "price": 2266.0,
+      "size": 0.8459,
+      "fee": 0.287521,
+      "closedPnl": 4.627073,
+      "hash": "0xa0c2f97854fc8c45a23c044295b1bb020918005defffab17448ba4cb13f06630"
+    }
+  ],
   "actualRealizedPnl": 0.0,
   "fees": 0.0,
   "researchOnly": true,
@@ -193,7 +209,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T16:22:17.653Z",
+  "updatedAt": "2026-08-20T16:27:44.302Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
