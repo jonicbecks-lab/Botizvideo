@@ -6,7 +6,7 @@
   "galkaLevel": 2265.98,
   "campaignActivatedAt": "2026-08-20T12:21:32Z",
   "campaignActivatedAtMs": 1787228492108,
-  "status": "post_return_pending",
+  "status": "completed",
   "recordingStartedAt": "2026-08-20T13:36:53.587Z",
   "recordingStoppedAt": "2026-08-20T13:38:27.563Z",
   "crossedBelowGalka": {
@@ -237,7 +237,7 @@
     300000
   ],
   "postReturnOutcome": {
-    "complete": false,
+    "complete": true,
     "horizons": {
       "1000": {
         "targetTimestampMs": 1787233014126,
@@ -343,8 +343,24 @@
         "maximumTimestampMs": 1787233102540,
         "minimumTimestampMs": 1787233014881,
         "timeToMaximumMs": 89414
+      },
+      "300000": {
+        "targetTimestampMs": 1787233313126,
+        "observedTimestampMs": 1787233313013,
+        "price": 2271.25,
+        "startPrice": 2266.1,
+        "mfeAbs": 5.750000000000455,
+        "maeAbs": -10.599999999999909,
+        "mfePct": 0.25373990556465387,
+        "maePct": -0.4677639998234784,
+        "maximumPrice": 2271.8500000000004,
+        "minimumPrice": 2255.5,
+        "maximumTimestampMs": 1787233309344,
+        "minimumTimestampMs": 1787233014881,
+        "timeToMaximumMs": 296218
       }
-    }
+    },
+    "completedAt": "2026-08-20T13:41:53.613Z"
   },
   "stream": {
     "reconnects": 15,
@@ -467,7 +483,8 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T13:39:00.549Z",
+  "updatedAt": "2026-08-20T13:41:54.301Z",
   "campaignStatus": "completed",
-  "lastCampaignUpdateReason": "campaign_completed"
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-20T13:41:54.271Z"
 }
