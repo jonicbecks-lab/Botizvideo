@@ -14,7 +14,7 @@
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 2293.45,
+  "minimumObservedPrice": 2284.2,
   "maximumObservedPrice": 2311.25,
   "levels": [
     {
@@ -27,9 +27,9 @@
       "targetOid": 520773924224,
       "entryCloid": "0x53be0fc2c27a4c4d8c70a874f9e8e3ce",
       "targetCloid": "0x9d7c97d4bda9437ca1640ce3717b8939",
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.4591,
+      "averageFillPrice": 2277.3,
+      "status": "filled"
     },
     {
       "index": 2,
@@ -130,9 +130,25 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787227607255,
+      "localReceiveTimestampNs": 1787227638702376289,
+      "ownerKind": "entry",
+      "ownerLevel": 1,
+      "oid": 520773924223,
+      "cloid": "0x53be0fc2c27a4c4d8c70a874f9e8e3ce",
+      "side": "B",
+      "price": 2277.3,
+      "size": 0.4591,
+      "fee": 0.156826,
+      "closedPnl": 0.0,
+      "hash": "0x767eb40f90bad87577f8044294837a02293900f52bbdf7471a475f624fbeb260"
+    }
+  ],
   "actualRealizedPnl": 0.0,
-  "fees": 0.0,
+  "fees": 0.156826,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -180,7 +196,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T12:01:55.329Z",
+  "updatedAt": "2026-08-20T12:07:22.266Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
