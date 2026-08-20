@@ -14,7 +14,7 @@
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 2274.6499999999996,
+  "minimumObservedPrice": 2273.95,
   "maximumObservedPrice": 2284.55,
   "levels": [
     {
@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 2,
+    "reconnects": 4,
     "gaps": [
       {
         "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
@@ -164,6 +164,18 @@
         "startedAtMs": 1787228639666,
         "endedAtMs": 1787228640906,
         "recordedAt": "2026-08-20T12:24:00.906Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1787229481412,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T12:38:01.412Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787229481412,
+        "endedAtMs": 1787229482568,
+        "recordedAt": "2026-08-20T12:38:02.568Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -193,7 +205,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T12:33:08.921Z",
+  "updatedAt": "2026-08-20T12:38:10.552Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
