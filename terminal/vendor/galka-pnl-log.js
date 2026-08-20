@@ -34,9 +34,8 @@
   function summaryFromCampaign(campaign) {
     if (!campaign?.id) return null;
     const gross = finite(campaign.cycleClosedPnl, 0) + finite(campaign.l1RealizedPnl, 0);
-    const fees = Math.max(0, finite(campaign.cycleFees, 0));
-    const finalNet = finite(campaign.finalClosedPnl);
-    const net = finalNet != null ? finalNet : gross - fees;
+    const fees = Math.max(0, finite(campaign.cycleFees ?? campaign.fees, 0));
+    const net = gross - fees;
     const hadTrade = Number(campaign.cycleDeepest || 0) > 0 ||
       (campaign.levels || []).some((level) => Number(level.filledSize || 0) > 0);
     if (!hadTrade || !campaign.completedAt) return null;
