@@ -80,6 +80,10 @@
 }
 
 .crosshair-galka-action {
+  /* The side + and the main tradebar already provide the same action. Keeping
+     this duplicate overlay hidden prevents it from covering the crosshair time
+     label on the bottom axis. */
+  display: none !important;
   position: absolute;
   z-index: 18;
   left: 50%;
