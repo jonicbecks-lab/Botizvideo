@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 2267.95,
-  "maximumObservedPrice": 2289.55,
+  "maximumObservedPrice": 2292.1499999999996,
   "levels": [
     {
       "index": 1,
@@ -130,7 +130,23 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787227853804,
+      "localReceiveTimestampNs": 1787230818947606601,
+      "ownerKind": null,
+      "ownerLevel": null,
+      "oid": 520788834744,
+      "cloid": "0x33e122d5b9b244eebd5c8761e3f93e0c",
+      "side": "A",
+      "price": 2280.7,
+      "size": 0.6999,
+      "fee": 0.239439,
+      "closedPnl": 3.198543,
+      "hash": "0x134048a3a519610314ba044294911102083c0089401c7fd5b708f3f6641d3aed"
+    }
+  ],
   "actualRealizedPnl": 0.0,
   "fees": 0.0,
   "researchOnly": true,
@@ -205,7 +221,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T12:55:54.097Z",
+  "updatedAt": "2026-08-20T13:01:13.337Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
