@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-20T12:06:42Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-20T12:11:19Z",
+  "reason": "event:risk",
   "campaignId": "HL-ETH-1787226734804-e1be8d",
   "coin": "ETH",
-  "status": "waiting",
+  "status": "recovery_closed",
   "createdAt": "2026-08-20T11:52:14Z",
   "createdMs": 1787226734804,
-  "completedAt": null,
+  "completedAt": "2026-08-20T12:11:19Z",
   "galkaPrice": 2280.73,
   "setupMidPrice": 2310.55,
   "setupDistancePct": 1.307476115103512,
@@ -19,18 +19,18 @@
   "estimatedPnlAtGalka": null,
   "makerFeeRate": null,
   "takerFeeRate": null,
-  "hadPosition": false,
-  "cycleDeepest": 0,
+  "hadPosition": true,
+  "cycleDeepest": 2,
   "l1Cycles": 0,
   "l1RealizedPnl": 0.0,
-  "cycleClosedPnl": 0.0,
-  "fees": 0.0,
-  "grossPnl": 0.0,
-  "netPnlApprox": 0.0,
+  "cycleClosedPnl": 3.198543,
+  "fees": 0.478397,
+  "grossPnl": 3.198543,
+  "netPnlApprox": 2.7201459999999997,
   "actualPositionSize": 0.0,
   "managedNetSize": 0.0,
-  "recoveryReason": null,
-  "lastError": null,
+  "recoveryReason": "Обнаружено посторонних ордеров: 1",
+  "lastError": "Обнаружено посторонних ордеров: 1",
   "levels": [
     {
       "index": 1,
@@ -38,9 +38,9 @@
       "price": 2277.3,
       "requestedSize": 0.4591,
       "notional": 1045.50843,
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.4591,
+      "averageFillPrice": 2277.3,
+      "status": "filled"
     },
     {
       "index": 2,
@@ -48,9 +48,9 @@
       "price": 2273.9,
       "requestedSize": 0.2408,
       "notional": 547.55512,
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.2408,
+      "averageFillPrice": 2273.9,
+      "status": "filled"
     },
     {
       "index": 3,
@@ -114,7 +114,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
