@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 2267.95,
-  "maximumObservedPrice": 2292.1499999999996,
+  "maximumObservedPrice": 2297.6499999999996,
   "levels": [
     {
       "index": 1,
@@ -167,7 +167,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 4,
+    "reconnects": 15,
     "gaps": [
       {
         "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
@@ -192,6 +192,72 @@
         "startedAtMs": 1787229481412,
         "endedAtMs": 1787229482568,
         "recordedAt": "2026-08-20T12:38:02.568Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:32.258Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:32.781Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:33.684Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:35.307Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:38.232Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:43.493Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:03:52.954Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:04:02.960Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:04:12.971Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-20T13:04:22.978Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787231012258,
+        "endedAtMs": 1787231073735,
+        "recordedAt": "2026-08-20T13:04:33.735Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -221,7 +287,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-20T13:01:13.337Z",
+  "updatedAt": "2026-08-20T13:06:40.127Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
