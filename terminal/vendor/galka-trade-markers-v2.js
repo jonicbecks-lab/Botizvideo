@@ -60,11 +60,15 @@
 
   function campaignNetPnl(campaign) {
     if (!campaign) return null;
-    const final = finite(campaign.finalClosedPnl);
-    if (final != null) return final;
+    // Use the same accounting as ResearchJournal: realized closed PnL from the
+    // cycle plus any earlier L1-cycle PnL, minus the campaign's recorded fees.
+    // finalClosedPnl can legitimately remain 0 on normal/recovery completion,
+    // so preferring it used to overwrite a correct historical +PnL marker with
+    // +$0.00 on the next status refresh.
     const gross = finite(campaign.cycleClosedPnl, 0) + finite(campaign.l1RealizedPnl, 0);
     const fees = finite(campaign.cycleFees ?? campaign.fees, 0);
-    return gross - fees;
+    if (Math.abs(gross) > 1e-12 || Math.abs(fees) > 1e-12) return gross - fees;
+    return finite(campaign.finalClosedPnl);
   }
 
   function upsert(store, coin, marker) {
@@ -106,13 +110,14 @@
       if (completed) {
         const campaign = campaignFromStatus(coin, campaignId);
         const eventPnl = finite(event?.meta?.pnl);
+        const calculatedPnl = campaignNetPnl(campaign);
         upsert(store, coin, {
           key: `${campaignId}:exit`,
           campaignId,
           kind: 'exit',
           time,
           price: finite(campaign?.galkaPrice),
-          pnl: eventPnl != null ? eventPnl : campaignNetPnl(campaign),
+          pnl: calculatedPnl != null ? calculatedPnl : eventPnl,
         });
       }
     }
