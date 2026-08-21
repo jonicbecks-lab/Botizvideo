@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 4,
+    "reconnects": 6,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -176,6 +176,18 @@
         "startedAtMs": 1787273318946,
         "endedAtMs": 1787273320393,
         "recordedAt": "2026-08-21T00:48:40.393Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1787284205008,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-21T03:50:05.009Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787284205008,
+        "endedAtMs": 1787284206521,
+        "recordedAt": "2026-08-21T03:50:06.521Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -205,7 +217,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-21T03:46:35.791Z",
+  "updatedAt": "2026-08-21T03:52:02.520Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
