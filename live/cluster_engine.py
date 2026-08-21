@@ -4,6 +4,7 @@ from typing import Any
 
 from .auto_queue_engine import AutoQueueGalkaLiveEngine
 from .cluster_archive import PersistentClusterVolumeService
+from .cluster_volume import ClusterVolumeService
 
 
 class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
@@ -63,9 +64,21 @@ class ClusterAwareGalkaLiveEngine(AutoQueueGalkaLiveEngine):
         return self._balance_auto_threshold(result)
 
     def status(self) -> dict[str, Any]:
+        """Return a cheap trading/UI status snapshot.
+
+        PersistentClusterVolumeService.status() also scans the on-disk cluster
+        archive periodically. That work is useful for diagnostics, but putting it
+        on every /api/live/status request made a research feature capable of
+        delaying the trading UI as the archive grew. The cluster endpoint already
+        returns its own stream/history metadata, so the main LIVE status only needs
+        the in-memory websocket counters here.
+        """
         result = super().status()
         try:
-            result["clusterVolume"] = self.cluster_volume.status()
+            # Deliberately call the lightweight base implementation and bypass
+            # PersistentClusterVolumeService.status(), which adds archive scans.
+            result["clusterVolume"] = ClusterVolumeService.status(self.cluster_volume)
+            result["clusterVolume"]["archivePersistent"] = True
         except Exception:
             result["clusterVolume"] = {"enabled": False, "error": "status unavailable"}
         return result
