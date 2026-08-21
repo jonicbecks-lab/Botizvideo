@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import threading
+import time
 from http import HTTPStatus
 from urllib.parse import parse_qs, urlparse
 
 from . import persistent_server as _persistent
 from .cluster_engine import ClusterAwareGalkaLiveEngine
 from .engine import LiveEngineError
+from .hyperliquid_gateway import INTERVAL_MS, GatewayError, _finite_number, _integer
+from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _TradingGateway
 
 
 def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
@@ -16,6 +20,55 @@ def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
         return int(raw)
     except (TypeError, ValueError) as exc:
         raise LiveEngineError(f"Некорректный параметр {name}") from exc
+
+
+class PublicMarketIsolatedGateway(_TradingGateway):
+    """Keep heavy public candle snapshots off the trading/private I/O lock.
+
+    The base gateway intentionally serializes its authenticated reads and writes.
+    The chart previously used that same lock for 600/1500-bar public candle
+    snapshots, so a timeframe switch could delay a real cancel/order operation.
+    A separate read-only Hyperliquid Info client removes that contention while all
+    trading/account/order methods remain on the proven gateway path unchanged.
+    """
+
+    def __init__(self, config):
+        super().__init__(config)
+        from hyperliquid.info import Info
+
+        self._chart_info = Info(self.base_url, skip_ws=True, timeout=config.request_timeout)
+        self._chart_info_lock = threading.RLock()
+
+    def candles(self, coin: str, interval: str, limit: int = 1000) -> list[dict]:
+        normalized = self._coin(coin)
+        if interval not in INTERVAL_MS:
+            raise GatewayError(f"Unsupported interval: {interval}")
+        limit = max(50, min(int(limit), 1500))
+        end_ms = int(time.time() * 1000)
+        start_ms = end_ms - INTERVAL_MS[interval] * (limit + 5)
+        try:
+            with self._chart_info_lock:
+                rows = self._chart_info.candles_snapshot(
+                    normalized,
+                    interval,
+                    start_ms,
+                    end_ms,
+                )[-limit:]
+        except Exception as exc:
+            raise GatewayError(f"Hyperliquid read failed (candles_snapshot): {exc}") from exc
+        return [
+            {
+                "time": _integer(row.get("t"), "candle.t") // 1000,
+                "openTime": _integer(row.get("t"), "candle.t"),
+                "closeTime": _integer(row.get("T"), "candle.T"),
+                "open": _finite_number(row.get("o"), "candle.o"),
+                "high": _finite_number(row.get("h"), "candle.h"),
+                "low": _finite_number(row.get("l"), "candle.l"),
+                "close": _finite_number(row.get("c"), "candle.c"),
+                "volume": _finite_number(row.get("v"), "candle.v"),
+            }
+            for row in rows
+        ]
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
@@ -93,11 +146,12 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
         )
 
 
-# Reuse the proven persistent HTTP/session/PID server unchanged. Only substitute
-# the handler with the local-only extra endpoints and the engine with the
-# cluster+AUTO+research subclass. Trading routes/authentication remain unchanged.
+# Reuse the proven persistent HTTP/session/PID server. Substitute only the local
+# extra endpoints, cluster/research engine, and a read-only public candle client.
+# All trading routes/authentication/signing stay on the existing gateway methods.
 _persistent.PersistentGalkaRequestHandler = AutoQueueGalkaRequestHandler
 _persistent.SafeCompatibleGalkaLiveEngine = ClusterAwareGalkaLiveEngine
+_persistent.SafeCompatibleHyperliquidGateway = PublicMarketIsolatedGateway
 
 
 def main() -> int:
