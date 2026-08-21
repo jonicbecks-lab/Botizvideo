@@ -1,1 +1,3 @@
 {"event":"galka_event","recordedAt":"2026-08-21T20:40:59.620Z","localReceiveTimestampNs":1787344859620641367,"type":"live","message":"BNB: реальная GALKA 667.82, одним batch выставлено 8 входов и 8 TP","meta":{"campaignId":"HL-BNB-1787344857415-bd3074","actualNotional":2620.97801,"batchOrders":16}}
+{"event":"galka_event","recordedAt":"2026-08-21T21:30:43.069Z","localReceiveTimestampNs":1787347843069664453,"type":"live","message":"BNB: GALKA быстро отменена без позиции","meta":{"campaignId":"HL-BNB-1787344857415-bd3074","fastCancel":true,"entryOrders":8,"targetOrders":0}}
+{"event":"campaign_completed","recordedAt":"2026-08-21T21:30:43.071Z","campaignStatus":"canceled","actualRealizedPnl":0.0,"fees":0.0}
