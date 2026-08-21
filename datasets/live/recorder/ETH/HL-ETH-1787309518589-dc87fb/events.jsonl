@@ -1,0 +1,7 @@
+{"event":"galka_event","recordedAt":"2026-08-21T10:52:05.411Z","localReceiveTimestampNs":1787309525412022773,"type":"live","message":"ETH: реальная GALKA 2369.71, одним batch выставлено 8 входов и 8 TP","meta":{"campaignId":"HL-ETH-1787309518589-dc87fb","actualNotional":2568.10683,"batchOrders":16}}
+{"event":"shutdown_flush","recordedAt":"2026-08-21T10:57:02.866Z"}
+{"event":"galka_event","recordedAt":"2026-08-21T10:57:12.991Z","localReceiveTimestampNs":1787309832991627812,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-ETH-1787309518589-dc87fb","resumeAtMs":1787309832991,"recordingWasActive":false}}
+{"event":"shutdown_flush","recordedAt":"2026-08-21T11:14:17.810Z"}
+{"event":"galka_event","recordedAt":"2026-08-21T11:14:27.022Z","localReceiveTimestampNs":1787310867022622148,"type":"research","message":"recorder restored after process start","meta":{"campaignId":"HL-ETH-1787309518589-dc87fb","resumeAtMs":1787310867022,"recordingWasActive":false}}
+{"event":"galka_event","recordedAt":"2026-08-21T11:16:41.779Z","localReceiveTimestampNs":1787311001780259921,"type":"live","message":"ETH: GALKA быстро отменена без позиции","meta":{"campaignId":"HL-ETH-1787309518589-dc87fb","fastCancel":true,"entryOrders":8,"targetOrders":0}}
+{"event":"campaign_completed","recordedAt":"2026-08-21T11:16:41.781Z","campaignStatus":"canceled","actualRealizedPnl":0.0,"fees":0.0}

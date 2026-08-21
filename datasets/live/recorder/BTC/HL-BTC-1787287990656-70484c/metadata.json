@@ -6,16 +6,16 @@
   "galkaLevel": 74223.58,
   "campaignActivatedAt": "2026-08-21T04:53:10Z",
   "campaignActivatedAtMs": 1787287990656,
-  "status": "armed",
+  "status": "completed",
   "recordingStartedAt": null,
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-21T09:18:26.136Z",
   "crossedBelowGalka": null,
   "returnToGalka": null,
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "campaignCompletedAt": "2026-08-21T09:18:25Z",
+  "campaignCompletedAtMs": 1787303905000,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 74914.0,
-  "maximumObservedPrice": 75517.5,
+  "maximumObservedPrice": 79571.5,
   "levels": [
     {
       "index": 1,
@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 2,
+    "reconnects": 4,
     "gaps": [
       {
         "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
@@ -164,6 +164,18 @@
         "startedAtMs": 1787290853450,
         "endedAtMs": 1787290854773,
         "recordedAt": "2026-08-21T05:40:54.773Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1787301706737,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-21T08:41:46.738Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787301706737,
+        "endedAtMs": 1787301707955,
+        "recordedAt": "2026-08-21T08:41:47.956Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -193,7 +205,8 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-21T06:21:20.661Z",
-  "campaignStatus": "waiting",
-  "lastCampaignUpdateReason": "fills_updated"
+  "updatedAt": "2026-08-21T09:18:38.034Z",
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-21T09:18:36.603Z"
 }
