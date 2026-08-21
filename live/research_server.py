@@ -17,7 +17,7 @@ from .hyperliquid_gateway import (
 )
 from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _TradingGateway
 from .research_v3_engine import V3ClusterAwareGalkaLiveEngine
-from .update_manager import manager_for
+from .update_manager_v2 import manager_for
 
 
 # Production Galka LIVE universe. Keep the shared set object instead of rebinding it:
