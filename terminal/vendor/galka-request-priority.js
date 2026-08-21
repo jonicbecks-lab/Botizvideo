@@ -12,16 +12,21 @@
     '/api/live/queue/activate',
     '/api/live/queue/delete',
   ]);
+  // /status is deliberately NOT background here. It is a cheap UI state read
+  // using isolated/cached market data and is the one read we want immediately
+  // after placement/cancel. Heavy display/research reads wait instead.
   const backgroundPaths = new Set([
-    '/api/live/status',
     '/api/live/candles',
     '/api/live/history',
     '/api/live/clusters',
     '/api/live/queue',
   ]);
+  const BACKGROUND_SETTLE_MS = 1200;
 
   let foregroundCount = 0;
   let waiters = [];
+  let quietUntil = 0;
+  let releaseTimer = null;
 
   function requestMeta(input, init) {
     try {
@@ -34,15 +39,26 @@
     }
   }
 
+  function backgroundBlocked() {
+    return foregroundCount > 0 || performance.now() < quietUntil;
+  }
+
   function releaseBackground() {
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
     if (foregroundCount !== 0 || !waiters.length) return;
+    const remaining = quietUntil - performance.now();
+    if (remaining > 0) {
+      releaseTimer = setTimeout(releaseBackground, remaining + 5);
+      return;
+    }
     const pending = waiters;
     waiters = [];
     for (const resolve of pending) resolve();
   }
 
   function waitForForeground() {
-    if (foregroundCount === 0) return Promise.resolve();
+    if (!backgroundBlocked()) return Promise.resolve();
     return new Promise((resolve) => waiters.push(resolve));
   }
 
@@ -64,12 +80,14 @@
     const isForeground = meta.method !== 'GET' && foregroundPaths.has(meta.path);
     const isBackground = meta.method === 'GET' && backgroundPaths.has(meta.path);
 
-    if (isBackground && foregroundCount > 0) {
+    if (isBackground && backgroundBlocked()) {
       await waitForForeground();
     }
 
     if (isForeground) {
       foregroundCount += 1;
+      clearTimeout(releaseTimer);
+      releaseTimer = null;
       setBusyUi(meta.path, true);
       document.dispatchEvent(new CustomEvent('galka:foreground-request', {
         detail: { active: true, path: meta.path, count: foregroundCount },
@@ -85,6 +103,12 @@
         document.dispatchEvent(new CustomEvent('galka:foreground-request', {
           detail: { active: false, path: meta.path, count: foregroundCount },
         }));
+        if (foregroundCount === 0) {
+          // Do not unleash candles/history/clusters at the exact moment the
+          // exchange response arrives. Give the trading UI one frame to update
+          // and /status a short quiet lane first.
+          quietUntil = Math.max(quietUntil, performance.now() + BACKGROUND_SETTLE_MS);
+        }
         releaseBackground();
       }
     }
@@ -92,5 +116,6 @@
 
   window.GalkaRequestPriority = Object.freeze({
     foregroundActive: () => foregroundCount > 0,
+    backgroundBlocked,
   });
 })();
