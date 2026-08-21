@@ -96,9 +96,9 @@ def _nearest_index(rows: list[dict[str, Any]], time_ms: int) -> int:
 class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
     """Safe LIVE engine with an isolated, best-effort research sidecar.
 
-    The recorder never places/cancels orders and is not consulted by any trading
-    decision. A manual chart structure is immutable campaign metadata: it explains
-    what the user saw when choosing GALKA but never changes execution logic.
+    Manual chart annotation is immutable campaign metadata. The anchor is the
+    exact GALKA decision point; left/right boundaries are freeform time+price
+    coordinates chosen by the user. None of these fields affect order logic.
     """
 
     def __init__(self, config: Any, gateway: Any):
@@ -109,9 +109,31 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
     @staticmethod
     def _structure_summary(setup: dict[str, Any]) -> dict[str, Any]:
         bars = list(setup.get("structureBars") or [])
-        if not bars:
-            return {"barCount": 0}
         galka = _finite(setup.get("galkaLevel"))
+        anchor_ms = _positive_int(setup.get("anchorTimeMs"))
+        left_ms = _positive_int(setup.get("leftBoundaryTimeMs") or setup.get("structureStartTimeMs"))
+        right_ms = _positive_int(setup.get("rightBoundaryTimeMs") or setup.get("structureEndTimeMs"))
+        left_price = _finite(setup.get("leftBoundaryPrice"))
+        right_price = _finite(setup.get("rightBoundaryPrice"))
+
+        summary: dict[str, Any] = {
+            "barCount": int(setup.get("fullStructureBarCount") or len(bars)),
+            "capturedBarCount": len(bars),
+            "durationMs": max(0, right_ms - left_ms) if left_ms and right_ms else None,
+            "anchorOffsetMsFromLeft": anchor_ms - left_ms if anchor_ms and left_ms else None,
+            "anchorOffsetPctOfSpan": (
+                (anchor_ms - left_ms) / (right_ms - left_ms) * 100.0
+                if anchor_ms and left_ms and right_ms > left_ms
+                else None
+            ),
+            "leftBoundaryVsGalkaPct": ((left_price / galka - 1.0) * 100.0) if left_price > 0 and galka > 0 else None,
+            "rightBoundaryVsGalkaPct": ((right_price / galka - 1.0) * 100.0) if right_price > 0 and galka > 0 else None,
+            "leftToAnchorMovePct": ((galka / left_price - 1.0) * 100.0) if left_price > 0 and galka > 0 else None,
+            "anchorToRightMovePct": ((right_price / galka - 1.0) * 100.0) if right_price > 0 and galka > 0 else None,
+        }
+        if not bars:
+            return summary
+
         first = bars[0]
         last = bars[-1]
         highest = max(_finite(row.get("high")) for row in bars)
@@ -121,18 +143,19 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
         anchor = setup.get("anchorCandle") or first
         anchor_low = _finite(anchor.get("low")) if isinstance(anchor, dict) else 0.0
         anchor_close = _finite(anchor.get("close")) if isinstance(anchor, dict) else 0.0
-        return {
-            "barCount": int(setup.get("fullStructureBarCount") or len(bars)),
-            "capturedBarCount": len(bars),
-            "upBars": up,
-            "downBars": len(bars) - up,
-            "highestHigh": highest,
-            "lowestLow": lowest if math.isfinite(lowest) else None,
-            "totalCandleVolume": volume,
-            "netMovePct": ((last["close"] / first["open"] - 1.0) * 100.0) if first["open"] else None,
-            "galkaVsAnchorLowPct": ((galka / anchor_low - 1.0) * 100.0) if galka > 0 and anchor_low > 0 else None,
-            "galkaVsAnchorClosePct": ((galka / anchor_close - 1.0) * 100.0) if galka > 0 and anchor_close > 0 else None,
-        }
+        summary.update(
+            {
+                "upBars": up,
+                "downBars": len(bars) - up,
+                "highestHigh": highest,
+                "lowestLow": lowest if math.isfinite(lowest) else None,
+                "totalCandleVolume": volume,
+                "netMovePct": ((last["close"] / first["open"] - 1.0) * 100.0) if first["open"] else None,
+                "galkaVsAnchorLowPct": ((galka / anchor_low - 1.0) * 100.0) if galka > 0 and anchor_low > 0 else None,
+                "galkaVsAnchorClosePct": ((galka / anchor_close - 1.0) * 100.0) if galka > 0 and anchor_close > 0 else None,
+            }
+        )
+        return summary
 
     def _normalize_research_setup(
         self,
@@ -142,43 +165,66 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
     ) -> dict[str, Any] | None:
         if not isinstance(setup, dict):
             return None
-        if str(setup.get("selectionMethod") or "") != "manual_crosshair_structure_v1":
+        method = str(setup.get("selectionMethod") or "")
+        if method not in {"manual_crosshair_structure_v1", "manual_crosshair_structure_v2"}:
             return None
 
         timeframe = str(setup.get("timeframe") or "5m")
         if timeframe not in ALLOWED_STRUCTURE_INTERVALS:
             timeframe = "5m"
+
         anchor_ms = _positive_int(setup.get("anchorTimeMs"))
-        end_ms = _positive_int(setup.get("structureEndTimeMs"))
-        if not anchor_ms or not end_ms:
+        if method == "manual_crosshair_structure_v2":
+            left_ms = _positive_int(setup.get("leftBoundaryTimeMs") or setup.get("structureStartTimeMs"))
+            right_ms = _positive_int(setup.get("rightBoundaryTimeMs") or setup.get("structureEndTimeMs"))
+            left_price = _finite(setup.get("leftBoundaryPrice"), float(galka_price))
+            right_price = _finite(setup.get("rightBoundaryPrice"), float(galka_price))
+        else:
+            left_ms = anchor_ms
+            right_ms = _positive_int(setup.get("structureEndTimeMs"))
+            left_price = float(galka_price)
+            right_price = float(galka_price)
+
+        if not anchor_ms or not left_ms or not right_ms or left_price <= 0 or right_price <= 0:
             return None
-        if end_ms < anchor_ms:
-            anchor_ms, end_ms = end_ms, anchor_ms
+        if left_ms > anchor_ms:
+            left_ms = anchor_ms
+        if right_ms < anchor_ms:
+            right_ms = anchor_ms
+        if right_ms < left_ms:
+            left_ms, right_ms = right_ms, left_ms
+            left_price, right_price = right_price, left_price
 
         structure_bars = _bars(setup.get("structureBars"), MAX_STRUCTURE_BARS)
         pre_context = _bars(setup.get("preContextBars"), MAX_CONTEXT_BARS)
         post_context = _bars(setup.get("postContextBarsAtPlacement"), MAX_CONTEXT_BARS)
         anchor_candle = _bar(setup.get("anchorCandle"))
-        end_candle = _bar(setup.get("structureEndCandle"))
+        left_candle = _bar(setup.get("leftBoundaryCandle"))
+        right_candle = _bar(setup.get("rightBoundaryCandle") or setup.get("structureEndCandle"))
 
         normalized = {
-            "schemaVersion": 1,
-            "selectionMethod": "manual_crosshair_structure_v1",
+            "schemaVersion": 2,
+            "selectionMethod": "manual_crosshair_structure_v2",
             "symbol": coin,
             "timeframe": timeframe,
             "galkaLevel": float(galka_price),
             "anchorTimeMs": anchor_ms,
-            "structureEndTimeMs": end_ms,
+            "anchorPrice": float(galka_price),
+            "leftBoundaryTimeMs": left_ms,
+            "leftBoundaryPrice": left_price,
+            "rightBoundaryTimeMs": right_ms,
+            "rightBoundaryPrice": right_price,
+            "structureStartTimeMs": left_ms,
+            "structureEndTimeMs": right_ms,
             "selectedAtMs": _positive_int(setup.get("selectedAtMs")),
             "draftStartedAtMs": _positive_int(setup.get("draftStartedAtMs")),
             "serverReceivedAtMs": int(time.time() * 1000),
-            "fullStructureBarCount": max(
-                len(structure_bars),
-                _positive_int(setup.get("fullStructureBarCount")),
-            ),
+            "fullStructureBarCount": max(len(structure_bars), _positive_int(setup.get("fullStructureBarCount"))),
             "structureBarsTruncated": bool(setup.get("structureBarsTruncated")),
             "anchorCandle": anchor_candle,
-            "structureEndCandle": end_candle,
+            "leftBoundaryCandle": left_candle,
+            "rightBoundaryCandle": right_candle,
+            "structureEndCandle": right_candle,
             "preContextBars": pre_context,
             "structureBars": structure_bars,
             "postContextBarsAtPlacement": post_context,
@@ -195,7 +241,7 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
         coin: str,
         setup: dict[str, Any],
     ) -> None:
-        """Refresh selected left-side candles from Hyperliquid off the trading path."""
+        """Refresh approximate candle context from Hyperliquid off the trading path."""
         try:
             timeframe = str(setup.get("timeframe") or "5m")
             rows = self.gateway.candles(coin, timeframe, 1500)
@@ -204,12 +250,15 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
                 return
 
             anchor_ms = _positive_int(setup.get("anchorTimeMs"))
-            end_ms = _positive_int(setup.get("structureEndTimeMs"))
-            if not anchor_ms or not end_ms:
+            left_ms = _positive_int(setup.get("leftBoundaryTimeMs") or setup.get("structureStartTimeMs"))
+            right_ms = _positive_int(setup.get("rightBoundaryTimeMs") or setup.get("structureEndTimeMs"))
+            if not anchor_ms or not left_ms or not right_ms:
                 return
-            left = _nearest_index(market_bars, anchor_ms)
-            right = _nearest_index(market_bars, end_ms)
-            if left < 0 or right < 0:
+
+            anchor_index = _nearest_index(market_bars, anchor_ms)
+            left = _nearest_index(market_bars, left_ms)
+            right = _nearest_index(market_bars, right_ms)
+            if min(anchor_index, left, right) < 0:
                 return
             if left > right:
                 left, right = right, left
@@ -224,14 +273,14 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
             enriched = deepcopy(setup)
             enriched.update(
                 {
-                    "anchorCandle": deepcopy(market_bars[left]),
+                    "anchorCandle": deepcopy(market_bars[anchor_index]),
+                    "leftBoundaryCandle": deepcopy(market_bars[left]),
+                    "rightBoundaryCandle": deepcopy(market_bars[right]),
                     "structureEndCandle": deepcopy(market_bars[right]),
                     "preContextBars": deepcopy(market_bars[max(0, left - MAX_CONTEXT_BARS) : left]),
                     "structureBars": deepcopy(market_bars[structure_start : right + 1]),
                     "postContextBarsAtPlacement": deepcopy(post_rows),
-                    "structureBarsTruncated": bool(
-                        int(setup.get("fullStructureBarCount") or 0) > MAX_STRUCTURE_BARS
-                    ),
+                    "structureBarsTruncated": bool(int(setup.get("fullStructureBarCount") or 0) > MAX_STRUCTURE_BARS),
                     "candleSource": "hyperliquid_candles_snapshot",
                     "candleContextEnrichedAtMs": int(time.time() * 1000),
                 }
@@ -247,7 +296,9 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
                     return
                 if _positive_int(current.get("anchorTimeMs")) != anchor_ms:
                     return
-                if _positive_int(current.get("structureEndTimeMs")) != end_ms:
+                if _positive_int(current.get("leftBoundaryTimeMs") or current.get("structureStartTimeMs")) != left_ms:
+                    return
+                if _positive_int(current.get("rightBoundaryTimeMs") or current.get("structureEndTimeMs")) != right_ms:
                     return
                 campaign["researchSetup"] = enriched
                 snapshot = deepcopy(campaign)
@@ -262,7 +313,6 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
             except Exception:
                 pass
         except Exception:
-            # Context enrichment is strictly best-effort and never gates trading.
             return
 
     def start(self) -> None:
@@ -335,7 +385,10 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
                         "campaignId": result.get("id"),
                         "event": "galka_structure_locked",
                         "anchorTimeMs": setup.get("anchorTimeMs"),
-                        "structureEndTimeMs": setup.get("structureEndTimeMs"),
+                        "leftBoundaryTimeMs": setup.get("leftBoundaryTimeMs"),
+                        "leftBoundaryPrice": setup.get("leftBoundaryPrice"),
+                        "rightBoundaryTimeMs": setup.get("rightBoundaryTimeMs"),
+                        "rightBoundaryPrice": setup.get("rightBoundaryPrice"),
                         "timeframe": setup.get("timeframe"),
                         "galkaLevel": setup.get("galkaLevel"),
                     },
@@ -358,12 +411,7 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
         try:
             campaign = self._campaign_by_id_locked(meta.get("campaignId"))
             if campaign is not None:
-                self.research_recorder.on_galka_event(
-                    event_type,
-                    message,
-                    meta,
-                    campaign,
-                )
+                self.research_recorder.on_galka_event(event_type, message, meta, campaign)
         except Exception:
             pass
 
