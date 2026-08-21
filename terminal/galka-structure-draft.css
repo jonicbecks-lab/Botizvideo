@@ -12,20 +12,22 @@
 }
 
 .galka-structure-guide {
-  stroke: rgba(255, 152, 0, 0.48);
+  stroke: rgba(255, 152, 0, 0.34);
   stroke-width: 1;
   stroke-dasharray: 4 5;
 }
 
 .galka-structure-line {
-  stroke: rgba(255, 152, 0, 0.42);
+  stroke: rgba(255, 152, 0, 0.38);
   stroke-width: 1.5;
 }
 
-.galka-structure-segment {
+.galka-structure-shape {
+  fill: none;
   stroke: #ff9800;
-  stroke-width: 3;
+  stroke-width: 2.4;
   stroke-linecap: round;
+  stroke-linejoin: round;
   filter: drop-shadow(0 0 4px rgba(255, 152, 0, 0.28));
 }
 
@@ -43,10 +45,17 @@
   stroke-linejoin: round;
 }
 
-.galka-structure-end {
+.galka-structure-boundary {
   fill: #111827;
-  stroke: #ffb74d;
   stroke-width: 1.5;
+}
+
+.galka-structure-boundary-left {
+  stroke: #8bd3ff;
+}
+
+.galka-structure-boundary-right {
+  stroke: #ffb74d;
 }
 
 .galka-structure-toolbar {
