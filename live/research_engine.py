@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import threading
 import time
 from copy import deepcopy
 from typing import Any
@@ -52,6 +53,25 @@ def _bar(row: Any) -> dict[str, Any] | None:
     }
 
 
+def _gateway_bar(row: Any) -> dict[str, Any] | None:
+    if not isinstance(row, dict):
+        return None
+    time_ms = _positive_int(row.get("openTime"))
+    if not time_ms:
+        seconds = _positive_int(row.get("time"))
+        time_ms = seconds * 1000 if seconds else 0
+    return _bar(
+        {
+            "timeMs": time_ms,
+            "open": row.get("open"),
+            "high": row.get("high"),
+            "low": row.get("low"),
+            "close": row.get("close"),
+            "volume": row.get("volume"),
+        }
+    )
+
+
 def _bars(rows: Any, limit: int) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         return []
@@ -65,6 +85,12 @@ def _bars(rows: Any, limit: int) -> list[dict[str, Any]]:
         result.append(item)
     result.sort(key=lambda item: item["timeMs"])
     return result
+
+
+def _nearest_index(rows: list[dict[str, Any]], time_ms: int) -> int:
+    if not rows:
+        return -1
+    return min(range(len(rows)), key=lambda index: abs(int(rows[index]["timeMs"]) - int(time_ms)))
 
 
 class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
@@ -158,9 +184,86 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
             "postContextBarsAtPlacement": post_context,
             "lockedForCampaign": True,
             "researchOnly": True,
+            "candleSource": "browser_chart_snapshot_pending_server_enrichment",
         }
         normalized["derived"] = self._structure_summary(normalized)
         return normalized
+
+    def _enrich_structure_candles(
+        self,
+        campaign_id: str,
+        coin: str,
+        setup: dict[str, Any],
+    ) -> None:
+        """Refresh selected left-side candles from Hyperliquid off the trading path."""
+        try:
+            timeframe = str(setup.get("timeframe") or "5m")
+            rows = self.gateway.candles(coin, timeframe, 1500)
+            market_bars = [item for item in (_gateway_bar(row) for row in rows) if item]
+            if not market_bars:
+                return
+
+            anchor_ms = _positive_int(setup.get("anchorTimeMs"))
+            end_ms = _positive_int(setup.get("structureEndTimeMs"))
+            if not anchor_ms or not end_ms:
+                return
+            left = _nearest_index(market_bars, anchor_ms)
+            right = _nearest_index(market_bars, end_ms)
+            if left < 0 or right < 0:
+                return
+            if left > right:
+                left, right = right, left
+
+            placement_ms = _positive_int(setup.get("serverReceivedAtMs")) or int(time.time() * 1000)
+            structure_start = max(left, right - MAX_STRUCTURE_BARS + 1)
+            post_rows = [
+                row
+                for row in market_bars[right + 1 : right + 1 + MAX_CONTEXT_BARS]
+                if int(row.get("timeMs") or 0) <= placement_ms
+            ]
+            enriched = deepcopy(setup)
+            enriched.update(
+                {
+                    "anchorCandle": deepcopy(market_bars[left]),
+                    "structureEndCandle": deepcopy(market_bars[right]),
+                    "preContextBars": deepcopy(market_bars[max(0, left - MAX_CONTEXT_BARS) : left]),
+                    "structureBars": deepcopy(market_bars[structure_start : right + 1]),
+                    "postContextBarsAtPlacement": deepcopy(post_rows),
+                    "structureBarsTruncated": bool(
+                        int(setup.get("fullStructureBarCount") or 0) > MAX_STRUCTURE_BARS
+                    ),
+                    "candleSource": "hyperliquid_candles_snapshot",
+                    "candleContextEnrichedAtMs": int(time.time() * 1000),
+                }
+            )
+            enriched["derived"] = self._structure_summary(enriched)
+
+            with self.lock:
+                campaign = self._campaign_by_id_locked(campaign_id)
+                if campaign is None:
+                    return
+                current = campaign.get("researchSetup")
+                if not isinstance(current, dict):
+                    return
+                if _positive_int(current.get("anchorTimeMs")) != anchor_ms:
+                    return
+                if _positive_int(current.get("structureEndTimeMs")) != end_ms:
+                    return
+                campaign["researchSetup"] = enriched
+                snapshot = deepcopy(campaign)
+                self._save_locked()
+
+            try:
+                self.research_journal.upsert_campaign(snapshot, reason="research_setup_candles_enriched")
+            except Exception:
+                pass
+            try:
+                self.research_recorder.on_campaign_snapshot(snapshot, "research_setup_candles_enriched")
+            except Exception:
+                pass
+        except Exception:
+            # Context enrichment is strictly best-effort and never gates trading.
+            return
 
     def start(self) -> None:
         try:
@@ -240,6 +343,14 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
                 )
         except Exception:
             pass
+
+        if setup and result.get("id"):
+            threading.Thread(
+                target=self._enrich_structure_candles,
+                args=(str(result["id"]), normalized_coin, deepcopy(setup)),
+                name=f"galka-context-{normalized_coin}-{str(result['id'])[-6:]}",
+                daemon=True,
+            ).start()
         return result
 
     def _event_locked(self, event_type: str, message: str, **meta: Any) -> None:
