@@ -336,6 +336,7 @@
       state.submitting = false;
       state.startedAtMs = 0;
       state.campaignId = '';
+      chart.crosshair = null;
       overlay.classList.add('hidden');
       toolbar.classList.add('hidden');
       if (!keepInput) {
@@ -370,6 +371,7 @@
       state.submitting = false;
       state.startedAtMs = Number(setup.draftStartedAtMs || 0);
       state.campaignId = String(campaign.id || '');
+      chart.crosshair = null;
       render();
     }
 
@@ -426,6 +428,8 @@
         state.rightTime = Math.max(time, state.anchorTime);
         state.rightPrice = price;
       }
+      chart.setCrosshair?.({ ...point, zone: 'plot' });
+      chart.draw?.();
     }
 
     canvas.addEventListener('galka:select-price', (event) => {
