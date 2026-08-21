@@ -6,7 +6,6 @@ from http import HTTPStatus
 from urllib.parse import parse_qs, urlparse
 
 from . import persistent_server as _persistent
-from .cluster_engine import ClusterAwareGalkaLiveEngine
 from .cluster_volume import BASE_PRICE_STEPS
 from .engine import LiveEngineError
 from .hyperliquid_gateway import (
@@ -17,6 +16,7 @@ from .hyperliquid_gateway import (
     _integer,
 )
 from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _TradingGateway
+from .research_v3_engine import V3ClusterAwareGalkaLiveEngine
 
 
 # Production Galka LIVE universe. Keep the shared set object instead of rebinding it:
@@ -276,5 +276,5 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
 
 
 _persistent.PersistentGalkaRequestHandler = AutoQueueGalkaRequestHandler
-_persistent.SafeCompatibleGalkaLiveEngine = ClusterAwareGalkaLiveEngine
+_persistent.SafeCompatibleGalkaLiveEngine = V3ClusterAwareGalkaLiveEngine
 _persistent.SafeCompatibleHyperliquidGateway = PublicMarketIsolatedGateway
