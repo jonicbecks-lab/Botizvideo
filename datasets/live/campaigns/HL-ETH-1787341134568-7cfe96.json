@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-21T20:36:57Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-21T20:38:48Z",
+  "reason": "cancelled_fast",
   "campaignId": "HL-ETH-1787341134568-7cfe96",
   "coin": "ETH",
-  "status": "waiting",
+  "status": "canceled",
   "createdAt": "2026-08-21T19:38:54Z",
   "createdMs": 1787341134569,
-  "completedAt": null,
+  "completedAt": "2026-08-21T20:38:47Z",
   "galkaPrice": 2383.639417922946,
   "researchSetup": {
     "schemaVersion": 2,
@@ -897,7 +897,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
