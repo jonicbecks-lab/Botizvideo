@@ -7,7 +7,7 @@ from typing import Any
 
 from .engine import ACTIVE_STATUSES
 from .hyperliquid_safe_compat import SafeCompatibleGalkaLiveEngine
-from .research_recorder import GalkaResearchRecorder
+from .research_anchor_recorder import AnchoredGalkaResearchRecorder
 
 
 ALLOWED_STRUCTURE_INTERVALS = {"1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"}
@@ -76,7 +76,7 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
     """
 
     def __init__(self, config: Any, gateway: Any):
-        self.research_recorder = GalkaResearchRecorder(config)
+        self.research_recorder = AnchoredGalkaResearchRecorder(config)
         self._pending_research_setup: dict[str, dict[str, Any]] = {}
         super().__init__(config, gateway)
 
@@ -199,10 +199,6 @@ class ResearchCompatibleGalkaLiveEngine(SafeCompatibleGalkaLiveEngine):
         if setup:
             campaign["researchSetup"] = setup
         try:
-            # Session construction is local-only; actual file writes happen on
-            # the recorder worker. With manual structure metadata the recorder
-            # starts full market capture from placement instead of waiting for a
-            # cross below GALKA.
             self.research_recorder.arm_campaign(campaign)
         except Exception:
             pass
