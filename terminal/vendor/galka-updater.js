@@ -72,28 +72,6 @@
     const drawer = document.getElementById('drawer');
     if (!drawer) return;
 
-    const style = document.createElement('style');
-    style.textContent = `
-      .galka-update-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-      .galka-update-badge{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;border:1px solid #394252;color:#9ba6b7;background:#10151d;white-space:nowrap}
-      .galka-update-badge.available{color:#ffad42;border-color:#8c541a;background:#21170d}
-      .galka-update-badge.busy{color:#9cc8ff;border-color:#365b86;background:#0d1724}
-      .galka-update-card{margin:0 14px 14px;padding:13px;border:1px solid #293241;border-radius:14px;background:#0d1118;display:grid;gap:10px}
-      .galka-update-version{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
-      .galka-update-version span{min-width:0}.galka-update-version small{display:block;color:#7e8998;font-size:10px}.galka-update-version b{font-size:13px}
-      .galka-update-version .arrow{color:#606b79;font-weight:800}
-      .galka-update-kind{font-size:12px;color:#9aa5b5;line-height:1.35}
-      .galka-update-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-      .galka-update-actions button{min-height:42px;border-radius:11px;border:1px solid #364152;background:#171d27;color:#eef3fa;font-weight:800}
-      .galka-update-actions button.primary{background:#b84700;border-color:#d75b08;color:white}
-      .galka-update-actions button:disabled{opacity:.42}
-      .galka-update-log{font-size:11px;line-height:1.45;color:#99a5b5;white-space:normal;word-break:break-word;max-height:180px;overflow:auto}
-      .galka-update-log .ok{color:#52c38b}.galka-update-log .error{color:#ff7777}.galka-update-log .running{color:#9cc8ff}
-      .galka-update-float{position:absolute;z-index:19;right:14px;top:12px;border:1px solid #925418;background:#2a190a;color:#ffb14d;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:900;box-shadow:0 4px 20px #0008}
-      .galka-update-float.hidden{display:none}
-    `;
-    document.head.append(style);
-
     const head = document.createElement('div');
     head.className = 'section-head galka-update-head';
     head.innerHTML = '<b>Обновление GALKA</b><span class="galka-update-badge" id="galkaUpdateBadge">не проверено</span>';
