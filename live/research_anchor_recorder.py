@@ -29,6 +29,15 @@ class AnchoredResearchSession(ResearchSession):
             metadata["status"] = "recording"
         return metadata
 
+    def update_campaign(self, campaign: dict[str, Any], reason: str) -> None:
+        setup = campaign.get("researchSetup")
+        if isinstance(setup, dict) and setup.get("lockedForCampaign"):
+            with self._state_lock:
+                self.metadata["galkaStructure"] = deepcopy(setup)
+                self.metadata["captureFromPlacement"] = True
+                self.metadata["recordingStartBasis"] = "manual_galka_structure_locked"
+        super().update_campaign(campaign, reason)
+
     def mark_crossed_below(self, exchange_ms: int, receive_ns: int, price: float, basis: str) -> bool:
         started_at = self.metadata.get("recordingStartedAt")
         start_basis = self.metadata.get("recordingStartBasis")
