@@ -44,7 +44,7 @@ server_command=(
   "GALKA_LIVE_PID_FILE=$GALKA_LIVE_PID_FILE"
   "$GALKA_LIVE_VENV/bin/python"
   -m
-  live.research_server
+  live.research_server_entry
 )
 
 if command -v setsid >/dev/null 2>&1; then
