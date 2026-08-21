@@ -17,6 +17,7 @@ DATASET_DIR="$SYNC_ROOT/datasets/live"
 RECORDER_DST="$DATASET_DIR/recorder"
 CLUSTER_DST="$DATASET_DIR/clusters"
 LOCK_DIR="${SYNC_ROOT}.lock"
+LOCK_PID="$LOCK_DIR/pid"
 
 [[ "${1:-}" == "--once" ]] || {
   echo "Usage: bash scripts/galka-research-sync.sh --once"
@@ -27,11 +28,53 @@ LOCK_DIR="${SYNC_ROOT}.lock"
 [[ -d "$RESEARCH_ROOT" ]] || exit 0
 mkdir -p "$(dirname "$SYNC_ROOT")"
 
-# Prevent two sync jobs on the same device from racing each other.
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+lock_owner_alive() {
+  [[ -f "$LOCK_PID" ]] || return 1
+  local owner
+  owner="$(tr -cd '0-9' < "$LOCK_PID" 2>/dev/null || true)"
+  [[ -n "$owner" ]] && kill -0 "$owner" 2>/dev/null
+}
+
+acquire_lock() {
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_PID"
+    return 0
+  fi
+
+  # A previous Termux/server process can be killed while holding the old
+  # directory lock. Never let that stale directory disable research sync for
+  # the rest of the day. If a real owner is still alive, leave it alone.
+  if lock_owner_alive; then
+    return 1
+  fi
+
+  local stale="${LOCK_DIR}.stale.$$"
+  if ! mv "$LOCK_DIR" "$stale" 2>/dev/null; then
+    return 1
+  fi
+  rm -rf "$stale" 2>/dev/null || true
+
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    return 1
+  fi
+  printf '%s\n' "$$" > "$LOCK_PID"
+  return 0
+}
+
+release_lock() {
+  local owner=""
+  if [[ -f "$LOCK_PID" ]]; then
+    owner="$(tr -cd '0-9' < "$LOCK_PID" 2>/dev/null || true)"
+  fi
+  if [[ "$owner" == "$$" ]]; then
+    rm -rf "$LOCK_DIR" 2>/dev/null || true
+  fi
+}
+
+if ! acquire_lock; then
   exit 0
 fi
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+trap release_lock EXIT INT TERM
 
 if [[ ! -d "$SYNC_ROOT/.git" ]]; then
   rm -rf "$SYNC_ROOT"
@@ -89,10 +132,13 @@ copy_dataset() {
 }
 
 for attempt in 1 2 3; do
-  # Always rebuild on top of the newest remote journal head. If another sync
-  # wins the push race, fetch that head and retry with the same local snapshot.
+  # Always rebuild on top of the newest remote journal head. The sync checkout
+  # is disposable cache, so clean leftovers from an interrupted previous run
+  # before copying the new local snapshot.
   git -C "$SYNC_ROOT" fetch -q origin "$REMOTE_BRANCH" || exit 0
   git -C "$SYNC_ROOT" checkout -q -B galka-research-sync "origin/$REMOTE_BRANCH" || exit 0
+  git -C "$SYNC_ROOT" reset -q --hard "origin/$REMOTE_BRANCH" || exit 0
+  git -C "$SYNC_ROOT" clean -q -fd -- datasets/live >/dev/null 2>&1 || true
 
   copy_dataset
 
