@@ -4,6 +4,9 @@
   const statusButton = document.getElementById('campaignStatus');
   const actionButton = document.getElementById('previewButton');
   const symbolSelect = document.getElementById('symbolSelect');
+  const galkaInput = document.getElementById('galkaInput');
+  const campaignDetails = document.getElementById('campaignDetails');
+  const cancelDrawerButton = document.getElementById('cancelCampaign');
   const toast = document.getElementById('toast');
   if (!statusButton || !actionButton || !symbolSelect) return;
 
@@ -35,6 +38,26 @@
     actionButton.textContent = 'Снять GALKA';
   }
 
+  function applyConfirmedCancelUi(coin) {
+    window.GalkaLiveUiBridge?.clearPriceLines?.();
+
+    statusButton.textContent = `${coin} · нет GALKA`;
+    statusButton.className = 'campaign-status idle';
+
+    actionButton.dataset.quickCancel = '';
+    actionButton.disabled = false;
+    actionButton.textContent = 'Поставить GALKA';
+
+    if (galkaInput) {
+      galkaInput.disabled = false;
+      galkaInput.value = '';
+    }
+    if (campaignDetails) {
+      campaignDetails.innerHTML = '<div class="campaign-card"><small>Нет активной GALKA для выбранной монеты.</small></div>';
+    }
+    if (cancelDrawerButton) cancelDrawerButton.disabled = true;
+  }
+
   async function cancelWaitingGalka() {
     if (cancelBusy || !waitingWithoutPosition()) return;
     const coin = symbolSelect.value;
@@ -43,6 +66,8 @@
     cancelBusy = true;
     actionButton.disabled = true;
     actionButton.textContent = 'Отмена…';
+    const started = performance.now();
+
     try {
       const response = await fetch('/api/live/cancel', {
         method: 'POST',
@@ -58,8 +83,15 @@
       if (!response.ok || payload?.ok === false) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
-      showToast('GALKA снята, ожидающие лимитки отменены', 'ok');
-      setTimeout(() => location.reload(), 350);
+
+      applyConfirmedCancelUi(coin);
+      const elapsedSeconds = Math.max(0, (performance.now() - started) / 1000);
+      showToast(`GALKA снята за ${elapsedSeconds.toFixed(1)} с`, 'ok');
+      cancelBusy = false;
+
+      // Do not reload the whole terminal here. A full reload re-downloads the
+      // historical candle/cluster window and made a successful cancel look stuck.
+      // The regular status loop will reconcile the in-memory LIVE state shortly.
     } catch (error) {
       showToast(error.message || 'Не удалось снять GALKA', 'error');
       cancelBusy = false;
