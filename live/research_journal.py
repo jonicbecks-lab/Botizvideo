@@ -68,6 +68,8 @@ class ResearchJournal:
                 "partialFillAnalysis": True,
                 "postExitExtensionAnalysis": True,
                 "counterfactualExitResearch": True,
+                "manualStructureAnnotation": True,
+                "humanSetupDigitization": True,
             },
         }
         self._atomic_json(self.manifest_path, payload)
@@ -198,6 +200,9 @@ class ResearchJournal:
             setup_distance_pct = None
             if setup_mid and float(setup_mid) > 0 and galka > 0:
                 setup_distance_pct = (float(setup_mid) / galka - 1.0) * 100.0
+            research_setup = campaign.get("researchSetup")
+            if not isinstance(research_setup, dict):
+                research_setup = None
             payload = {
                 "schemaVersion": SCHEMA_VERSION,
                 "updatedAt": self._now_iso(),
@@ -209,6 +214,7 @@ class ResearchJournal:
                 "createdMs": campaign.get("createdMs"),
                 "completedAt": campaign.get("completedAt"),
                 "galkaPrice": campaign.get("galkaPrice"),
+                "researchSetup": deepcopy(research_setup),
                 "setupMidPrice": setup_mid,
                 "setupDistancePct": setup_distance_pct,
                 "leverage": campaign.get("leverage"),
