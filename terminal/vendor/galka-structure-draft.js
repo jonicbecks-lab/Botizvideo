@@ -9,7 +9,6 @@
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_STRUCTURE_BARS = 240;
   const CONTEXT_BARS = 20;
-  const HANDLE_PICK_PX = 42;
   const ACTIVE_CAMPAIGN_STATUSES = new Set([
     'placing', 'waiting', 'open', 'closing', 'canceling', 'emergency', 'recovery',
   ]);
@@ -78,6 +77,14 @@
       : right;
   }
 
+  function estimateInterval(all) {
+    for (let index = all.length - 1; index > 0; index -= 1) {
+      const delta = Number(all[index]?.time || 0) - Number(all[index - 1]?.time || 0);
+      if (delta > 0) return delta;
+    }
+    return 300;
+  }
+
   function installStructureDraft(chart, container) {
     if (!chart?.canvas || chart.__galkaStructureDraftInstalled) return chart;
     chart.__galkaStructureDraftInstalled = true;
@@ -87,21 +94,23 @@
     overlay.setAttribute('preserveAspectRatio', 'none');
 
     const fullLine = createSvg('line', 'galka-structure-line');
-    const segment = createSvg('line', 'galka-structure-segment');
+    const shape = createSvg('polyline', 'galka-structure-shape');
     const leftGuide = createSvg('line', 'galka-structure-guide');
     const rightGuide = createSvg('line', 'galka-structure-guide');
 
-    const leftHandle = createSvg('g');
-    const leftRing = createSvg('circle', 'galka-structure-anchor-ring');
-    leftRing.setAttribute('r', '10');
-    const leftMark = createSvg('path', 'galka-structure-anchor-mark');
-    leftMark.setAttribute('d', 'M0 -6 A2 2 0 1 1 0 -2 M0 -2 L0 6 M-4 0 L4 0 M-7 3 C-6 7 -3 9 0 9 C3 9 6 7 7 3 M-7 3 L-4 5 M7 3 L4 5');
-    leftHandle.append(leftRing, leftMark);
+    const anchorHandle = createSvg('g');
+    const anchorRing = createSvg('circle', 'galka-structure-anchor-ring');
+    anchorRing.setAttribute('r', '10');
+    const anchorMark = createSvg('path', 'galka-structure-anchor-mark');
+    anchorMark.setAttribute('d', 'M0 -6 A2 2 0 1 1 0 -2 M0 -2 L0 6 M-4 0 L4 0 M-7 3 C-6 7 -3 9 0 9 C3 9 6 7 7 3 M-7 3 L-4 5 M7 3 L4 5');
+    anchorHandle.append(anchorRing, anchorMark);
 
-    const rightHandle = createSvg('path', 'galka-structure-end');
+    const leftHandle = createSvg('path', 'galka-structure-boundary galka-structure-boundary-left');
+    leftHandle.setAttribute('d', 'M0 -8 L8 0 L0 8 L-8 0 Z');
+    const rightHandle = createSvg('path', 'galka-structure-boundary galka-structure-boundary-right');
     rightHandle.setAttribute('d', 'M0 -8 L8 0 L0 8 L-8 0 Z');
 
-    overlay.append(fullLine, segment, leftGuide, rightGuide, leftHandle, rightHandle);
+    overlay.append(fullLine, shape, leftGuide, rightGuide, leftHandle, rightHandle, anchorHandle);
     container.append(overlay);
 
     const toolbar = document.createElement('div');
@@ -125,10 +134,12 @@
       interval: '',
       galkaPrice: 0,
       anchorTime: 0,
-      endTime: 0,
+      leftTime: 0,
+      leftPrice: 0,
+      rightTime: 0,
+      rightPrice: 0,
       phase: 'idle',
       pointerId: null,
-      dragging: null,
       submitting: false,
       startedAtMs: 0,
       campaignId: '',
@@ -154,26 +165,54 @@
       return Array.isArray(chart.series?.data) ? chart.series.data : [];
     }
 
-    function snappedTimeAtX(x) {
+    function timeAtX(x) {
       const windowState = chart.visibleWindow?.();
       const geometry = chart.geometry?.();
       if (!windowState?.all?.length || !geometry) return 0;
-      const ratio = clamp((Number(x) - geometry.left) / geometry.plotWidth, 0, 0.999999);
-      const logical = Math.floor(windowState.start + ratio * windowState.count);
-      const index = clamp(logical, 0, windowState.all.length - 1);
-      return Number(windowState.all[index]?.time || 0);
+      const ratio = clamp((Number(x) - geometry.left) / geometry.plotWidth, 0, 1);
+      const logical = windowState.start + ratio * windowState.count;
+      const interval = estimateInterval(windowState.all);
+      const lowerLogical = Math.floor(logical);
+      const fraction = logical - lowerLogical;
+      let baseTime;
+      if (lowerLogical < 0) {
+        baseTime = Number(windowState.all[0]?.time || 0) + lowerLogical * interval;
+      } else if (lowerLogical >= windowState.all.length) {
+        baseTime = Number(windowState.all.at(-1)?.time || 0) + (lowerLogical - windowState.all.length + 1) * interval;
+      } else {
+        baseTime = Number(windowState.all[lowerLogical]?.time || 0);
+      }
+      return baseTime + fraction * interval;
     }
 
     function xForTime(timeSec) {
       const windowState = chart.visibleWindow?.();
       const geometry = chart.geometry?.();
-      if (!windowState?.all?.length || !geometry) return null;
-      const index = nearestIndex(windowState.all, timeSec);
-      if (index < 0) return null;
-      const slot = geometry.plotWidth / Math.max(1, windowState.count);
-      const x = geometry.left + (index - windowState.start + 0.5) * slot;
-      if (x < geometry.left - 20 || x > geometry.right + 20) return null;
-      return x;
+      if (!windowState?.all?.length || !geometry || !(Number(timeSec) > 0)) return null;
+      const all = windowState.all;
+      const interval = estimateInterval(all);
+      const target = Number(timeSec);
+      let logical;
+      if (target <= Number(all[0]?.time || 0)) {
+        logical = (target - Number(all[0]?.time || 0)) / interval;
+      } else if (target >= Number(all.at(-1)?.time || 0)) {
+        logical = all.length - 1 + (target - Number(all.at(-1)?.time || 0)) / interval;
+      } else {
+        const index = nearestIndex(all, target);
+        const base = Number(all[index]?.time || 0);
+        logical = index + (target - base) / interval;
+      }
+      const x = geometry.left + (logical - windowState.start) / windowState.count * geometry.plotWidth;
+      return x >= geometry.left - 20 && x <= geometry.right + 20 ? x : null;
+    }
+
+    function priceAtY(y) {
+      const geometry = chart.geometry?.();
+      const rows = chart.lastRows?.length ? chart.lastRows : chart.visibleWindow?.().rows;
+      const range = chart.currentPriceRange?.(rows || []);
+      if (!geometry || !range || !(range.span > 0)) return 0;
+      const clamped = clamp(Number(y), geometry.top, geometry.bottom);
+      return range.max - ((clamped - geometry.top) / geometry.plotHeight) * range.span;
     }
 
     function yForPrice(price) {
@@ -185,11 +224,8 @@
     }
 
     function setLine(node, x1, y1, x2, y2, visible = true) {
-      if (!visible) {
-        node.setAttribute('visibility', 'hidden');
-        return;
-      }
-      node.setAttribute('visibility', 'visible');
+      node.setAttribute('visibility', visible ? 'visible' : 'hidden');
+      if (!visible) return;
       node.setAttribute('x1', String(x1));
       node.setAttribute('y1', String(y1));
       node.setAttribute('x2', String(x2));
@@ -201,12 +237,20 @@
       if (visible) node.setAttribute('transform', `translate(${x} ${y})`);
     }
 
-    function barCount() {
+    function setShape(points, visible = true) {
+      shape.setAttribute('visibility', visible ? 'visible' : 'hidden');
+      if (!visible) return;
+      shape.setAttribute('points', points.map(([x, y]) => `${x},${y}`).join(' '));
+    }
+
+    function structureBarCount() {
       const all = allRows();
-      if (!all.length || !state.anchorTime || !state.endTime) return 0;
-      const left = nearestIndex(all, Math.min(state.anchorTime, state.endTime));
-      const right = nearestIndex(all, Math.max(state.anchorTime, state.endTime));
-      return left >= 0 && right >= left ? right - left + 1 : 0;
+      if (!all.length || !state.leftTime || !state.rightTime) return 0;
+      let left = nearestIndex(all, state.leftTime);
+      let right = nearestIndex(all, state.rightTime);
+      if (left < 0 || right < 0) return 0;
+      if (left > right) [left, right] = [right, left];
+      return right - left + 1;
     }
 
     function updateToolbar() {
@@ -215,14 +259,18 @@
         return;
       }
       toolbar.classList.remove('hidden');
-      if (!state.endTime || state.phase === 'choose-right') {
-        info.innerHTML = `<b>⚓ ${formatPrice(state.galkaPrice)}</b> · выбери правый край GALKA`;
-        confirm.disabled = true;
+      if (state.phase === 'choose-left') {
+        info.innerHTML = `<b>⚓ ${formatPrice(state.galkaPrice)}</b> · двигай левую границу`;
+        confirm.textContent = 'Левая ✓';
+        confirm.disabled = state.submitting || !(state.leftTime > 0 && state.leftPrice > 0);
         return;
       }
-      const count = barCount();
-      info.innerHTML = `<b>⚓ ${formatPrice(state.galkaPrice)}</b> · ${count} свеч. · ${isoMinute(state.anchorTime)} → ${isoMinute(state.endTime)}`;
-      confirm.disabled = state.submitting || count < 1;
+      if (state.phase === 'choose-right') {
+        const count = structureBarCount();
+        info.innerHTML = `<b>⚓ ${formatPrice(state.galkaPrice)}</b> · двигай правую границу · ${count} свеч.`;
+        confirm.textContent = 'Выставить лимитки';
+        confirm.disabled = state.submitting || !(state.rightTime > 0 && state.rightPrice > 0) || count < 1;
+      }
     }
 
     function render() {
@@ -232,8 +280,8 @@
         return;
       }
       const geometry = chart.geometry?.();
-      const y = yForPrice(state.galkaPrice);
-      if (!geometry || y == null || y < geometry.top - 2 || y > geometry.bottom + 2) {
+      const anchorY = yForPrice(state.galkaPrice);
+      if (!geometry || anchorY == null) {
         overlay.classList.add('hidden');
         updateToolbar();
         return;
@@ -242,15 +290,25 @@
       overlay.classList.remove('hidden');
       overlay.setAttribute('viewBox', `0 0 ${geometry.width} ${geometry.height}`);
       const locked = state.phase === 'locked';
-      setLine(fullLine, geometry.left, y, geometry.right, y, !locked);
+      setLine(fullLine, geometry.left, anchorY, geometry.right, anchorY, !locked);
 
-      const leftX = xForTime(state.anchorTime);
-      const rightX = state.endTime ? xForTime(state.endTime) : null;
-      setTransform(leftHandle, leftX ?? 0, y, leftX != null);
+      const anchorX = xForTime(state.anchorTime);
+      const leftX = xForTime(state.leftTime);
+      const rightX = xForTime(state.rightTime);
+      const leftY = yForPrice(state.leftPrice);
+      const rightY = yForPrice(state.rightPrice);
+
+      setTransform(anchorHandle, anchorX ?? 0, anchorY, anchorX != null);
+      setTransform(leftHandle, leftX ?? 0, leftY ?? 0, leftX != null && leftY != null);
+      setTransform(rightHandle, rightX ?? 0, rightY ?? 0, rightX != null && rightY != null && state.phase !== 'choose-left');
       setLine(leftGuide, leftX ?? 0, geometry.top, leftX ?? 0, geometry.bottom, leftX != null && !locked);
-      setTransform(rightHandle, rightX ?? 0, y, rightX != null);
-      setLine(rightGuide, rightX ?? 0, geometry.top, rightX ?? 0, geometry.bottom, rightX != null && !locked);
-      setLine(segment, leftX ?? geometry.left, y, rightX ?? leftX ?? geometry.left, y, leftX != null && rightX != null);
+      setLine(rightGuide, rightX ?? 0, geometry.top, rightX ?? 0, geometry.bottom, rightX != null && state.phase !== 'choose-left' && !locked);
+
+      const shapePoints = [];
+      if (leftX != null && leftY != null) shapePoints.push([leftX, leftY]);
+      if (anchorX != null) shapePoints.push([anchorX, anchorY]);
+      if (rightX != null && rightY != null && state.phase !== 'choose-left') shapePoints.push([rightX, rightY]);
+      setShape(shapePoints, shapePoints.length >= 2);
       updateToolbar();
     }
 
@@ -269,10 +327,12 @@
       state.interval = '';
       state.galkaPrice = 0;
       state.anchorTime = 0;
-      state.endTime = 0;
+      state.leftTime = 0;
+      state.leftPrice = 0;
+      state.rightTime = 0;
+      state.rightPrice = 0;
       state.phase = 'idle';
       state.pointerId = null;
-      state.dragging = null;
       state.submitting = false;
       state.startedAtMs = 0;
       state.campaignId = '';
@@ -289,14 +349,10 @@
     function showLockedCampaign(campaign) {
       const setup = campaign?.researchSetup;
       const coin = String(campaign?.coin || '').toUpperCase();
-      if (
-        !coin ||
-        coin !== selectedCoin() ||
-        !setup ||
-        setup.lockedForCampaign !== true ||
-        !(Number(setup.anchorTimeMs) > 0) ||
-        !(Number(setup.structureEndTimeMs) > 0)
-      ) {
+      const anchorMs = Number(setup?.anchorTimeMs || 0);
+      const leftMs = Number(setup?.leftBoundaryTimeMs || setup?.anchorTimeMs || 0);
+      const rightMs = Number(setup?.rightBoundaryTimeMs || setup?.structureEndTimeMs || 0);
+      if (!coin || coin !== selectedCoin() || !setup || setup.lockedForCampaign !== true || !(anchorMs > 0) || !(leftMs > 0) || !(rightMs > 0)) {
         if (state.phase === 'locked') resetState({ keepInput: true, restoreAction: false });
         return;
       }
@@ -304,11 +360,13 @@
       state.coin = coin;
       state.interval = String(setup.timeframe || '5m');
       state.galkaPrice = finite(campaign.galkaPrice || setup.galkaLevel);
-      state.anchorTime = Number(setup.anchorTimeMs) / 1000;
-      state.endTime = Number(setup.structureEndTimeMs) / 1000;
+      state.anchorTime = anchorMs / 1000;
+      state.leftTime = leftMs / 1000;
+      state.leftPrice = finite(setup.leftBoundaryPrice || state.galkaPrice);
+      state.rightTime = rightMs / 1000;
+      state.rightPrice = finite(setup.rightBoundaryPrice || state.galkaPrice);
       state.phase = 'locked';
       state.pointerId = null;
-      state.dragging = null;
       state.submitting = false;
       state.startedAtMs = Number(setup.draftStartedAtMs || 0);
       state.campaignId = String(campaign.id || '');
@@ -322,7 +380,7 @@
       const galkaPrice = finite(event.detail?.price);
       if (!(galkaPrice > 0)) return false;
       const crosshairX = finite(chart.crosshair?.x, NaN);
-      const anchorTime = Number(event.detail?.timeSec || (Number.isFinite(crosshairX) ? snappedTimeAtX(crosshairX) : 0));
+      const anchorTime = Number(event.detail?.timeSec || (Number.isFinite(crosshairX) ? timeAtX(crosshairX) : 0));
       if (!(anchorTime > 0)) return false;
 
       state.active = true;
@@ -330,10 +388,12 @@
       state.interval = selectedInterval();
       state.galkaPrice = galkaPrice;
       state.anchorTime = anchorTime;
-      state.endTime = 0;
-      state.phase = 'choose-right';
+      state.leftTime = anchorTime;
+      state.leftPrice = galkaPrice;
+      state.rightTime = 0;
+      state.rightPrice = 0;
+      state.phase = 'choose-left';
       state.pointerId = null;
-      state.dragging = null;
       state.submitting = false;
       state.startedAtMs = Date.now();
       state.campaignId = '';
@@ -342,51 +402,30 @@
       if (action) {
         action.dataset.structureDraft = '1';
         action.disabled = true;
-        action.textContent = 'Выбери правый край';
+        action.textContent = 'Разметка GALKA';
       }
       render();
       if (navigator.vibrate) navigator.vibrate(12);
       return true;
     }
 
-    function chooseDragTarget(pointX) {
-      if (!state.endTime || state.phase === 'choose-right') return 'right';
-      const leftX = xForTime(state.anchorTime);
-      const rightX = xForTime(state.endTime);
-      if (leftX == null) return 'right';
-      if (rightX == null) return 'left';
-      const leftDistance = Math.abs(pointX - leftX);
-      const rightDistance = Math.abs(pointX - rightX);
-      if (leftDistance <= HANDLE_PICK_PX || rightDistance <= HANDLE_PICK_PX) {
-        return leftDistance <= rightDistance ? 'left' : 'right';
-      }
-      return leftDistance <= rightDistance ? 'left' : 'right';
-    }
-
-    function setDraggedTime(kind, timeSec) {
-      if (!(timeSec > 0)) return;
-      if (kind === 'left') {
-        state.anchorTime = timeSec;
-        if (state.endTime && state.anchorTime > state.endTime) {
-          const previousEnd = state.endTime;
-          state.endTime = state.anchorTime;
-          state.anchorTime = previousEnd;
-          state.dragging = 'right';
-        }
-      } else {
-        state.endTime = timeSec;
-        if (state.endTime < state.anchorTime) {
-          const previousLeft = state.anchorTime;
-          state.anchorTime = state.endTime;
-          state.endTime = previousLeft;
-          state.dragging = 'left';
-        }
-      }
-    }
-
     function stopCanvasEvent(event) {
       event.preventDefault();
       event.stopImmediatePropagation();
+    }
+
+    function updateActiveBoundary(point) {
+      if (!point || point.zone !== 'plot') return;
+      const time = timeAtX(point.x);
+      const price = priceAtY(point.y);
+      if (!(time > 0 && price > 0)) return;
+      if (state.phase === 'choose-left') {
+        state.leftTime = Math.min(time, state.anchorTime);
+        state.leftPrice = price;
+      } else if (state.phase === 'choose-right') {
+        state.rightTime = Math.max(time, state.anchorTime);
+        state.rightPrice = price;
+      }
     }
 
     canvas.addEventListener('galka:select-price', (event) => {
@@ -401,11 +440,8 @@
       const point = chart.pointFromEvent?.(event);
       if (!point || point.zone !== 'plot') return;
       stopCanvasEvent(event);
-      const timeSec = snappedTimeAtX(point.x);
-      if (!(timeSec > 0)) return;
       state.pointerId = event.pointerId;
-      state.dragging = chooseDragTarget(point.x);
-      setDraggedTime(state.dragging, timeSec);
+      updateActiveBoundary(point);
       try {
         canvas.setPointerCapture(event.pointerId);
       } catch (_) {
@@ -415,11 +451,11 @@
     }, true);
 
     canvas.addEventListener('pointermove', (event) => {
-      if (!state.active || state.phase === 'locked' || state.submitting || state.pointerId !== event.pointerId || !state.dragging) return;
+      if (!state.active || state.phase === 'locked' || state.submitting || state.pointerId !== event.pointerId) return;
       const point = chart.pointFromEvent?.(event);
       if (!point || point.zone !== 'plot') return;
       stopCanvasEvent(event);
-      setDraggedTime(state.dragging, snappedTimeAtX(point.x));
+      updateActiveBoundary(point);
       render();
     }, true);
 
@@ -427,8 +463,6 @@
       if (!state.active || state.phase === 'locked' || state.pointerId !== event.pointerId) return;
       stopCanvasEvent(event);
       state.pointerId = null;
-      state.dragging = null;
-      if (state.endTime) state.phase = 'adjust';
       try {
         if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
       } catch (_) {
@@ -443,17 +477,19 @@
 
     function contextRows() {
       const all = allRows();
-      if (!all.length || !state.anchorTime || !state.endTime) return null;
-      let left = nearestIndex(all, state.anchorTime);
-      let right = nearestIndex(all, state.endTime);
+      if (!all.length || !state.leftTime || !state.rightTime) return null;
+      let left = nearestIndex(all, state.leftTime);
+      let right = nearestIndex(all, state.rightTime);
       if (left < 0 || right < 0) return null;
       if (left > right) [left, right] = [right, left];
+      const anchor = nearestIndex(all, state.anchorTime);
       const totalBars = right - left + 1;
       const structureStart = totalBars > MAX_STRUCTURE_BARS ? right - MAX_STRUCTURE_BARS + 1 : left;
       return {
         all,
         left,
         right,
+        anchor,
         totalBars,
         structureBars: all.slice(structureStart, right + 1).map(rowPayload).filter(Boolean),
         structureBarsTruncated: totalBars > MAX_STRUCTURE_BARS,
@@ -466,18 +502,26 @@
       const context = contextRows();
       if (!context) throw new Error('Не удалось прочитать свечи выбранной GALKA');
       return {
-        schemaVersion: 1,
-        selectionMethod: 'manual_crosshair_structure_v1',
+        schemaVersion: 2,
+        selectionMethod: 'manual_crosshair_structure_v2',
         symbol: state.coin,
         timeframe: state.interval,
         galkaLevel: state.galkaPrice,
         anchorTimeMs: Math.round(state.anchorTime * 1000),
-        structureEndTimeMs: Math.round(state.endTime * 1000),
+        anchorPrice: state.galkaPrice,
+        leftBoundaryTimeMs: Math.round(state.leftTime * 1000),
+        leftBoundaryPrice: state.leftPrice,
+        rightBoundaryTimeMs: Math.round(state.rightTime * 1000),
+        rightBoundaryPrice: state.rightPrice,
+        structureStartTimeMs: Math.round(state.leftTime * 1000),
+        structureEndTimeMs: Math.round(state.rightTime * 1000),
         selectedAtMs: Date.now(),
         draftStartedAtMs: state.startedAtMs,
         fullStructureBarCount: context.totalBars,
         structureBarsTruncated: context.structureBarsTruncated,
-        anchorCandle: rowPayload(context.all[context.left]),
+        anchorCandle: context.anchor >= 0 ? rowPayload(context.all[context.anchor]) : null,
+        leftBoundaryCandle: rowPayload(context.all[context.left]),
+        rightBoundaryCandle: rowPayload(context.all[context.right]),
         structureEndCandle: rowPayload(context.all[context.right]),
         preContextBars: context.preContextBars,
         structureBars: context.structureBars,
@@ -486,15 +530,19 @@
       };
     }
 
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = message;
+      toast.className = `toast ${type || ''}`;
+      setTimeout(() => toast.classList.add('hidden'), 4500);
+    }
+
     async function submit() {
-      if (!state.active || state.phase === 'locked' || !state.endTime || state.submitting) return;
+      if (!state.active || state.phase !== 'choose-right' || !state.rightTime || state.submitting) return;
       const token = sessionStorage.getItem('galkaLiveSession') || '';
       if (!token) {
-        const toast = document.getElementById('toast');
-        if (toast) {
-          toast.textContent = 'Открой терминал через защищённую ссылку из Termux';
-          toast.className = 'toast error';
-        }
+        showToast('Открой терминал через защищённую ссылку из Termux', 'error');
         return;
       }
       state.submitting = true;
@@ -528,28 +576,32 @@
         document.dispatchEvent(new CustomEvent('galka:structure-committed', {
           detail: { campaign, researchSetup },
         }));
-        const toast = document.getElementById('toast');
-        if (toast) {
-          toast.textContent = 'GALKA + якорь зафиксированы, реальные лимитки выставлены';
-          toast.className = 'toast ok';
-          setTimeout(() => toast.classList.add('hidden'), 4500);
-        }
+        showToast('GALKA размечена, реальные лимитки выставлены', 'ok');
       } catch (error) {
         state.submitting = false;
-        confirm.textContent = 'Подтвердить';
+        confirm.textContent = 'Выставить лимитки';
         confirm.disabled = false;
         updateToolbar();
-        const toast = document.getElementById('toast');
-        if (toast) {
-          toast.textContent = error.message || 'Не удалось выставить GALKA';
-          toast.className = 'toast error';
-          setTimeout(() => toast.classList.add('hidden'), 4500);
-        }
+        showToast(error.message || 'Не удалось выставить GALKA', 'error');
       }
     }
 
+    function confirmStage() {
+      if (!state.active || state.phase === 'locked' || state.submitting) return;
+      if (state.phase === 'choose-left') {
+        if (!(state.leftTime > 0 && state.leftPrice > 0)) return;
+        state.phase = 'choose-right';
+        state.rightTime = state.anchorTime;
+        state.rightPrice = state.galkaPrice;
+        render();
+        if (navigator.vibrate) navigator.vibrate(10);
+        return;
+      }
+      if (state.phase === 'choose-right') submit();
+    }
+
     cancel.addEventListener('click', () => resetState());
-    confirm.addEventListener('click', submit);
+    confirm.addEventListener('click', confirmStage);
     document.getElementById('symbolSelect')?.addEventListener('change', () => {
       if (state.active) resetState({ keepInput: true, restoreAction: state.phase !== 'locked' });
     });
@@ -571,7 +623,7 @@
       return result;
     };
 
-    const api = {
+    window.GalkaStructureDraft = {
       active: () => state.active && state.phase !== 'locked',
       locked: () => state.phase === 'locked',
       cancel: resetState,
@@ -584,17 +636,16 @@
         timeframe: state.interval,
         galkaLevel: state.galkaPrice,
         anchorTimeMs: state.anchorTime * 1000,
-        structureEndTimeMs: state.endTime * 1000,
+        leftBoundaryTimeMs: state.leftTime * 1000,
+        leftBoundaryPrice: state.leftPrice,
+        rightBoundaryTimeMs: state.rightTime * 1000,
+        rightBoundaryPrice: state.rightPrice,
         phase: state.phase,
       } : null,
     };
-    window.GalkaStructureDraft = api;
     return chart;
   }
 
-  // Restore the locked anchor after page reload/status refresh without adding a
-  // blocking request to the trading path. The response is returned immediately;
-  // a clone is inspected asynchronously only for UI annotation.
   window.fetch = function galkaStructureStatusFetch(input, init) {
     const responsePromise = previousFetch(input, init);
     try {
