@@ -17,6 +17,7 @@ from .hyperliquid_gateway import (
 )
 from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _TradingGateway
 from .research_v3_engine import V3ClusterAwareGalkaLiveEngine
+from .update_manager import manager_for
 
 
 # Production Galka LIVE universe. Keep the shared set object instead of rebinding it:
@@ -131,7 +132,7 @@ class PublicMarketIsolatedGateway(_TradingGateway):
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
-    """Persistent LIVE handler plus AUTO queue, research annotations and clusters."""
+    """Persistent LIVE handler plus AUTO queue, research annotations, clusters and updater."""
 
     _foreground_guard = threading.RLock()
     _foreground_requests = 0
@@ -141,6 +142,12 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
         "/api/live/reconcile",
         "/api/live/close-near-market",
         "/api/live/emergency",
+    }
+    _updater_post_paths = {
+        "/api/live/updater/check",
+        "/api/live/updater/update",
+        "/api/live/updater/restart",
+        "/api/live/updater/rollback",
     }
 
     @classmethod
@@ -164,6 +171,11 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+        if parsed.path == "/api/live/updater/status":
+            if not self._require_api_auth():
+                return
+            self._handle(lambda: manager_for(self.engine).status())
+            return
         if parsed.path not in {"/api/live/queue", "/api/live/clusters"}:
             super().do_GET()
             return
@@ -214,8 +226,32 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
         finally:
             self._foreground_exit(self.engine)
 
+    def _handle_updater(self, path: str) -> None:
+        if not self._require_api_auth():
+            return
+        try:
+            data = self._read_json()
+        except LiveEngineError as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            return
+        updater = manager_for(self.engine)
+        if path == "/api/live/updater/check":
+            self._handle(updater.check)
+            return
+        if path == "/api/live/updater/update":
+            self._handle(lambda: updater.install(str(data.get("confirmation", ""))))
+            return
+        if path == "/api/live/updater/restart":
+            self._handle(lambda: updater.restart(str(data.get("confirmation", ""))))
+            return
+        self._handle(lambda: updater.rollback(str(data.get("confirmation", ""))))
+
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+
+        if parsed.path in self._updater_post_paths:
+            self._handle_updater(parsed.path)
+            return
 
         # The production research engine accepts an optional immutable manual
         # GALKA structure. Old clients omit it and keep the legacy placement path.
