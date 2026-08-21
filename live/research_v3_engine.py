@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from .cluster_engine import ClusterAwareGalkaLiveEngine
+from .engine import LiveEngineError
 
 
 def _positive_int(value: Any) -> int:
@@ -15,14 +16,13 @@ def _positive_int(value: Any) -> int:
 
 
 class V3ClusterAwareGalkaLiveEngine(ClusterAwareGalkaLiveEngine):
-    """Accept the V3 manual GALKA annotation without changing trading logic.
+    """Accept V3 research geometry and protect trading during controlled updates."""
 
-    V3 keeps the same research coordinate model as V2, but adds an explicit
-    anchor-selection stage and free XY left/right boundary selection. The base
-    research engine already validates/sanitizes all V2-compatible coordinates,
-    so V3 is normalized through that path and then its provenance fields are
-    restored for Detective/research consumers.
-    """
+    def _require_live_writes(self) -> None:
+        super()._require_live_writes()
+        guard = self.config.data_dir / "runtime" / "updater.active"
+        if guard.exists():
+            raise LiveEngineError("GALKA обновляется/перезапускается; торговые команды временно заблокированы")
 
     def _normalize_research_setup(
         self,
