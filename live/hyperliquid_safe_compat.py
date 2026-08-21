@@ -15,7 +15,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from .engine import LiveEngineError, now_iso
+from .engine import ACTIVE_STATUSES, LiveEngineError, now_iso
 from .hyperliquid_compat import (
     CompatibleGalkaLiveEngine as _OptimizedEngine,
     CompatibleHyperliquidGateway as _BatchGateway,
@@ -67,6 +67,11 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
     def __init__(self, config: Any, gateway: Any):
         repo_root = Path(__file__).resolve().parents[1]
         self.research_journal = ResearchJournal(config.data_dir, repo_root)
+        # Set before the base constructor creates the monitor thread. A pending
+        # manual cancel cannot interrupt an in-flight reconciliation, but it can
+        # prevent the monitor from immediately starting another campaign/global
+        # scan while the user is waiting for the action lock.
+        self._manual_action_pending = threading.Event()
         super().__init__(config, gateway)
 
     def preview(self, coin: str, galka_price: float) -> dict[str, Any]:
@@ -168,6 +173,67 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
     def stop(self) -> None:
         self.research_journal.stop()
         super().stop()
+
+    def _monitor_loop(self) -> None:
+        """Reconcile safely without monopolizing the action lock across all work."""
+        next_global_check = 0.0
+        while not self.stop_event.wait(self.config.monitor_interval):
+            if not self.config.live_enabled:
+                continue
+
+            with self.lock:
+                self.state.setdefault("system", {})["monitorHeartbeatAt"] = now_iso()
+                campaigns = [
+                    campaign
+                    for campaign in self.state.get("campaigns", {}).values()
+                    if campaign.get("status") in ACTIVE_STATUSES
+                ]
+
+            # Keep each campaign sync atomic relative to writes, but release the
+            # lock between coins. If a user has requested cancel, do not begin the
+            # next expensive sync before handing the lock to that manual action.
+            for campaign in campaigns:
+                if self._manual_action_pending.is_set():
+                    break
+                if not self.action_lock.acquire(timeout=0.05):
+                    break
+                try:
+                    if self._manual_action_pending.is_set():
+                        break
+                    try:
+                        self._sync_campaign(campaign)
+                    except Exception as exc:
+                        with self.lock:
+                            campaign["lastError"] = str(exc)
+                            campaign["updatedAt"] = now_iso()
+                            self._set_safe_mode_locked(f"{campaign['coin']} sync error: {exc}")
+                            self._event_locked(
+                                "error",
+                                f"{campaign['coin']}: синхронизация LIVE: {exc}",
+                                campaignId=campaign.get("id"),
+                            )
+                            self._save_locked()
+                finally:
+                    self.action_lock.release()
+
+            monotonic_now = time.monotonic()
+            if monotonic_now < next_global_check or self._manual_action_pending.is_set():
+                continue
+            if not self.action_lock.acquire(timeout=0.05):
+                continue
+            try:
+                if self._manual_action_pending.is_set():
+                    continue
+                try:
+                    self._scan_global_risks()
+                except Exception as exc:
+                    with self.lock:
+                        self._set_safe_mode_locked(f"Глобальная сверка не выполнена: {exc}")
+                        self._event_locked("error", f"Глобальная сверка LIVE: {exc}")
+                        self._save_locked()
+                next_global_check = time.monotonic() + self.config.global_check_interval
+            finally:
+                self.action_lock.release()
 
     def _sync_research_once(self) -> None:
         try:
@@ -308,119 +374,139 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
         self.research_journal.upsert_campaign(campaign, reason="cycle_finished_no_l1_rearm")
 
     def cancel_waiting_campaign(self, coin: str) -> dict[str, Any]:
-        """Fast, race-safe cancellation for a GALKA that has no position.
+        """Cancel an empty GALKA with one fewer normal-path exchange read.
 
-        The old path performed a full campaign sync, then multiple account/order
-        confirmation loops. For an empty waiting ladder that made cancellation
-        take roughly as long as recovery. This path instead:
-
-        1. Reads current open orders once.
-        2. Cancels owned ENTRY orders first in one batch, preventing new exposure.
-        3. Reads the account once after entry cancellation.
-        4. Only if the account is flat, cancels owned TARGET orders in one batch.
-        5. Performs one final open-order verification, with one retry for delayed
-           cancellation visibility.
-
-        Targets are deliberately kept alive until flatness is confirmed, so a
-        fill racing with the cancel request remains protected.
+        Current level OIDs are known from placement and are safe to use as the
+        first cancellation attempt. If that attempt is stale or incomplete we
+        immediately fall back to a fresh venue order snapshot. We still require a
+        fresh flat account read and a final fresh owned-order verification before
+        declaring the campaign canceled.
         """
         normalized = self._coin(coin)
         self._require_live_writes()
-        self.gateway.begin_trace("cancel_campaign")
         success = False
         campaign: dict[str, Any] | None = None
         result: dict[str, Any] | None = None
+        lock_acquired = False
+        trace_started = False
+        wait_ms = 0.0
+        entry_oids: list[int] = []
+        target_oids: list[int] = []
 
+        self._manual_action_pending.set()
+        wait_started = time.monotonic()
         try:
-            with self.action_lock:
-                with self.lock:
-                    campaign = self._active_campaign_locked(normalized)
-                    if not campaign:
-                        raise LiveEngineError(f"Для {normalized} нет активной GALKA")
-                    campaign["autoRearmBlocked"] = True
-                    campaign["status"] = "canceling"
-                    campaign["updatedAt"] = now_iso()
-                    self._save_locked()
+            self.action_lock.acquire()
+            lock_acquired = True
+            wait_ms = round((time.monotonic() - wait_started) * 1000, 1)
+            self.gateway.begin_trace("cancel_campaign")
+            trace_started = True
 
+            with self.lock:
+                campaign = self._active_campaign_locked(normalized)
+                if not campaign:
+                    raise LiveEngineError(f"Для {normalized} нет активной GALKA")
+                campaign["autoRearmBlocked"] = True
+                campaign["status"] = "canceling"
+                campaign["updatedAt"] = now_iso()
+                self._save_locked()
+                levels = list(campaign.get("levels", []))
+
+            expected_entries = len(levels)
+            entry_oids = sorted({
+                int(level.get("oid") or 0)
+                for level in levels
+                if int(level.get("oid") or 0) > 0
+                and str(level.get("status") or "") in {"resting", "partial", "waitingForFill"}
+            })
+
+            # Normal waiting campaigns have all eight live entry OIDs already in
+            # local state. That lets us skip the expensive pre-cancel /info read.
+            # Any incomplete/stale local ownership falls back to venue discovery.
+            need_discovery = len(entry_oids) < expected_entries
+            if not need_discovery and entry_oids:
+                try:
+                    self.gateway.cancel_oids(normalized, entry_oids)
+                except Exception:
+                    need_discovery = True
+            if need_discovery:
                 open_orders = self.gateway.fresh_open_orders(normalized)
                 entry_oids = [
                     int(row.get("oid") or 0)
                     for row in open_orders
                     if self._entry_owner(campaign, row) is not None and int(row.get("oid") or 0) > 0
                 ]
-                target_oids = [
-                    int(row.get("oid") or 0)
-                    for row in open_orders
-                    if self._target_owner(campaign, row) is not None and int(row.get("oid") or 0) > 0
-                ]
-
                 if entry_oids:
                     self.gateway.cancel_oids(normalized, entry_oids)
 
-                time.sleep(0.12)
-                account = self.gateway.fresh_account_state()
-                actual = self._position_size(account, normalized)
-                tolerance = self._size_tolerance(normalized)
+            # Keep targets alive until a fresh venue account snapshot proves flat.
+            time.sleep(0.08)
+            account = self.gateway.fresh_account_state()
+            actual = self._position_size(account, normalized)
+            tolerance = self._size_tolerance(normalized)
 
-                if abs(actual) > tolerance:
-                    latest_orders = self.gateway.fresh_open_orders(normalized)
-                    self._enter_recovery(
-                        campaign,
-                        "Быстрая отмена остановлена: во время снятия входов биржа показала позицию",
-                        actual,
-                        latest_orders,
-                    )
-                    raise LiveEngineError(
-                        "Во время отмены появился реальный fill. Входы сняты, защитные TP сохранены; включён recovery."
-                    )
+            if abs(actual) > tolerance:
+                latest_orders = self.gateway.fresh_open_orders(normalized)
+                self._enter_recovery(
+                    campaign,
+                    "Быстрая отмена остановлена: во время снятия входов биржа показала позицию",
+                    actual,
+                    latest_orders,
+                )
+                raise LiveEngineError(
+                    "Во время отмены появился реальный fill. Входы сняты, защитные TP сохранены; включён recovery."
+                )
 
-                if target_oids:
-                    self.gateway.cancel_oids(normalized, target_oids)
-
-                time.sleep(0.12)
+            # One authoritative post-cancel read doubles as target discovery and
+            # final verification. Any residual owned order is canceled once and
+            # verified again; no optimistic local-only completion is allowed.
+            remaining = self.gateway.fresh_open_orders(normalized)
+            owned_remaining = self._owned_open_orders(campaign, remaining)
+            if owned_remaining:
+                target_oids = [
+                    int(row.get("oid") or 0)
+                    for row in owned_remaining
+                    if self._target_owner(campaign, row) is not None and int(row.get("oid") or 0) > 0
+                ]
+                retry_oids = [
+                    int(row.get("oid") or 0)
+                    for row in owned_remaining
+                    if int(row.get("oid") or 0) > 0
+                ]
+                if retry_oids:
+                    self.gateway.cancel_oids(normalized, retry_oids)
+                    time.sleep(0.08)
                 remaining = self.gateway.fresh_open_orders(normalized)
                 owned_remaining = self._owned_open_orders(campaign, remaining)
 
-                if owned_remaining:
-                    retry_oids = [int(row.get("oid") or 0) for row in owned_remaining if int(row.get("oid") or 0) > 0]
-                    if retry_oids:
-                        self.gateway.cancel_oids(normalized, retry_oids)
-                        time.sleep(0.12)
-                    remaining = self.gateway.fresh_open_orders(normalized)
-                    owned_remaining = self._owned_open_orders(campaign, remaining)
+            if owned_remaining:
+                self._enter_recovery(
+                    campaign,
+                    "Быстрая отмена не получила подтверждение удаления всех owned-ордеров",
+                    0.0,
+                    remaining,
+                )
+                raise LiveEngineError(
+                    "Биржа не подтвердила удаление всех ордеров GALKA; включён recovery."
+                )
 
-                if owned_remaining:
-                    self._enter_recovery(
-                        campaign,
-                        "Быстрая отмена не получила подтверждение удаления всех owned-ордеров",
-                        0.0,
-                        remaining,
-                    )
-                    raise LiveEngineError(
-                        "Биржа не подтвердила удаление всех ордеров GALKA; включён recovery."
-                    )
-
-                with self.lock:
-                    campaign["status"] = "canceled"
-                    campaign["actualPositionSize"] = 0.0
-                    campaign["managedNetSize"] = 0.0
-                    campaign["completedAt"] = now_iso()
-                    campaign["updatedAt"] = now_iso()
-                    self._event_locked(
-                        "live",
-                        f"{normalized}: GALKA быстро отменена без позиции",
-                        campaignId=campaign["id"],
-                        fastCancel=True,
-                        entryOrders=len(entry_oids),
-                        targetOrders=len(target_oids),
-                    )
-                    self._save_locked()
-                    result = deepcopy(campaign)
-
+            with self.lock:
+                campaign["status"] = "canceled"
+                campaign["actualPositionSize"] = 0.0
+                campaign["managedNetSize"] = 0.0
+                campaign["completedAt"] = now_iso()
+                campaign["updatedAt"] = now_iso()
+                self._event_locked(
+                    "live",
+                    f"{normalized}: GALKA быстро отменена без позиции",
+                    campaignId=campaign["id"],
+                    fastCancel=True,
+                    entryOrders=len(entry_oids),
+                    targetOrders=len(target_oids),
+                )
+                self._save_locked()
+                result = deepcopy(campaign)
             success = True
-            assert result is not None
-            self.research_journal.upsert_campaign(result, reason="cancelled_fast")
-            return result
 
         except Exception as exc:
             if campaign is not None and campaign.get("status") != "recovery":
@@ -440,12 +526,26 @@ class SafeCompatibleGalkaLiveEngine(_OptimizedEngine):
                 raise
             raise LiveEngineError(str(exc)) from exc
         finally:
-            self._record_latency(
-                "быстрая отмена GALKA",
-                normalized,
-                self.gateway.finish_trace(),
-                success,
-            )
+            if lock_acquired:
+                self.action_lock.release()
+            self._manual_action_pending.clear()
+            if trace_started:
+                trace = self.gateway.finish_trace()
+                trace.setdefault("stages", []).insert(
+                    0,
+                    {"stage": "action_lock_wait", "ms": wait_ms, "ok": True},
+                )
+                trace["totalMs"] = round(float(trace.get("totalMs") or 0) + wait_ms, 1)
+                self._record_latency(
+                    "быстрая отмена GALKA",
+                    normalized,
+                    trace,
+                    success,
+                )
+
+        assert result is not None
+        self.research_journal.upsert_campaign(result, reason="cancelled_fast")
+        return result
 
     def close_near_market(self, coin: str, confirmation: str) -> dict[str, Any]:
         result = super().close_near_market(coin, confirmation)
