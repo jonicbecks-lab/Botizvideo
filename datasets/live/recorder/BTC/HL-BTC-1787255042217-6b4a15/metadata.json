@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 6,
+    "reconnects": 8,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -188,6 +188,18 @@
         "startedAtMs": 1787284205008,
         "endedAtMs": 1787284206521,
         "recordedAt": "2026-08-21T03:50:06.521Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1787284565769,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-21T03:56:05.774Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787284565769,
+        "endedAtMs": 1787284567303,
+        "recordedAt": "2026-08-21T03:56:07.304Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -217,7 +229,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-21T03:52:02.520Z",
+  "updatedAt": "2026-08-21T03:57:31.199Z",
   "campaignStatus": "waiting",
   "lastCampaignUpdateReason": "fills_updated"
 }
