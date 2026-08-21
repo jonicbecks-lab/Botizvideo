@@ -47,7 +47,6 @@ const COLORS = {
   cyan: '#26c6da',
 };
 
-
 const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const hashToken = hashParams.get('token');
 if (hashToken) {
@@ -58,7 +57,7 @@ const sessionToken = sessionStorage.getItem('galkaLiveSession') || '';
 
 const runtime = {
   coin: 'BTC',
-  interval: '15m',
+  interval: '5m',
   chart: null,
   series: null,
   lines: [],
@@ -66,6 +65,7 @@ const runtime = {
   pendingPreview: null,
   lastEventKey: null,
   candleBusy: false,
+  pendingCandleReload: false,
   statusBusy: false,
   candlesLoaded: false,
   lastCandleTime: null,
@@ -215,7 +215,10 @@ function normalizeCandles(rows) {
 }
 
 async function loadCandles({ initial = false } = {}) {
-  if (runtime.candleBusy) return;
+  if (runtime.candleBusy) {
+    if (initial) runtime.pendingCandleReload = true;
+    return;
+  }
   runtime.candleBusy = true;
   const fullReload = initial || !runtime.candlesLoaded;
   const requestedCoin = runtime.coin;
@@ -229,7 +232,10 @@ async function loadCandles({ initial = false } = {}) {
       `&interval=${encodeURIComponent(requestedInterval)}&limit=${limit}`,
     );
 
-    if (requestedCoin !== runtime.coin || requestedInterval !== runtime.interval) return;
+    if (requestedCoin !== runtime.coin || requestedInterval !== runtime.interval) {
+      if (fullReload) runtime.pendingCandleReload = true;
+      return;
+    }
     const candles = normalizeCandles(rows);
     if (!candles.length) return;
 
@@ -250,6 +256,10 @@ async function loadCandles({ initial = false } = {}) {
   } finally {
     runtime.candleBusy = false;
     if (fullReload) els.loading.classList.add('hidden');
+    if (runtime.pendingCandleReload) {
+      runtime.pendingCandleReload = false;
+      queueMicrotask(() => loadCandles({ initial: true }));
+    }
   }
 }
 
@@ -601,7 +611,12 @@ async function reconcileState() {
 }
 
 els.symbol.onchange = async () => {
-  runtime.coin = els.symbol.value;
+  const nextCoin = els.symbol.value;
+  if (nextCoin === runtime.coin && runtime.candlesLoaded) {
+    renderStatus();
+    return;
+  }
+  runtime.coin = nextCoin;
   runtime.candlesLoaded = false;
   runtime.lastCandleTime = null;
   runtime.lineSignature = '';
@@ -612,7 +627,12 @@ els.symbol.onchange = async () => {
 };
 
 els.interval.onchange = async () => {
-  runtime.interval = els.interval.value;
+  const nextInterval = els.interval.value;
+  if (nextInterval === runtime.interval && runtime.candlesLoaded) {
+    renderStatus();
+    return;
+  }
+  runtime.interval = nextInterval;
   runtime.candlesLoaded = false;
   runtime.lastCandleTime = null;
   await loadCandles({ initial: true });
