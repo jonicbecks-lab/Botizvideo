@@ -6,13 +6,13 @@
   "galkaLevel": 72292.61,
   "campaignActivatedAt": "2026-08-20T19:44:02Z",
   "campaignActivatedAtMs": 1787255042217,
-  "status": "armed",
+  "status": "completed",
   "recordingStartedAt": null,
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-21T04:52:47.347Z",
   "crossedBelowGalka": null,
   "returnToGalka": null,
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "campaignCompletedAt": "2026-08-21T04:52:47Z",
+  "campaignCompletedAtMs": 1787287967000,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 72448.5,
   "maximumObservedPrice": 75802.0,
@@ -241,7 +241,8 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-21T04:52:32.670Z",
-  "campaignStatus": "waiting",
-  "lastCampaignUpdateReason": "fills_updated"
+  "updatedAt": "2026-08-21T04:52:47.426Z",
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-21T04:52:47.417Z"
 }
