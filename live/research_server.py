@@ -21,9 +21,6 @@ from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _Tradin
 
 # Production Galka LIVE universe. Keep the shared set object instead of rebinding it:
 # engine/cluster/queue modules import the same mutable set during module loading.
-# Mutating it here updates every production component without touching the proven
-# trading gateway implementation. BNB is a native Hyperliquid perp and supports
-# the configured 10x isolated mode; SOL is intentionally removed from Galka LIVE.
 SUPPORTED_COINS.clear()
 SUPPORTED_COINS.update({"BTC", "ETH", "BNB"})
 BASE_PRICE_STEPS.pop("SOL", None)
@@ -41,14 +38,7 @@ def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
 
 
 class PublicMarketIsolatedGateway(_TradingGateway):
-    """Keep display reads off the private trading I/O path.
-
-    Trading/account/order mutations retain the proven gateway and its `_io_lock`.
-    Candles and ticker mids use independent read-only Info clients. Browser status
-    reuses the most recent authoritative account snapshot for up to 30 seconds;
-    every trading decision and monitor reconciliation still asks for a fresh venue
-    account state. This prevents a 5-second UI poll from delaying cancel/order I/O.
-    """
+    """Keep display reads off the private trading I/O path."""
 
     STATUS_ACCOUNT_CACHE_SECONDS = 30.0
     QUOTE_CACHE_SECONDS = 0.8
@@ -141,13 +131,7 @@ class PublicMarketIsolatedGateway(_TradingGateway):
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
-    """Persistent LIVE handler plus AUTO queue and chart-cluster controls.
-
-    Interactive user commands mark the engine as foreground work before the base
-    handler touches the exchange. The monitor notices the flag and yields between
-    reconciliation units instead of repeatedly winning the action lock while a
-    user is waiting to preview/place/reconcile/exit.
-    """
+    """Persistent LIVE handler plus AUTO queue, research annotations and clusters."""
 
     _foreground_guard = threading.RLock()
     _foreground_requests = 0
@@ -208,8 +192,36 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
             )
         )
 
+    def _handle_campaign_with_research(self) -> None:
+        if not self._require_api_auth():
+            return
+        try:
+            data = self._read_json()
+        except LiveEngineError as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            return
+
+        self._foreground_enter(self.engine)
+        try:
+            self._handle(
+                lambda: self.engine.create_campaign(
+                    str(data.get("coin", "")),
+                    float(data.get("galkaPrice", 0)),
+                    str(data.get("confirmation", "")),
+                    data.get("researchSetup"),
+                )
+            )
+        finally:
+            self._foreground_exit(self.engine)
+
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+
+        # The production research engine accepts an optional immutable manual
+        # GALKA structure. Old clients omit it and keep the legacy placement path.
+        if parsed.path == "/api/live/campaign":
+            self._handle_campaign_with_research()
+            return
 
         if parsed.path in self._foreground_paths:
             self._foreground_enter(self.engine)
@@ -263,9 +275,6 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
         )
 
 
-# Reuse the proven persistent HTTP/session/PID server. Substitute only the local
-# extra endpoints, cluster/research engine, and isolated public display client.
-# All trading routes/authentication/signing stay on the existing gateway methods.
 _persistent.PersistentGalkaRequestHandler = AutoQueueGalkaRequestHandler
 _persistent.SafeCompatibleGalkaLiveEngine = ClusterAwareGalkaLiveEngine
 _persistent.SafeCompatibleHyperliquidGateway = PublicMarketIsolatedGateway
