@@ -15,7 +15,9 @@ trap cleanup_lock EXIT INT TERM
 
 if galka_live_process_alive && galka_live_health; then
   echo "Galka LIVE уже работает на порту $GALKA_LIVE_PORT."
-  bash "$GALKA_LIVE_ROOT_DIR/scripts/galka-live-open.sh"
+  if [[ "${GALKA_LIVE_NO_OPEN:-0}" != "1" ]]; then
+    bash "$GALKA_LIVE_ROOT_DIR/scripts/galka-live-open.sh"
+  fi
   exit 0
 fi
 
@@ -59,7 +61,9 @@ for _ in $(seq 1 80); do
     sed -n '/^Сеть:/p;/^Режим:/p;/^Плечо:/p' "$GALKA_LIVE_LOG_FILE"
     echo "Galka LIVE запущена в фоне: $GALKA_LIVE_URL"
     echo "Сессию Termux можно закрыть; монитор продолжит работу, пока Android не остановит сам Termux."
-    bash "$GALKA_LIVE_ROOT_DIR/scripts/galka-live-open.sh"
+    if [[ "${GALKA_LIVE_NO_OPEN:-0}" != "1" ]]; then
+      bash "$GALKA_LIVE_ROOT_DIR/scripts/galka-live-open.sh"
+    fi
     exit 0
   fi
   if ! kill -0 "$launcher_pid" 2>/dev/null && ! galka_live_process_alive; then
