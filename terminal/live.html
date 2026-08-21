@@ -31,6 +31,7 @@
       <div class="market-controls">
         <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>SOL</option></select>
         <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+        <button class="cluster-toggle" id="chartRefreshButton" type="button" aria-label="Обновить график до последних свечей" title="Обновить до последних свечей">↻</button>
         <button class="cluster-toggle" id="clusterToggle" type="button" aria-pressed="false" title="Кластеры объёма; удерживай для настроек">CL</button>
       </div>
       <div class="ticker" id="ticker">—</div>
@@ -122,6 +123,7 @@
   <script src="vendor/galka-pnl-log.js?v=1"></script>
   <script src="vendor/galka-sizing-breakdown.js?v=1"></script>
   <script src="vendor/galka-live-ui-bridge.js?v=1"></script>
+  <script src="vendor/galka-chart-refresh.js?v=1"></script>
   <script type="module" src="live.js?v=4"></script>
   <script type="module" src="vendor/galka-auto-queue.js?v=1"></script>
   <script type="module" src="vendor/galka-startup-defaults.js?v=3"></script>
