@@ -36,13 +36,14 @@ const touchActions = fs.readFileSync('terminal/vendor/galka-touch-actions.js', '
 const autoQueue = fs.readFileSync('terminal/vendor/galka-auto-queue.js', 'utf8');
 const clusterVolume = fs.readFileSync('terminal/vendor/galka-cluster-volume.js', 'utf8');
 const startupDefaults = fs.readFileSync('terminal/vendor/galka-startup-defaults.js', 'utf8');
+const uiPerformance = fs.readFileSync('terminal/vendor/galka-ui-performance.js', 'utf8');
 
 const checks = [
   ['Hyperliquid title', html.includes('Hyperliquid LIVE') || html.includes('HYPERLIQUID')],
   ['BTC selector', html.includes('<option>BTC</option>')],
   ['ETH selector', html.includes('<option>ETH</option>')],
   ['SOL selector', html.includes('<option>SOL</option>')],
-  ['five minute startup', html.includes('<option selected>5m</option>') && html.includes('BTC · 5m · HYPERLIQUID') && html.includes('galka-startup-defaults.js?v=2') && startupDefaults.includes("symbol.value = 'BTC'") && startupDefaults.includes("interval.value = '5m'") && startupDefaults.includes('await interval.onchange()')],
+  ['five minute startup', html.includes('<option selected>5m</option>') && html.includes('BTC · 5m · HYPERLIQUID') && html.includes('galka-startup-defaults.js?v=3') && startupDefaults.includes("symbol.value = 'BTC'") && startupDefaults.includes("interval.value = '5m'") && !startupDefaults.includes('await interval.onchange()')],
   ['manual GALKA input', html.includes('id="galkaInput"')],
   ['real preview modal', html.includes('id="previewModal"') && html.includes('РЕАЛЬНЫЕ ОРДЕРА')],
   ['eight live depths', ladder.includes('0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00')],
@@ -62,10 +63,11 @@ const checks = [
   ['local chart dependency', html.includes('vendor/galka-chart.js?v=3') && html.includes('live-chart.css?v=3') && chartShim.includes('LightweightCharts')],
   ['future pan dependency', html.includes('vendor/galka-future-pan.js?v=1') && futurePan.includes('patchFuturePan')],
   ['native plot pan dependency', html.includes('vendor/galka-native-plot-pan.js?v=4') && nativePlotPan.includes('PAN_START_SLOP = 7') && nativePlotPan.includes("galka:native-plot-pan-start")],
-  ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=2') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
+  ['resume recovery dependency', html.includes('vendor/galka-visibility-recovery.js?v=3') && visibilityRecovery.includes('pageshow') && visibilityRecovery.includes('visibilitychange') && visibilityRecovery.includes('visualViewport') && visibilityRecovery.includes('RETRY_DELAYS')],
+  ['optimized recent chart view', html.includes('galka-ui-performance.js?v=1') && uiPerformance.includes("'5m': 144") && uiPerformance.includes('requestAnimationFrame') && uiPerformance.includes('chart.visibleCount = bars')],
   ['single tested touch controller', !html.includes('galka-relative-crosshair.js') && html.includes('vendor/galka-touch-actions.js?v=5') && touchActions.includes('installTouchActions')],
   ['DeX action dependency', html.includes('vendor/galka-dex-actions.js?v=3') && dexActions.includes('installDesktopActions')],
-  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.') && !clusterVolume.includes('.style.')],
+  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.') && !futurePan.includes('.style.') && !visibilityRecovery.includes('.style.') && !touchActions.includes('.style.') && !clusterVolume.includes('.style.') && !uiPerformance.includes('.style.')],
   ['pointer pan controls', chartShim.includes("addEventListener('pointerdown'") && chartShim.includes('setPointerCapture') && chartShim.includes("type: 'pan'")],
   ['grab-style pan direction', chartShim.includes('const draggedBars = deltaX / geometry.plotWidth') && chartShim.includes('this.gesture.startOffset + draggedBars')],
   ['future chart space', futurePan.includes('FUTURE_SPACE_FRACTION = 0.75') && futurePan.includes('minPanOffset') && futurePan.includes('dataStart') && futurePan.includes('windowState.count')],
@@ -94,12 +96,12 @@ const checks = [
   ['cluster feed isolated from trading writes', !clusterService.includes('place_entry_with_target') && !clusterService.includes('cancel_oids') && !clusterService.includes('emergency_market_close') && !clusterService.includes('action_lock')],
   ['safe right-click GALKA draft', dexActions.includes("addEventListener('contextmenu'") && dexActions.includes('/api/live/preview') && dexActions.includes('preview.levels')],
   ['right-click remains desktop-only', dexActions.includes("state.lastPointerType !== 'mouse'")],
-  ['browser price actions cannot place orders directly', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !visibilityRecovery.includes('/api/live/campaign') && !liveSession.includes('/api/live/campaign') && !clusterVolume.includes('/api/live/campaign')],
+  ['browser price actions cannot place orders directly', !dexActions.includes('/api/live/campaign') && !dexActions.includes('PLACE_REAL_ORDERS') && !touchActions.includes('/api/live/campaign') && !touchActions.includes('PLACE_REAL_ORDERS') && !futurePan.includes('/api/live/campaign') && !visibilityRecovery.includes('/api/live/campaign') && !liveSession.includes('/api/live/campaign') && !clusterVolume.includes('/api/live/campaign') && !uiPerformance.includes('/api/live/campaign')],
   ['touch-safe chart surface', chartCss.includes('touch-action: none') && chartCss.includes('overscroll-behavior: contain')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + autoQueue + clusterVolume + futurePan + visibilityRecovery + liveSession + startupDefaults)],
+  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + dexActions + touchActions + autoQueue + clusterVolume + futurePan + visibilityRecovery + liveSession + startupDefaults + uiPerformance)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
   ['persistent background launcher', launcher.includes('galka-live-start.sh') && persistentStart.includes('nohup') && persistentStart.includes('setsid') && persistentStart.includes('termux-wake-lock') && persistentStart.includes('live.research_server') && researchServer.includes('persistent_server')],
   ['research sidecar is isolated', researchEngine.includes('GalkaResearchRecorder') && researchRecorder.includes('researchOnly') && !researchRecorder.includes('place_entry_with_target') && !researchRecorder.includes('cancel_oids') && !researchRecorder.includes('emergency_market_close')],
@@ -122,4 +124,5 @@ execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-touch-actions.
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-auto-queue.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-cluster-volume.js'], { stdio: 'inherit' });
 execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-startup-defaults.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/vendor/galka-ui-performance.js'], { stdio: 'inherit' });
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
