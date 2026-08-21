@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import persistent_server as _persistent
 from .cluster_engine import ClusterAwareGalkaLiveEngine
+from .cluster_volume import BASE_PRICE_STEPS
 from .engine import LiveEngineError
 from .hyperliquid_gateway import (
     INTERVAL_MS,
@@ -16,6 +17,17 @@ from .hyperliquid_gateway import (
     _integer,
 )
 from .hyperliquid_safe_compat import SafeCompatibleHyperliquidGateway as _TradingGateway
+
+
+# Production Galka LIVE universe. Keep the shared set object instead of rebinding it:
+# engine/cluster/queue modules import the same mutable set during module loading.
+# Mutating it here updates every production component without touching the proven
+# trading gateway implementation. BNB is a native Hyperliquid perp and supports
+# the configured 10x isolated mode; SOL is intentionally removed from Galka LIVE.
+SUPPORTED_COINS.clear()
+SUPPORTED_COINS.update({"BTC", "ETH", "BNB"})
+BASE_PRICE_STEPS.pop("SOL", None)
+BASE_PRICE_STEPS["BNB"] = 0.1
 
 
 def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
@@ -257,11 +269,3 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
 _persistent.PersistentGalkaRequestHandler = AutoQueueGalkaRequestHandler
 _persistent.SafeCompatibleGalkaLiveEngine = ClusterAwareGalkaLiveEngine
 _persistent.SafeCompatibleHyperliquidGateway = PublicMarketIsolatedGateway
-
-
-def main() -> int:
-    return _persistent.main()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
