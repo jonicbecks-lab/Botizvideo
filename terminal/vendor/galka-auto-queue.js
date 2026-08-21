@@ -191,7 +191,10 @@
 
   function schedulePoll() {
     clearInterval(pollTimer);
-    pollTimer = setInterval(() => refreshQueue({ silent: true }), 1500);
+    // The AUTO activation itself is server-side. This poll only updates the
+    // button label, so 5 seconds is enough and avoids 40 extra HTTP requests per
+    // minute competing with the phone UI.
+    pollTimer = setInterval(() => refreshQueue({ silent: true }), 5000);
   }
 
   refreshQueue({ silent: true });
