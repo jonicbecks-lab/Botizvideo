@@ -129,7 +129,42 @@ class PublicMarketIsolatedGateway(_TradingGateway):
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
-    """Persistent LIVE handler plus AUTO queue and chart-cluster controls."""
+    """Persistent LIVE handler plus AUTO queue and chart-cluster controls.
+
+    Interactive user commands mark the engine as foreground work before the base
+    handler touches the exchange. The monitor notices the flag and yields between
+    reconciliation units instead of repeatedly winning the action lock while a
+    user is waiting to preview/place/reconcile/exit.
+    """
+
+    _foreground_guard = threading.RLock()
+    _foreground_requests = 0
+    _foreground_paths = {
+        "/api/live/preview",
+        "/api/live/campaign",
+        "/api/live/reconcile",
+        "/api/live/close-near-market",
+        "/api/live/emergency",
+    }
+
+    @classmethod
+    def _foreground_enter(cls, engine) -> None:
+        pending = getattr(engine, "_manual_action_pending", None)
+        if pending is None:
+            return
+        with cls._foreground_guard:
+            cls._foreground_requests += 1
+            pending.set()
+
+    @classmethod
+    def _foreground_exit(cls, engine) -> None:
+        pending = getattr(engine, "_manual_action_pending", None)
+        if pending is None:
+            return
+        with cls._foreground_guard:
+            cls._foreground_requests = max(0, cls._foreground_requests - 1)
+            if cls._foreground_requests == 0:
+                pending.clear()
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
@@ -163,6 +198,15 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+
+        if parsed.path in self._foreground_paths:
+            self._foreground_enter(self.engine)
+            try:
+                super().do_POST()
+            finally:
+                self._foreground_exit(self.engine)
+            return
+
         if parsed.path not in {
             "/api/live/queue",
             "/api/live/queue/activate",
@@ -188,12 +232,16 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
             )
             return
         if parsed.path == "/api/live/queue/activate":
-            self._handle(
-                lambda: self.engine.activate_queued_galka(
-                    str(data.get("coin", "")),
-                    str(data.get("confirmation", "")),
+            self._foreground_enter(self.engine)
+            try:
+                self._handle(
+                    lambda: self.engine.activate_queued_galka(
+                        str(data.get("coin", "")),
+                        str(data.get("confirmation", "")),
+                    )
                 )
-            )
+            finally:
+                self._foreground_exit(self.engine)
             return
         self._handle(
             lambda: self.engine.delete_queued_galka(
