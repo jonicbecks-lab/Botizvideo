@@ -1,83 +1,57 @@
 (() => {
   'use strict';
 
-  // Android browsers may freeze a background tab while a fetch is in flight.
-  // live.js deliberately serializes candle/status reads; after a frozen request
-  // the old page can therefore look LIVE while never accepting the next refresh.
-  // A document reload is the safest recovery because the trading engine lives in
-  // the Termux server, not in this page. sessionStorage survives same-tab reloads.
-  const HARD_RELOAD_AFTER_MS = 8_000;
-  const SOFT_REFRESH_AFTER_MS = 2_000;
-  const RELOAD_GUARD_MS = 5_000;
+  const REFRESH_AFTER_MS = 3_000;
+  const REFRESH_COOLDOWN_MS = 5_000;
 
   let hiddenAt = document.visibilityState === 'hidden' ? Date.now() : 0;
-  let lastReloadRequestAt = 0;
+  let lastRefreshAt = 0;
   let recoveryTimer = null;
 
-  function controlsMatch() {
+  function controlsState() {
     const symbol = document.getElementById('symbolSelect');
     const interval = document.getElementById('intervalSelect');
     const watermark = document.getElementById('watermark');
-    if (!symbol || !interval || !watermark) return true;
+    if (!symbol || !interval || !watermark) return null;
     const expected = `${symbol.value} · ${interval.value} · HYPERLIQUID`;
-    return watermark.textContent === expected;
+    return { symbol, interval, watermark, matches: watermark.textContent === expected };
   }
 
-  function hardReload(reason) {
-    const now = Date.now();
-    if (now - lastReloadRequestAt < RELOAD_GUARD_MS) return;
-    lastReloadRequestAt = now;
-    try {
-      sessionStorage.setItem('galkaResumeReason', reason);
-    } catch (_) {
-      // Session storage is optional; reload still restores the page from server.
-    }
-    location.reload();
-  }
-
-  function softRefresh(reason) {
+  function requestRefresh(reason, force = false) {
     if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (!force && now - lastRefreshAt < REFRESH_COOLDOWN_MS) return;
+    const state = controlsState();
+    if (!state) return;
+
+    lastRefreshAt = now;
     clearTimeout(recoveryTimer);
     recoveryTimer = setTimeout(() => {
       if (document.visibilityState !== 'visible') return;
-      const symbol = document.getElementById('symbolSelect');
-      const interval = document.getElementById('intervalSelect');
+      const current = controlsState();
+      if (!current) return;
 
-      // Re-run the public handlers so runtime.coin/runtime.interval cannot remain
-      // out of sync with the visible controls.
-      if (symbol && typeof symbol.onchange === 'function') {
-        Promise.resolve(symbol.onchange()).catch(() => hardReload(`${reason}:symbol`));
-      }
-      if (interval && typeof interval.onchange === 'function') {
-        Promise.resolve(interval.onchange()).catch(() => hardReload(`${reason}:interval`));
+      // One refresh only. The old implementation could call symbol.onchange,
+      // interval.onchange and location.reload for the same Android resume, each
+      // starting another large candle request. live.js now queues the latest
+      // requested timeframe if an older candle request is still finishing.
+      if (typeof current.interval.onchange === 'function') {
+        Promise.resolve(current.interval.onchange()).catch(() => {});
       }
 
       window.dispatchEvent(new CustomEvent('galka:resume-refresh', {
         detail: { reason, at: Date.now() },
       }));
-
-      // If the old page was frozen mid-request the handlers can silently return
-      // because their busy flags are still set. Detect the visible symptom and
-      // rebuild the document instead of waiting indefinitely.
-      setTimeout(() => {
-        if (document.visibilityState === 'visible' && !controlsMatch()) {
-          hardReload(`${reason}:stale-controls`);
-        }
-      }, 1_500);
-    }, 50);
+    }, 80);
   }
 
   function recover(reason) {
     if (document.visibilityState !== 'visible') return;
     const sleptMs = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = 0;
-
-    if (sleptMs >= HARD_RELOAD_AFTER_MS) {
-      hardReload(`${reason}:${sleptMs}`);
-      return;
-    }
-    if (sleptMs >= SOFT_REFRESH_AFTER_MS || !controlsMatch()) {
-      softRefresh(reason);
+    const state = controlsState();
+    if (sleptMs >= REFRESH_AFTER_MS || state?.matches === false) {
+      requestRefresh(`${reason}:${sleptMs}`, true);
     }
   }
 
@@ -89,10 +63,6 @@
     recover('visibilitychange');
   });
 
-  window.addEventListener('pageshow', (event) => {
-    if (event.persisted) hardReload('pageshow-bfcache');
-    else if (!controlsMatch()) softRefresh('pageshow-controls');
-  }, { passive: true });
-
+  window.addEventListener('pageshow', () => recover('pageshow'), { passive: true });
   window.addEventListener('focus', () => recover('focus'), { passive: true });
 })();
