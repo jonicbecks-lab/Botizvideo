@@ -5,10 +5,18 @@
   const button = document.getElementById('chartRefreshButton');
   if (!charts?.createChart || !button) return;
 
+  // The main terminal already performs a slower candle poll. This lightweight
+  // tail updater makes the selected chart feel live without touching trading
+  // status/reconciliation or sharing the private trading I/O path.
+  const AUTO_REFRESH_MS = 5000;
+  const AUTO_LIMIT = 3;
+  const MANUAL_LIMIT = 97;
+
   const originalCreateChart = charts.createChart;
   let chart = null;
   let series = null;
   let busy = false;
+  let autoTimer = null;
 
   window.LightweightCharts = Object.freeze({
     ...charts,
@@ -62,75 +70,161 @@
     window.setTimeout(() => toast.classList.add('hidden'), 2500);
   }
 
-  async function refreshToLatest() {
-    if (busy || !chart || !series) return;
+  function currentSelection() {
     const symbol = document.getElementById('symbolSelect');
     const interval = document.getElementById('intervalSelect');
-    const coin = String(symbol?.value || 'BTC').toUpperCase();
-    const timeframe = String(interval?.value || '5m');
+    return {
+      symbol,
+      interval,
+      coin: String(symbol?.value || 'BTC').toUpperCase(),
+      timeframe: String(interval?.value || '5m'),
+    };
+  }
 
-    busy = true;
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    const previousText = button.textContent;
-    button.textContent = '…';
+  function existingRows() {
+    return Array.isArray(series?.data) ? normalize(series.data) : [];
+  }
 
+  function latestLabel(unixSeconds) {
+    if (!Number.isFinite(Number(unixSeconds))) return '';
     try {
-      // Only fetch a small recent tail. This is deliberately much lighter than a
-      // timeframe switch/full 600-candle reload, while still repairing a stale
-      // chart after the app has been in the background for a while.
-      const response = await fetch(
-        `/api/live/candles?coin=${encodeURIComponent(coin)}` +
-        `&interval=${encodeURIComponent(timeframe)}&limit=80`,
-        {
-          headers: sessionHeaders(),
-          credentials: 'same-origin',
-          cache: 'no-store',
-        },
-      );
-      const payload = await response.json();
-      if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.error || `HTTP ${response.status}`);
-      }
-
-      // Ignore a response if the user changed symbol/timeframe while it was loading.
-      if (
-        coin !== String(symbol?.value || '').toUpperCase() ||
-        timeframe !== String(interval?.value || '')
-      ) return;
-
-      const fresh = normalize(payload?.data);
-      if (!fresh.length) throw new Error('Hyperliquid не вернул последние свечи');
-
-      const existing = Array.isArray(series.data) ? normalize(series.data) : [];
-      const merged = new Map(existing.map((row) => [row.time, row]));
-      for (const row of fresh) merged.set(row.time, row);
-      const rows = [...merged.values()].sort((a, b) => a.time - b.time).slice(-600);
-
-      series.setData?.(rows);
-      // galka-ui-performance overrides fitContent so this means "latest useful
-      // window", not "squeeze all 600 candles onto the screen".
-      if (typeof chart.fitContent === 'function') chart.fitContent();
-      else {
-        if ('panOffset' in chart) chart.panOffset = 0;
-        chart.resetPriceScale?.();
-        chart.clampPanOffset?.();
-        chart.draw?.();
-      }
-
-      document.dispatchEvent(new CustomEvent('galka:chart-refreshed', {
-        detail: { coin, interval: timeframe, latestTime: fresh.at(-1)?.time || null },
-      }));
-      showToast('График обновлён до последних свечей');
-    } catch (error) {
-      showToast(error?.message || 'Не удалось обновить график', 'error');
-    } finally {
-      busy = false;
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
-      button.textContent = previousText || '↻';
+      return new Date(Number(unixSeconds) * 1000).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch (_) {
+      return '';
     }
   }
 
-  button.addEventListener('click', refreshToLatest);
+  async function fetchTail(coin, timeframe, limit) {
+    // Different limits are intentional. The backend candle reader caches by
+    // (coin, interval, limit) for only ~2 seconds. Manual refresh therefore uses
+    // a separate cache key from the 5-second background tail and always performs
+    // a real recent-candle read in normal use.
+    const response = await fetch(
+      `/api/live/candles?coin=${encodeURIComponent(coin)}` +
+      `&interval=${encodeURIComponent(timeframe)}&limit=${limit}`,
+      {
+        headers: sessionHeaders(),
+        credentials: 'same-origin',
+        cache: 'no-store',
+      },
+    );
+    const payload = await response.json();
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.error || `HTTP ${response.status}`);
+    }
+    const rows = normalize(payload?.data);
+    if (!rows.length) throw new Error('Hyperliquid не вернул последние свечи');
+    return rows;
+  }
+
+  function applyTail(fresh) {
+    if (!series || !fresh.length) return { appended: 0, touchedCurrent: false, latestTime: null };
+
+    const existing = existingRows();
+    const beforeLast = existing.at(-1)?.time ?? null;
+    let appended = 0;
+    let touchedCurrent = false;
+
+    if (beforeLast == null) {
+      series.setData?.(fresh);
+      return {
+        appended: Math.max(0, fresh.length - 1),
+        touchedCurrent: true,
+        latestTime: fresh.at(-1)?.time ?? null,
+      };
+    }
+
+    // Use update(), not setData()+fitContent(). This is the key behavioural fix:
+    // candle data changes while the user's horizontal/vertical chart framing is
+    // left exactly where they placed it. The button no longer recenters/pans.
+    for (const row of fresh) {
+      if (row.time < beforeLast) continue;
+      if (row.time === beforeLast) touchedCurrent = true;
+      if (row.time > beforeLast) appended += 1;
+      series.update?.(row);
+    }
+
+    return {
+      appended,
+      touchedCurrent,
+      latestTime: fresh.at(-1)?.time ?? beforeLast,
+    };
+  }
+
+  async function refresh({ manual = false } = {}) {
+    if (busy || !chart || !series || (!manual && document.hidden)) return null;
+    const { symbol, interval, coin, timeframe } = currentSelection();
+
+    busy = true;
+    let previousText = null;
+    if (manual) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      previousText = button.textContent;
+      button.textContent = '…';
+    }
+
+    try {
+      const fresh = await fetchTail(coin, timeframe, manual ? MANUAL_LIMIT : AUTO_LIMIT);
+
+      // Ignore stale responses after a symbol/timeframe switch.
+      if (
+        coin !== String(symbol?.value || '').toUpperCase() ||
+        timeframe !== String(interval?.value || '')
+      ) return null;
+
+      const result = applyTail(fresh);
+      document.dispatchEvent(new CustomEvent('galka:chart-refreshed', {
+        detail: {
+          coin,
+          interval: timeframe,
+          latestTime: result.latestTime,
+          appended: result.appended,
+          manual,
+        },
+      }));
+
+      if (manual) {
+        const stamp = latestLabel(result.latestTime);
+        if (result.appended > 0) {
+          showToast(`Свечи обновлены · +${result.appended}${stamp ? ` · ${stamp}` : ''}`);
+        } else if (result.touchedCurrent) {
+          showToast(`Текущая свеча обновлена${stamp ? ` · ${stamp}` : ''}`);
+        } else {
+          showToast(`Свечи уже актуальны${stamp ? ` · ${stamp}` : ''}`);
+        }
+      }
+      return result;
+    } catch (error) {
+      if (manual) showToast(error?.message || 'Не удалось обновить график', 'error');
+      return null;
+    } finally {
+      busy = false;
+      if (manual) {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = previousText || '↻';
+      }
+    }
+  }
+
+  function startAutoRefresh() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = setInterval(() => refresh({ manual: false }), AUTO_REFRESH_MS);
+  }
+
+  button.addEventListener('click', () => refresh({ manual: true }));
+
+  // Returning to the app should not make the user wait for the next timer tick.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) window.setTimeout(() => refresh({ manual: false }), 150);
+  });
+  window.addEventListener('pageshow', () => {
+    window.setTimeout(() => refresh({ manual: false }), 700);
+  });
+  startAutoRefresh();
 })();
