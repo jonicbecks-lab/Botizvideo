@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-22T11:38:02Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-22T11:40:45Z",
+  "reason": "cancelled_fast",
   "campaignId": "HL-BNB-1787347894168-4e8080",
   "coin": "BNB",
-  "status": "waiting",
+  "status": "canceled",
   "createdAt": "2026-08-21T21:31:34Z",
   "createdMs": 1787347894169,
-  "completedAt": null,
+  "completedAt": "2026-08-22T11:40:45Z",
   "galkaPrice": 672.0616882339349,
   "researchSetup": {
     "schemaVersion": 2,
@@ -729,7 +729,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,
