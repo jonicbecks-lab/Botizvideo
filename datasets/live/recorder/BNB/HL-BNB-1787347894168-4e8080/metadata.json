@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 8,
+    "reconnects": 10,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -200,6 +200,18 @@
         "startedAtMs": 1787365138610,
         "endedAtMs": 1787365139948,
         "recordedAt": "2026-08-22T02:18:59.948Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1787375284381,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:08:04.381Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787375284381,
+        "endedAtMs": 1787375285884,
+        "recordedAt": "2026-08-22T05:08:05.884Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -229,7 +241,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T05:05:26.590Z",
+  "updatedAt": "2026-08-22T05:11:13.870Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
