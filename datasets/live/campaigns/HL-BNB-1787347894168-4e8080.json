@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-22T05:54:37Z",
+  "updatedAt": "2026-08-22T05:59:39Z",
   "reason": "fills_updated",
   "campaignId": "HL-BNB-1787347894168-4e8080",
   "coin": "BNB",
@@ -645,7 +645,7 @@
   "actualPositionSize": 0.0,
   "managedNetSize": 0.0,
   "recoveryReason": null,
-  "lastError": "Hyperliquid read failed (frontend_open_orders): HTTPSConnectionPool(host='api.hyperliquid.xyz', port=443): Max retries exceeded with url: /info (Caused by NameResolutionError(\"HTTPSConnection(host='api.hyperliquid.xyz', port=443): Failed to resolve 'api.hyperliquid.xyz' ([Errno 7] No address associated with hostname)\"))",
+  "lastError": null,
   "levels": [
     {
       "index": 1,
