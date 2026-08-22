@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 10,
+    "reconnects": 16,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -212,6 +212,42 @@
         "startedAtMs": 1787375284381,
         "endedAtMs": 1787375285884,
         "recordedAt": "2026-08-22T05:08:05.884Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:30.431Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:30.948Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:31.851Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:33.473Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:36.394Z"
+      },
+      {
+        "message": "WebSocketAddressException: [Errno 7] No address associated with hostname",
+        "startedAtMs": 1787377230431,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T05:40:41.649Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -241,7 +277,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T05:34:14.615Z",
+  "updatedAt": "2026-08-22T05:54:47.043Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
