@@ -28,8 +28,8 @@
   },
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
-  "maxDeviationBelowGalkaPct": 0.20761682094312867,
-  "minimumObservedPrice": 76966.0,
+  "maxDeviationBelowGalkaPct": 0.40858633206172407,
+  "minimumObservedPrice": 76811.0,
   "maximumObservedPrice": 77522.0,
   "levels": [
     {
@@ -56,9 +56,9 @@
       "targetOid": 523418686080,
       "entryCloid": "0xb6b076117dcd47818affd784a249b256",
       "targetCloid": "0x861248280b3345abbb8c06e62a0dfda0",
-      "filledSize": 0.0,
-      "averageFillPrice": 0.0,
-      "status": "resting"
+      "filledSize": 0.0075,
+      "averageFillPrice": 76895.0,
+      "status": "filled"
     },
     {
       "index": 3,
@@ -160,10 +160,25 @@
       "fee": 0.165186,
       "closedPnl": 0.0,
       "hash": "0x7abc5fc49c69da137c360442c0f9b602028000aa376cf8e51e850b175b6db3fe"
+    },
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787435781583,
+      "localReceiveTimestampNs": 1787435787358981718,
+      "ownerKind": "entry",
+      "ownerLevel": 2,
+      "oid": 523418686079,
+      "cloid": "0xb6b076117dcd47818affd784a249b256",
+      "side": "B",
+      "price": 76895.0,
+      "size": 0.0075,
+      "fee": 0.086506,
+      "closedPnl": 0.0,
+      "hash": "0x497633806b336f1f4aef0442c12db5020aba006606368df1ed3eded32a374909"
     }
   ],
   "actualRealizedPnl": 0.0,
-  "fees": 0.165186,
+  "fees": 0.251692,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -301,7 +316,7 @@
         "timeToMaximumMs": 235794
       }
     },
-    "completedAt": "2026-08-22T21:47:07.227Z"
+    "completedAt": "2026-08-22T22:04:22.700Z"
   },
   "stream": {
     "reconnects": 2,
@@ -346,7 +361,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T21:47:07.470Z",
+  "updatedAt": "2026-08-22T22:04:22.964Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
