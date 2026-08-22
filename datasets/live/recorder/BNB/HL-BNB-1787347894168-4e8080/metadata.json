@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 4,
+    "reconnects": 6,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -176,6 +176,18 @@
         "startedAtMs": 1787358605747,
         "endedAtMs": 1787358607060,
         "recordedAt": "2026-08-22T00:30:07.060Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1787361893321,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T01:24:53.321Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787361893321,
+        "endedAtMs": 1787361894877,
+        "recordedAt": "2026-08-22T01:24:54.877Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -205,7 +217,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T01:21:40.196Z",
+  "updatedAt": "2026-08-22T01:27:24.135Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
