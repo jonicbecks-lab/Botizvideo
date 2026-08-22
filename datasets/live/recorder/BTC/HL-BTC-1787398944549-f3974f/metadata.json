@@ -14,7 +14,7 @@
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 77133.0,
+  "minimumObservedPrice": 77103.0,
   "maximumObservedPrice": 77253.0,
   "levels": [
     {
@@ -151,8 +151,21 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 0,
-    "gaps": [],
+    "reconnects": 2,
+    "gaps": [
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1787399671700,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T11:54:31.701Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787399671700,
+        "endedAtMs": 1787399673025,
+        "recordedAt": "2026-08-22T11:54:33.026Z"
+      }
+    ],
     "droppedQueueMessages": 0,
     "writerError": null
   },
@@ -180,7 +193,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T11:49:42.402Z",
+  "updatedAt": "2026-08-22T11:55:29.640Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
