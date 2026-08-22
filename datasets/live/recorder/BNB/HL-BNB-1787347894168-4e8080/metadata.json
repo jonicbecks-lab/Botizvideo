@@ -15,7 +15,7 @@
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
   "minimumObservedPrice": 679.35,
-  "maximumObservedPrice": 696.83,
+  "maximumObservedPrice": 699.2149999999999,
   "levels": [
     {
       "index": 1,
@@ -151,7 +151,7 @@
     "horizons": {}
   },
   "stream": {
-    "reconnects": 6,
+    "reconnects": 8,
     "gaps": [
       {
         "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
@@ -188,6 +188,18 @@
         "startedAtMs": 1787361893321,
         "endedAtMs": 1787361894877,
         "recordedAt": "2026-08-22T01:24:54.877Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1787365138610,
+        "endedAtMs": null,
+        "recordedAt": "2026-08-22T02:18:58.610Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1787365138610,
+        "endedAtMs": 1787365139948,
+        "recordedAt": "2026-08-22T02:18:59.948Z"
       }
     ],
     "droppedQueueMessages": 0,
@@ -217,7 +229,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T02:18:53.020Z",
+  "updatedAt": "2026-08-22T02:24:39.227Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
