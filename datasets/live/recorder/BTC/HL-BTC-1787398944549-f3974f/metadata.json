@@ -14,7 +14,7 @@
   "campaignCompletedAt": null,
   "campaignCompletedAtMs": 0,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 76976.0,
+  "minimumObservedPrice": 76932.0,
   "maximumObservedPrice": 77434.0,
   "levels": [
     {
@@ -205,7 +205,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-22T15:04:36.996Z",
+  "updatedAt": "2026-08-22T15:44:51.800Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
