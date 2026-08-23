@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-23T05:26:18Z",
-  "reason": "fills_updated",
+  "updatedAt": "2026-08-23T05:34:15Z",
+  "reason": "event:risk",
   "campaignId": "HL-BTC-1787459456730-3da7ac",
   "coin": "BTC",
-  "status": "closing",
+  "status": "recovery_closed",
   "createdAt": "2026-08-23T04:30:56Z",
   "createdMs": 1787459456730,
-  "completedAt": null,
-  "galkaPrice": 76554.50340997957,
+  "completedAt": "2026-08-23T05:34:15Z",
+  "galkaPrice": 76324.0,
   "researchSetup": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
@@ -881,7 +881,7 @@
     "candleContextEnrichedAtMs": 1787459460560
   },
   "setupMidPrice": 76988.5,
-  "setupDistancePct": 0.566911900265632,
+  "setupDistancePct": 0.8706304701011414,
   "leverage": 10,
   "isolated": true,
   "requestedNotional": 2651.0138730900003,
@@ -894,13 +894,13 @@
   "cycleDeepest": 6,
   "l1Cycles": 0,
   "l1RealizedPnl": 0.0,
-  "cycleClosedPnl": 0.0,
-  "fees": 0.37347800000000003,
-  "grossPnl": 0.0,
-  "netPnlApprox": -0.37347800000000003,
-  "actualPositionSize": 0.03264,
-  "managedNetSize": 0.03264,
-  "recoveryReason": null,
+  "cycleClosedPnl": 1.33824,
+  "fees": 0.74716,
+  "grossPnl": 1.33824,
+  "netPnlApprox": 0.59108,
+  "actualPositionSize": 0.0,
+  "managedNetSize": 0.0,
+  "recoveryReason": "Цикл закрыт без доказанного owned TP; rearm запрещён",
   "lastError": null,
   "levels": [
     {
@@ -985,7 +985,7 @@
     }
   ],
   "postExitResearch": {
-    "status": "not_ready",
+    "status": "pending",
     "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
     "horizonsMinutes": [
       1,

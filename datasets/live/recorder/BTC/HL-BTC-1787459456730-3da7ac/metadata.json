@@ -6,9 +6,9 @@
   "galkaLevel": 76554.50340997957,
   "campaignActivatedAt": "2026-08-23T04:30:56Z",
   "campaignActivatedAtMs": 1787459456730,
-  "status": "recording",
+  "status": "completed",
   "recordingStartedAt": "2026-08-23T04:30:56Z",
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-23T05:34:15.802Z",
   "crossedBelowGalka": {
     "exchangeTimestampMs": 1787461151411,
     "exchangeTimestamp": "2026-08-23T04:59:11.411Z",
@@ -26,8 +26,8 @@
     "price": 76566.0,
     "basis": "bbo_mid"
   },
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "campaignCompletedAt": "2026-08-23T05:34:15Z",
+  "campaignCompletedAtMs": 1787463255000,
   "maxDeviationBelowGalkaPct": 1.2363784856792481,
   "minimumObservedPrice": 75608.0,
   "maximumObservedPrice": 77022.0,
@@ -235,10 +235,25 @@
       "fee": 0.015883,
       "closedPnl": 0.0,
       "hash": "0x0d1c562dd4703a510e960442c6dedc02086b00136f735923b0e501809374143b"
+    },
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787463221541,
+      "localReceiveTimestampNs": 1787463229928168476,
+      "ownerKind": "target",
+      "ownerLevel": 0,
+      "oid": 523786435957,
+      "cloid": "0x9cb8a52d47a9464da830a228467ce9d3",
+      "side": "A",
+      "price": 76324.0,
+      "size": 0.03264,
+      "fee": 0.373682,
+      "closedPnl": 1.33824,
+      "hash": "0x978de2d7b9ba9e2299070442c713dd02031a00bd54bdbcf43b568e2a78be780d"
     }
   ],
-  "actualRealizedPnl": 0.0,
-  "fees": 0.37347800000000003,
+  "actualRealizedPnl": 1.33824,
+  "fees": 0.74716,
   "researchOnly": true,
   "tradingLogicChanged": false,
   "rawFormat": "append-only JSONL; materialize Parquet later if desired",
@@ -376,7 +391,7 @@
         "timeToMaximumMs": 93403
       }
     },
-    "completedAt": "2026-08-23T05:26:28.471Z"
+    "completedAt": "2026-08-23T05:34:15.667Z"
   },
   "stream": {
     "reconnects": 0,
@@ -408,7 +423,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-23T05:26:28.841Z",
+  "updatedAt": "2026-08-23T05:34:21.295Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
@@ -1282,6 +1297,7 @@
   },
   "captureFromPlacement": true,
   "recordingStartBasis": "manual_galka_structure_locked",
-  "campaignStatus": "closing",
-  "lastCampaignUpdateReason": "fills_updated"
+  "campaignStatus": "recovery_closed",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-23T05:34:20.901Z"
 }
