@@ -376,7 +376,7 @@
         "timeToMaximumMs": 93403
       }
     },
-    "completedAt": "2026-08-23T05:18:53.346Z"
+    "completedAt": "2026-08-23T05:26:28.471Z"
   },
   "stream": {
     "reconnects": 0,
@@ -408,7 +408,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-23T05:20:43.744Z",
+  "updatedAt": "2026-08-23T05:26:28.841Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
