@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from . import research_server
+from .account_balance_compat import install as install_account_balance_compat
 
 
 def main() -> int:
-    """Start the persistent LIVE server after research_server installs its patches."""
+    """Start the persistent LIVE server after production compatibility patches."""
+    install_account_balance_compat()
     return research_server._persistent.main()
 
 
