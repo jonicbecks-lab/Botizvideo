@@ -126,10 +126,13 @@ class ProjectControlCenterTests(unittest.TestCase):
 
             result = center.check_now("BTC")
 
-            self.assertEqual(result["overall"], "working")
+            # GitHub research sync is deliberately best-effort, so the aggregate
+            # health is partial instead of presenting a false all-green result.
+            self.assertEqual(result["overall"], "partial")
             self.assertEqual(before, repr(engine.state))
-            ids = {row["id"] for row in result["steps"]}
-            self.assertTrue({"monitor", "mids", "candles", "account", "orders", "consistency", "journal", "clusters", "updater"}.issubset(ids))
+            by_id = {row["id"]: row for row in result["steps"]}
+            self.assertTrue({"monitor", "mids", "candles", "account", "orders", "consistency", "journal", "github-sync", "clusters", "updater"}.issubset(by_id))
+            self.assertEqual(by_id["github-sync"]["status"], "partial")
             self.assertIn("fresh_account_state", engine.gateway.calls)
             self.assertIn("fresh_open_orders", engine.gateway.calls)
             self.assertFalse(engine._manual_action_pending.is_set())
