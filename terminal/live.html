@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="cluster-volume.css?v=1">
   <link rel="stylesheet" href="galka-structure-draft.css?v=1">
   <link rel="stylesheet" href="galka-updater.css?v=1">
+  <link rel="stylesheet" href="control-center.css?v=1">
   <script src="vendor/galka-chart.js?v=3"></script>
   <script src="vendor/galka-future-pan.js?v=1"></script>
   <script src="vendor/galka-native-plot-pan.js?v=4"></script>
@@ -70,6 +71,7 @@
       <span><small>Маржа</small><b id="marginUsed">—</b></span>
       <span><small>Режим</small><b id="riskMode">—</b></span>
     </div>
+    <div class="control-center-entry"><button id="openControlCenter" type="button">Центр управления проектом</button></div>
     <div class="section-head"><b>Текущая GALKA</b></div>
     <div id="campaignDetails" class="campaign-details">Нет активной GALKA.</div>
     <div class="drawer-actions">
@@ -79,6 +81,16 @@
     <div class="section-head"><b>Последние события</b><button id="reconcileState" type="button">Сверить</button><button id="enableNotifications" type="button">Оповещения</button></div>
     <div id="events" class="events"></div>
   </aside>
+
+  <section id="controlCenterPanel" class="control-center-panel hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="controlCenterTitle" tabindex="-1">
+    <div class="control-center-shell">
+      <header class="control-center-head">
+        <div><small>GALKA LIVE · КАРТА ПРОЕКТА</small><b id="controlCenterTitle">Центр управления</b></div>
+        <button id="closeControlCenter" class="control-center-close" type="button" aria-label="Закрыть Центр управления">×</button>
+      </header>
+      <div id="controlCenterContent"><div class="control-center-loading">Загрузка реального состояния проекта…</div></div>
+    </div>
+  </section>
 
   <div class="cluster-settings-backdrop hidden" id="clusterSettingsBackdrop">
     <section class="cluster-settings" role="dialog" aria-modal="true" aria-labelledby="clusterSettingsTitle">
@@ -131,6 +143,7 @@
   <script src="vendor/galka-structure-relative-drag.js?v=1"></script>
   <script src="vendor/galka-structure-v3.js?v=2"></script>
   <script src="vendor/galka-updater.js?v=1"></script>
+  <script src="vendor/galka-control-center.js?v=1"></script>
   <script type="module" src="live.js?v=5"></script>
   <script type="module" src="vendor/galka-auto-queue.js?v=1"></script>
   <script type="module" src="vendor/galka-startup-defaults.js?v=3"></script>
