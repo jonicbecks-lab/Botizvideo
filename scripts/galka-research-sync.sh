@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# shellcheck disable=SC1091
+# shellcheck disable=SC1091,SC2317
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/galka-live-common.sh"
