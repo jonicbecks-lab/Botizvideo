@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import persistent_server as _persistent
 from .cluster_volume import BASE_PRICE_STEPS
+from .control_center import control_center_for
 from .engine import LiveEngineError
 from .hyperliquid_gateway import (
     INTERVAL_MS,
@@ -132,7 +133,7 @@ class PublicMarketIsolatedGateway(_TradingGateway):
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
-    """Persistent LIVE handler plus AUTO queue, research annotations, clusters and updater."""
+    """Persistent LIVE handler plus AUTO queue, research annotations, clusters, updater and project diagnostics."""
 
     _foreground_guard = threading.RLock()
     _foreground_requests = 0
@@ -171,6 +172,11 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+        if parsed.path == "/api/live/control-center":
+            if not self._require_api_auth():
+                return
+            self._handle(lambda: control_center_for(self.engine).overview())
+            return
         if parsed.path == "/api/live/updater/status":
             if not self._require_api_auth():
                 return
@@ -246,8 +252,22 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
             return
         self._handle(lambda: updater.rollback(str(data.get("confirmation", ""))))
 
+    def _handle_control_center_check(self) -> None:
+        if not self._require_api_auth():
+            return
+        try:
+            data = self._read_json()
+        except LiveEngineError as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            return
+        self._handle(lambda: control_center_for(self.engine).check_now(str(data.get("coin", "BTC"))))
+
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         parsed = urlparse(self.path)
+
+        if parsed.path == "/api/live/control-center/check":
+            self._handle_control_center_check()
+            return
 
         if parsed.path in self._updater_post_paths:
             self._handle_updater(parsed.path)
