@@ -15,6 +15,7 @@ _MIN_NOTIONAL = 80.0
 _EPSILON = 1e-9
 
 _ORIGINAL_NEW_CAMPAIGN = SafeCompatibleGalkaLiveEngine._new_campaign
+_ORIGINAL_CREATE_FAST = SafeCompatibleGalkaLiveEngine._create_campaign_fast
 _INSTALLED = False
 
 
@@ -198,11 +199,35 @@ def _new_campaign(
     return campaign
 
 
+def _create_campaign_fast(
+    self: SafeCompatibleGalkaLiveEngine,
+    coin: str,
+    galka_price: float,
+    confirmation: str,
+) -> dict[str, Any]:
+    """Keep the old aggregate guard as a 100% hard ceiling, not a 99% sizing policy.
+
+    ``CompatibleGalkaLiveEngine`` performs a second aggregate-risk check after the
+    preview. Its historical source is ``HL_MAX_MARGIN_FRACTION``. The new preview
+    has already reserved other campaigns, respected withdrawable collateral and
+    left the entry-fee cushion, so this legacy check is temporarily raised to 100%
+    only for the serialized create operation. The configured value is restored in
+    ``finally`` and remains available as legacy configuration/rollback metadata.
+    """
+    previous_fraction = float(self.config.max_margin_fraction)
+    object.__setattr__(self.config, "max_margin_fraction", 1.0)
+    try:
+        return _ORIGINAL_CREATE_FAST(self, coin, galka_price, confirmation)
+    finally:
+        object.__setattr__(self.config, "max_margin_fraction", previous_fraction)
+
+
 def install() -> None:
-    """Install the production sizing policy without altering the ladder/execution engine."""
+    """Install the production sizing policy without altering ladder/execution logic."""
     global _INSTALLED
     if _INSTALLED:
         return
     SafeCompatibleGalkaLiveEngine.preview = _preview
     SafeCompatibleGalkaLiveEngine._new_campaign = _new_campaign
+    SafeCompatibleGalkaLiveEngine._create_campaign_fast = _create_campaign_fast
     _INSTALLED = True
