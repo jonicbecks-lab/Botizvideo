@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 from http import HTTPStatus
@@ -40,11 +41,12 @@ def _optional_int(query: dict[str, list[str]], name: str) -> int | None:
 
 
 class PublicMarketIsolatedGateway(_TradingGateway):
-    """Keep display reads off the private trading I/O path."""
+    """Keep display and observer reads off the private trading I/O path."""
 
     STATUS_ACCOUNT_CACHE_SECONDS = 30.0
     QUOTE_CACHE_SECONDS = 0.8
     CANDLE_CACHE_SECONDS = 2.0
+    MAX_RANGE_BARS = 1500
 
     def __init__(self, config):
         super().__init__(config)
@@ -57,6 +59,22 @@ class PublicMarketIsolatedGateway(_TradingGateway):
         self._quote_cache_at = 0.0
         self._quote_cache: dict[str, float] = {}
         self._candle_cache: dict[tuple[str, str, int], tuple[float, list[dict]]] = {}
+
+    @staticmethod
+    def _normalize_candles(rows) -> list[dict]:
+        return [
+            {
+                "time": _integer(row.get("t"), "candle.t") // 1000,
+                "openTime": _integer(row.get("t"), "candle.t"),
+                "closeTime": _integer(row.get("T"), "candle.T"),
+                "open": _finite_number(row.get("o"), "candle.o"),
+                "high": _finite_number(row.get("h"), "candle.h"),
+                "low": _finite_number(row.get("l"), "candle.l"),
+                "close": _finite_number(row.get("c"), "candle.c"),
+                "volume": _finite_number(row.get("v"), "candle.v"),
+            }
+            for row in rows
+        ]
 
     def account_state(self, fresh: bool = False) -> dict:
         if fresh:
@@ -91,7 +109,7 @@ class PublicMarketIsolatedGateway(_TradingGateway):
         normalized = self._coin(coin)
         if interval not in INTERVAL_MS:
             raise GatewayError(f"Unsupported interval: {interval}")
-        limit = max(50, min(int(limit), 1500))
+        limit = max(50, min(int(limit), self.MAX_RANGE_BARS))
         key = (normalized, interval, limit)
         now = time.monotonic()
 
@@ -112,24 +130,44 @@ class PublicMarketIsolatedGateway(_TradingGateway):
             except Exception as exc:
                 raise GatewayError(f"Hyperliquid read failed (candles_snapshot): {exc}") from exc
 
-            result = [
-                {
-                    "time": _integer(row.get("t"), "candle.t") // 1000,
-                    "openTime": _integer(row.get("t"), "candle.t"),
-                    "closeTime": _integer(row.get("T"), "candle.T"),
-                    "open": _finite_number(row.get("o"), "candle.o"),
-                    "high": _finite_number(row.get("h"), "candle.h"),
-                    "low": _finite_number(row.get("l"), "candle.l"),
-                    "close": _finite_number(row.get("c"), "candle.c"),
-                    "volume": _finite_number(row.get("v"), "candle.v"),
-                }
-                for row in rows
-            ]
+            result = self._normalize_candles(rows)
             self._candle_cache[key] = (time.monotonic(), result)
             if len(self._candle_cache) > 18:
                 oldest = min(self._candle_cache, key=lambda item: self._candle_cache[item][0])
                 self._candle_cache.pop(oldest, None)
             return [dict(row) for row in result]
+
+    def candles_range(self, coin: str, interval: str, start_ms: int, end_ms: int) -> list[dict]:
+        """Return a bounded historical window for the read-only Detective API.
+
+        This uses the chart-only Hyperliquid Info client and never takes the trading
+        action lock. The bar cap prevents a badly configured agent from requesting
+        an unbounded history window from the phone.
+        """
+        normalized = self._coin(coin)
+        if interval not in INTERVAL_MS:
+            raise GatewayError(f"Unsupported interval: {interval}")
+        now_ms = int(time.time() * 1000)
+        start_ms = max(1, int(start_ms))
+        end_ms = min(now_ms, int(end_ms))
+        if end_ms <= start_ms:
+            raise GatewayError("Invalid candle range")
+        expected = int(math.ceil((end_ms - start_ms) / INTERVAL_MS[interval])) + 4
+        if expected > self.MAX_RANGE_BARS:
+            raise GatewayError(
+                f"Historical candle range too large: {expected} bars; maximum {self.MAX_RANGE_BARS}"
+            )
+        with self._chart_info_lock:
+            try:
+                rows = self._chart_info.candles_snapshot(
+                    normalized,
+                    interval,
+                    start_ms,
+                    end_ms,
+                )
+            except Exception as exc:
+                raise GatewayError(f"Hyperliquid read failed (candles_range): {exc}") from exc
+        return self._normalize_candles(rows[-self.MAX_RANGE_BARS :])
 
 
 class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
@@ -176,6 +214,13 @@ class AutoQueueGalkaRequestHandler(_persistent.PersistentGalkaRequestHandler):
             if not self._require_api_auth():
                 return
             self._handle(lambda: control_center_for(self.engine).overview())
+            return
+        if parsed.path == "/api/live/agent-api/status":
+            if not self._require_api_auth():
+                return
+            query = parse_qs(parsed.query)
+            include_token = query.get("secret", ["0"])[0] == "1"
+            self._handle(lambda: self.engine.agent_api_status(include_token=include_token))
             return
         if parsed.path == "/api/live/updater/status":
             if not self._require_api_auth():
