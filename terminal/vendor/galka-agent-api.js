@@ -11,29 +11,11 @@
     })[char]);
   }
 
-  function injectStyle() {
-    if (document.getElementById('galkaAgentApiStyle')) return;
-    const style = document.createElement('style');
-    style.id = 'galkaAgentApiStyle';
-    style.textContent = `
-      .agent-api-card{margin:12px 0 4px;padding:13px 14px;border:1px solid #293241;border-radius:14px;background:#0b1018;color:#c8d0dc}
-      .agent-api-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
-      .agent-api-head b{font-size:14px}.agent-api-badge{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;border:1px solid #315b4b;color:#57cf9a;background:#0b1b16}
-      .agent-api-badge.off{border-color:#673638;color:#e17878;background:#1b0d0e}
-      .agent-api-url{font-size:12px;line-height:1.45;color:#9ca8b8;word-break:break-all;margin:5px 0 10px}
-      .agent-api-note{font-size:11px;line-height:1.45;color:#738095;margin:8px 0 0}
-      .agent-api-actions{display:flex;gap:8px}.agent-api-actions button{flex:1;min-height:42px;border:1px solid #39465a;border-radius:11px;background:#202735;color:#f2f4f8;font-weight:800}
-      .agent-api-actions button:disabled{opacity:.45}
-    `;
-    document.head.appendChild(style);
-  }
-
   function ensureCard() {
     let card = document.getElementById('galkaAgentApiCard');
     if (card) return card;
     const anchor = document.querySelector('.control-center-entry');
     if (!anchor) return null;
-    injectStyle();
     card = document.createElement('div');
     card.id = 'galkaAgentApiCard';
     card.className = 'agent-api-card';
@@ -107,8 +89,7 @@
     } catch (_) {
       const area = document.createElement('textarea');
       area.value = text;
-      area.style.position = 'fixed';
-      area.style.opacity = '0';
+      area.className = 'agent-api-copy-fallback';
       document.body.appendChild(area);
       area.select();
       let ok = false;
