@@ -1,0 +1,876 @@
+{
+  "schemaVersion": 1,
+  "module": "Galka Research Recorder",
+  "campaignId": "HL-BTC-1787565909843-d52fa0",
+  "symbol": "BTC",
+  "galkaLevel": 76854.90914862225,
+  "campaignActivatedAt": "2026-08-24T10:05:09Z",
+  "campaignActivatedAtMs": 1787565909844,
+  "status": "completed",
+  "recordingStartedAt": "2026-08-24T10:05:09Z",
+  "recordingStoppedAt": "2026-08-24T10:13:51.036Z",
+  "crossedBelowGalka": null,
+  "returnToGalka": null,
+  "campaignCompletedAt": "2026-08-24T10:13:51Z",
+  "campaignCompletedAtMs": 1787566431000,
+  "maxDeviationBelowGalkaPct": 0.0,
+  "minimumObservedPrice": 77585.0,
+  "maximumObservedPrice": 77885.0,
+  "levels": [
+    {
+      "index": 1,
+      "depthPct": 0.15,
+      "price": 76740.0,
+      "size": 0.01477,
+      "notional": 1133.4498,
+      "entryOid": 524935408172,
+      "targetOid": 524935408173,
+      "entryCloid": "0xfc5aea41d1334fb3a842466725959f84",
+      "targetCloid": "0x70ddf51868ea4380a2a044e969a65e76",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 2,
+      "depthPct": 0.3,
+      "price": 76624.0,
+      "size": 0.00774,
+      "notional": 593.06976,
+      "entryOid": 524935408174,
+      "targetOid": 524935408175,
+      "entryCloid": "0x2f566b2e0abf440c96ff9c86ca0c6e95",
+      "targetCloid": "0x2fc0a85033354e0e92cf230afc440a81",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 3,
+      "depthPct": 0.45,
+      "price": 76509.0,
+      "size": 0.00423,
+      "notional": 323.63307,
+      "entryOid": 524935408176,
+      "targetOid": 524935408177,
+      "entryCloid": "0x11e9b5747fc2447cab82d44323e34cb5",
+      "targetCloid": "0xe33354b3fc9a496f95df03243e065a4f",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 4,
+      "depthPct": 0.6,
+      "price": 76394.0,
+      "size": 0.00282,
+      "notional": 215.43108,
+      "entryOid": 524935408178,
+      "targetOid": 524935408179,
+      "entryCloid": "0xf0ca42fe774b43a18e9d6e9ef4be82a1",
+      "targetCloid": "0xda70ad46ff0a43438cd70bba396e307b",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 5,
+      "depthPct": 0.9,
+      "price": 76163.0,
+      "size": 0.00212,
+      "notional": 161.46556,
+      "entryOid": 524935408180,
+      "targetOid": 524935408181,
+      "entryCloid": "0xb2f16329e3be49d1b18e716edc0c5771",
+      "targetCloid": "0x522d081c86354ca994f842d9c29c6848",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 6,
+      "depthPct": 1.2,
+      "price": 75933.0,
+      "size": 0.00142,
+      "notional": 107.82486,
+      "entryOid": 524935408182,
+      "targetOid": 524935408183,
+      "entryCloid": "0x1d4dae875f984410afabf3a7e663e97d",
+      "targetCloid": "0x507149e195944d0887cbf7aa5566922b",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 7,
+      "depthPct": 1.5,
+      "price": 75702.0,
+      "size": 0.00106,
+      "notional": 80.24412,
+      "entryOid": 524935408184,
+      "targetOid": 524935408185,
+      "entryCloid": "0x67515e8683ef4146b62e7133d49107b7",
+      "targetCloid": "0x487cfb87c53f425db58d55b0986f9899",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 8,
+      "depthPct": 2.0,
+      "price": 75318.0,
+      "size": 0.00107,
+      "notional": 80.59026,
+      "entryOid": 524935408186,
+      "targetOid": 524935408187,
+      "entryCloid": "0xb2f4a274a4d74142b8a520e3a8ca16be",
+      "targetCloid": "0x99c4b66c93094017849bd40911120846",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    }
+  ],
+  "executions": [],
+  "actualRealizedPnl": 0.0,
+  "fees": 0.0,
+  "researchOnly": true,
+  "tradingLogicChanged": false,
+  "rawFormat": "append-only JSONL; materialize Parquet later if desired",
+  "postReturnHorizonsMs": [
+    1000,
+    3000,
+    5000,
+    10000,
+    30000,
+    60000,
+    120000,
+    300000
+  ],
+  "postReturnOutcome": {
+    "complete": false,
+    "horizons": {}
+  },
+  "stream": {
+    "reconnects": 0,
+    "gaps": [],
+    "droppedQueueMessages": 0,
+    "writerError": null
+  },
+  "settings": {
+    "l2Depth": 20,
+    "windowsMs": [
+      100,
+      250,
+      500,
+      1000,
+      5000,
+      10000
+    ],
+    "featureIntervalMs": 100,
+    "bookBandsBps": [
+      1.0,
+      2.5,
+      5.0,
+      10.0,
+      25.0
+    ],
+    "imbalanceRatioThreshold": 3.0,
+    "stackedLevelsThreshold": 3,
+    "largeTradeQuantile": 0.95,
+    "baselineSeconds": 60,
+    "footprintPriceStep": 0.0
+  },
+  "updatedAt": "2026-08-24T10:13:52.418Z",
+  "galkaStructure": {
+    "schemaVersion": 2,
+    "selectionMethod": "manual_crosshair_structure_v3",
+    "symbol": "BTC",
+    "timeframe": "5m",
+    "galkaLevel": 76854.90914862225,
+    "anchorTimeMs": 1787559900000,
+    "anchorPrice": 76854.90914862225,
+    "leftBoundaryTimeMs": 1787555576020,
+    "leftBoundaryPrice": 77853.30067300175,
+    "rightBoundaryTimeMs": 1787565741324,
+    "rightBoundaryPrice": 77725.12831505877,
+    "structureStartTimeMs": 1787555576020,
+    "structureEndTimeMs": 1787565741324,
+    "selectedAtMs": 1787565908532,
+    "draftStartedAtMs": 1787565896119,
+    "serverReceivedAtMs": 1787565908548,
+    "fullStructureBarCount": 34,
+    "structureBarsTruncated": false,
+    "anchorCandle": {
+      "timeMs": 1787559900000,
+      "open": 76986.0,
+      "high": 76997.0,
+      "low": 76862.0,
+      "close": 76952.0,
+      "volume": 180.19137
+    },
+    "leftBoundaryCandle": {
+      "timeMs": 1787555700000,
+      "open": 77804.0,
+      "high": 77804.0,
+      "low": 77654.0,
+      "close": 77716.0,
+      "volume": 101.60209
+    },
+    "rightBoundaryCandle": {
+      "timeMs": 1787565600000,
+      "open": 77585.0,
+      "high": 77730.0,
+      "low": 77582.0,
+      "close": 77696.0,
+      "volume": 75.52734
+    },
+    "structureEndCandle": {
+      "timeMs": 1787565600000,
+      "open": 77585.0,
+      "high": 77730.0,
+      "low": 77582.0,
+      "close": 77696.0,
+      "volume": 75.52734
+    },
+    "preContextBars": [
+      {
+        "timeMs": 1787543700000,
+        "open": 77026.0,
+        "high": 77030.0,
+        "low": 76971.0,
+        "close": 76975.0,
+        "volume": 36.91712
+      },
+      {
+        "timeMs": 1787544000000,
+        "open": 76976.0,
+        "high": 77112.0,
+        "low": 76976.0,
+        "close": 77104.0,
+        "volume": 196.71649
+      },
+      {
+        "timeMs": 1787544300000,
+        "open": 77105.0,
+        "high": 77144.0,
+        "low": 77061.0,
+        "close": 77062.0,
+        "volume": 15.79121
+      },
+      {
+        "timeMs": 1787544600000,
+        "open": 77062.0,
+        "high": 77094.0,
+        "low": 77057.0,
+        "close": 77084.0,
+        "volume": 31.75788
+      },
+      {
+        "timeMs": 1787544900000,
+        "open": 77085.0,
+        "high": 77279.0,
+        "low": 77084.0,
+        "close": 77218.0,
+        "volume": 49.07394
+      },
+      {
+        "timeMs": 1787545200000,
+        "open": 77219.0,
+        "high": 77300.0,
+        "low": 77218.0,
+        "close": 77223.0,
+        "volume": 22.53205
+      },
+      {
+        "timeMs": 1787545500000,
+        "open": 77222.0,
+        "high": 77274.0,
+        "low": 77221.0,
+        "close": 77264.0,
+        "volume": 10.92466
+      },
+      {
+        "timeMs": 1787545800000,
+        "open": 77265.0,
+        "high": 77271.0,
+        "low": 77221.0,
+        "close": 77256.0,
+        "volume": 11.01035
+      },
+      {
+        "timeMs": 1787546100000,
+        "open": 77257.0,
+        "high": 77257.0,
+        "low": 77181.0,
+        "close": 77207.0,
+        "volume": 35.87063
+      },
+      {
+        "timeMs": 1787546400000,
+        "open": 77205.0,
+        "high": 77240.0,
+        "low": 77110.0,
+        "close": 77158.0,
+        "volume": 31.90421
+      },
+      {
+        "timeMs": 1787546700000,
+        "open": 77159.0,
+        "high": 77179.0,
+        "low": 76985.0,
+        "close": 76997.0,
+        "volume": 152.39825
+      },
+      {
+        "timeMs": 1787547000000,
+        "open": 76997.0,
+        "high": 76999.0,
+        "low": 76693.0,
+        "close": 76874.0,
+        "volume": 563.39448
+      },
+      {
+        "timeMs": 1787547300000,
+        "open": 76874.0,
+        "high": 76944.0,
+        "low": 76825.0,
+        "close": 76943.0,
+        "volume": 178.4572
+      },
+      {
+        "timeMs": 1787547600000,
+        "open": 76944.0,
+        "high": 77010.0,
+        "low": 76900.0,
+        "close": 77009.0,
+        "volume": 43.87107
+      },
+      {
+        "timeMs": 1787547900000,
+        "open": 77009.0,
+        "high": 77100.0,
+        "low": 76929.0,
+        "close": 77092.0,
+        "volume": 41.40051
+      },
+      {
+        "timeMs": 1787548200000,
+        "open": 77092.0,
+        "high": 77271.0,
+        "low": 77046.0,
+        "close": 77263.0,
+        "volume": 43.9053
+      },
+      {
+        "timeMs": 1787548500000,
+        "open": 77263.0,
+        "high": 77271.0,
+        "low": 77091.0,
+        "close": 77100.0,
+        "volume": 33.62343
+      },
+      {
+        "timeMs": 1787548800000,
+        "open": 77100.0,
+        "high": 77167.0,
+        "low": 76997.0,
+        "close": 77116.0,
+        "volume": 78.42894
+      },
+      {
+        "timeMs": 1787549100000,
+        "open": 77117.0,
+        "high": 77177.0,
+        "low": 77101.0,
+        "close": 77120.0,
+        "volume": 108.88955
+      },
+      {
+        "timeMs": 1787549400000,
+        "open": 77121.0,
+        "high": 77121.0,
+        "low": 76954.0,
+        "close": 77010.0,
+        "volume": 73.11965
+      },
+      {
+        "timeMs": 1787549700000,
+        "open": 77010.0,
+        "high": 77144.0,
+        "low": 76874.0,
+        "close": 77102.0,
+        "volume": 571.82938
+      },
+      {
+        "timeMs": 1787550000000,
+        "open": 77103.0,
+        "high": 77231.0,
+        "low": 77075.0,
+        "close": 77136.0,
+        "volume": 157.47972
+      },
+      {
+        "timeMs": 1787550300000,
+        "open": 77137.0,
+        "high": 77175.0,
+        "low": 77102.0,
+        "close": 77102.0,
+        "volume": 84.18713
+      },
+      {
+        "timeMs": 1787550600000,
+        "open": 77103.0,
+        "high": 77194.0,
+        "low": 77031.0,
+        "close": 77163.0,
+        "volume": 131.24193
+      },
+      {
+        "timeMs": 1787550900000,
+        "open": 77164.0,
+        "high": 77225.0,
+        "low": 77137.0,
+        "close": 77207.0,
+        "volume": 38.98757
+      },
+      {
+        "timeMs": 1787551200000,
+        "open": 77208.0,
+        "high": 77242.0,
+        "low": 77115.0,
+        "close": 77155.0,
+        "volume": 43.67699
+      },
+      {
+        "timeMs": 1787551500000,
+        "open": 77154.0,
+        "high": 77271.0,
+        "low": 77126.0,
+        "close": 77242.0,
+        "volume": 50.73552
+      },
+      {
+        "timeMs": 1787551800000,
+        "open": 77243.0,
+        "high": 77489.0,
+        "low": 77216.0,
+        "close": 77450.0,
+        "volume": 115.59306
+      },
+      {
+        "timeMs": 1787552100000,
+        "open": 77451.0,
+        "high": 77526.0,
+        "low": 77394.0,
+        "close": 77420.0,
+        "volume": 102.9429
+      },
+      {
+        "timeMs": 1787552400000,
+        "open": 77421.0,
+        "high": 77443.0,
+        "low": 77347.0,
+        "close": 77431.0,
+        "volume": 17.01103
+      },
+      {
+        "timeMs": 1787552700000,
+        "open": 77432.0,
+        "high": 77455.0,
+        "low": 77400.0,
+        "close": 77400.0,
+        "volume": 30.95366
+      },
+      {
+        "timeMs": 1787553000000,
+        "open": 77401.0,
+        "high": 77426.0,
+        "low": 77312.0,
+        "close": 77323.0,
+        "volume": 30.94988
+      },
+      {
+        "timeMs": 1787553300000,
+        "open": 77322.0,
+        "high": 77351.0,
+        "low": 77301.0,
+        "close": 77301.0,
+        "volume": 14.71246
+      },
+      {
+        "timeMs": 1787553600000,
+        "open": 77302.0,
+        "high": 77394.0,
+        "low": 77269.0,
+        "close": 77394.0,
+        "volume": 34.63786
+      },
+      {
+        "timeMs": 1787553900000,
+        "open": 77394.0,
+        "high": 77560.0,
+        "low": 77391.0,
+        "close": 77553.0,
+        "volume": 147.54682
+      },
+      {
+        "timeMs": 1787554200000,
+        "open": 77554.0,
+        "high": 77560.0,
+        "low": 77468.0,
+        "close": 77491.0,
+        "volume": 56.21402
+      },
+      {
+        "timeMs": 1787554500000,
+        "open": 77491.0,
+        "high": 77533.0,
+        "low": 77490.0,
+        "close": 77514.0,
+        "volume": 36.18778
+      },
+      {
+        "timeMs": 1787554800000,
+        "open": 77514.0,
+        "high": 77560.0,
+        "low": 77511.0,
+        "close": 77550.0,
+        "volume": 16.80181
+      },
+      {
+        "timeMs": 1787555100000,
+        "open": 77551.0,
+        "high": 77600.0,
+        "low": 77541.0,
+        "close": 77600.0,
+        "volume": 42.61912
+      },
+      {
+        "timeMs": 1787555400000,
+        "open": 77600.0,
+        "high": 77859.0,
+        "low": 77599.0,
+        "close": 77804.0,
+        "volume": 274.91993
+      }
+    ],
+    "structureBars": [
+      {
+        "timeMs": 1787555700000,
+        "open": 77804.0,
+        "high": 77804.0,
+        "low": 77654.0,
+        "close": 77716.0,
+        "volume": 101.60209
+      },
+      {
+        "timeMs": 1787556000000,
+        "open": 77715.0,
+        "high": 77718.0,
+        "low": 77635.0,
+        "close": 77710.0,
+        "volume": 59.18679
+      },
+      {
+        "timeMs": 1787556300000,
+        "open": 77711.0,
+        "high": 77746.0,
+        "low": 77613.0,
+        "close": 77651.0,
+        "volume": 112.08473
+      },
+      {
+        "timeMs": 1787556600000,
+        "open": 77651.0,
+        "high": 77652.0,
+        "low": 77534.0,
+        "close": 77549.0,
+        "volume": 27.46418
+      },
+      {
+        "timeMs": 1787556900000,
+        "open": 77548.0,
+        "high": 77563.0,
+        "low": 77510.0,
+        "close": 77520.0,
+        "volume": 13.89128
+      },
+      {
+        "timeMs": 1787557200000,
+        "open": 77519.0,
+        "high": 77520.0,
+        "low": 77389.0,
+        "close": 77410.0,
+        "volume": 35.85464
+      },
+      {
+        "timeMs": 1787557500000,
+        "open": 77410.0,
+        "high": 77469.0,
+        "low": 77392.0,
+        "close": 77430.0,
+        "volume": 50.26752
+      },
+      {
+        "timeMs": 1787557800000,
+        "open": 77430.0,
+        "high": 77466.0,
+        "low": 77333.0,
+        "close": 77410.0,
+        "volume": 39.42781
+      },
+      {
+        "timeMs": 1787558100000,
+        "open": 77410.0,
+        "high": 77411.0,
+        "low": 77348.0,
+        "close": 77362.0,
+        "volume": 19.78872
+      },
+      {
+        "timeMs": 1787558400000,
+        "open": 77362.0,
+        "high": 77406.0,
+        "low": 77270.0,
+        "close": 77311.0,
+        "volume": 102.98892
+      },
+      {
+        "timeMs": 1787558700000,
+        "open": 77311.0,
+        "high": 77460.0,
+        "low": 77310.0,
+        "close": 77409.0,
+        "volume": 67.47438
+      },
+      {
+        "timeMs": 1787559000000,
+        "open": 77410.0,
+        "high": 77410.0,
+        "low": 77290.0,
+        "close": 77297.0,
+        "volume": 192.90223
+      },
+      {
+        "timeMs": 1787559300000,
+        "open": 77297.0,
+        "high": 77298.0,
+        "low": 77100.0,
+        "close": 77174.0,
+        "volume": 636.90414
+      },
+      {
+        "timeMs": 1787559600000,
+        "open": 77172.0,
+        "high": 77196.0,
+        "low": 76986.0,
+        "close": 76986.0,
+        "volume": 190.58271
+      },
+      {
+        "timeMs": 1787559900000,
+        "open": 76986.0,
+        "high": 76997.0,
+        "low": 76862.0,
+        "close": 76952.0,
+        "volume": 180.19137
+      },
+      {
+        "timeMs": 1787560200000,
+        "open": 76952.0,
+        "high": 77108.0,
+        "low": 76946.0,
+        "close": 77067.0,
+        "volume": 210.20098
+      },
+      {
+        "timeMs": 1787560500000,
+        "open": 77067.0,
+        "high": 77152.0,
+        "low": 77061.0,
+        "close": 77150.0,
+        "volume": 48.04827
+      },
+      {
+        "timeMs": 1787560800000,
+        "open": 77151.0,
+        "high": 77183.0,
+        "low": 77102.0,
+        "close": 77183.0,
+        "volume": 102.60183
+      },
+      {
+        "timeMs": 1787561100000,
+        "open": 77182.0,
+        "high": 77192.0,
+        "low": 77113.0,
+        "close": 77190.0,
+        "volume": 109.59709
+      },
+      {
+        "timeMs": 1787561400000,
+        "open": 77190.0,
+        "high": 77190.0,
+        "low": 77092.0,
+        "close": 77099.0,
+        "volume": 32.44152
+      },
+      {
+        "timeMs": 1787561700000,
+        "open": 77100.0,
+        "high": 77120.0,
+        "low": 77054.0,
+        "close": 77083.0,
+        "volume": 58.81108
+      },
+      {
+        "timeMs": 1787562000000,
+        "open": 77084.0,
+        "high": 77226.0,
+        "low": 77069.0,
+        "close": 77210.0,
+        "volume": 45.24953
+      },
+      {
+        "timeMs": 1787562300000,
+        "open": 77210.0,
+        "high": 77304.0,
+        "low": 77198.0,
+        "close": 77271.0,
+        "volume": 36.02707
+      },
+      {
+        "timeMs": 1787562600000,
+        "open": 77271.0,
+        "high": 77338.0,
+        "low": 77239.0,
+        "close": 77337.0,
+        "volume": 55.1871
+      },
+      {
+        "timeMs": 1787562900000,
+        "open": 77337.0,
+        "high": 77441.0,
+        "low": 77283.0,
+        "close": 77345.0,
+        "volume": 71.72977
+      },
+      {
+        "timeMs": 1787563200000,
+        "open": 77345.0,
+        "high": 77393.0,
+        "low": 77306.0,
+        "close": 77310.0,
+        "volume": 55.80347
+      },
+      {
+        "timeMs": 1787563500000,
+        "open": 77311.0,
+        "high": 77463.0,
+        "low": 77256.0,
+        "close": 77452.0,
+        "volume": 36.62484
+      },
+      {
+        "timeMs": 1787563800000,
+        "open": 77459.0,
+        "high": 77507.0,
+        "low": 77445.0,
+        "close": 77467.0,
+        "volume": 61.5526
+      },
+      {
+        "timeMs": 1787564100000,
+        "open": 77472.0,
+        "high": 77534.0,
+        "low": 77461.0,
+        "close": 77534.0,
+        "volume": 99.79239
+      },
+      {
+        "timeMs": 1787564400000,
+        "open": 77534.0,
+        "high": 77534.0,
+        "low": 77493.0,
+        "close": 77502.0,
+        "volume": 25.62737
+      },
+      {
+        "timeMs": 1787564700000,
+        "open": 77502.0,
+        "high": 77564.0,
+        "low": 77489.0,
+        "close": 77548.0,
+        "volume": 88.09309
+      },
+      {
+        "timeMs": 1787565000000,
+        "open": 77548.0,
+        "high": 77629.0,
+        "low": 77523.0,
+        "close": 77622.0,
+        "volume": 94.75771
+      },
+      {
+        "timeMs": 1787565300000,
+        "open": 77623.0,
+        "high": 77633.0,
+        "low": 77562.0,
+        "close": 77584.0,
+        "volume": 31.21768
+      },
+      {
+        "timeMs": 1787565600000,
+        "open": 77585.0,
+        "high": 77730.0,
+        "low": 77582.0,
+        "close": 77696.0,
+        "volume": 75.52734
+      }
+    ],
+    "postContextBarsAtPlacement": [
+      {
+        "timeMs": 1787565900000,
+        "open": 77696.0,
+        "high": 77706.0,
+        "low": 77695.0,
+        "close": 77696.0,
+        "volume": 0.85522
+      }
+    ],
+    "lockedForCampaign": true,
+    "researchOnly": true,
+    "candleSource": "hyperliquid_candles_snapshot",
+    "derived": {
+      "barCount": 34,
+      "capturedBarCount": 34,
+      "durationMs": 10165304,
+      "anchorOffsetMsFromLeft": 4323980,
+      "anchorOffsetPctOfSpan": 42.53665212570131,
+      "leftBoundaryVsGalkaPct": 1.2990601842347127,
+      "rightBoundaryVsGalkaPct": 1.1322883288479302,
+      "leftToAnchorMovePct": -1.2824010231408667,
+      "anchorToRightMovePct": 1.1322883288479302,
+      "upBars": 16,
+      "downBars": 18,
+      "highestHigh": 77804.0,
+      "lowestLow": 76862.0,
+      "totalCandleVolume": 3169.50224,
+      "netMovePct": -0.13881034394118696,
+      "galkaVsAnchorLowPct": -0.009225431783921323,
+      "galkaVsAnchorClosePct": -0.12617066662042875
+    },
+    "anchorPlacementMethod": "manual_horizontal_snap_to_candle",
+    "boundaryPlacementMethod": "manual_free_xy",
+    "anchorSelectedAtMs": 1787565900855,
+    "leftSelectedAtMs": 1787565905243,
+    "rightSelectedAtMs": 1787565908531,
+    "interactionModel": "persistent_relative_boundary_adjustment",
+    "candleContextEnrichedAtMs": 1787565913473
+  },
+  "captureFromPlacement": true,
+  "recordingStartBasis": "manual_galka_structure_locked",
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-24T10:13:52.345Z"
+}

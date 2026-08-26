@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "HL-ETH-1787592036246-cd77c4",
+  "symbol": "ETH",
+  "finalizedAt": "2026-08-24T18:26:43.997Z",
+  "storagePolicy": {
+    "raw": "local-only by default because L2 snapshots make Git history very large",
+    "github": "compact metadata/events/footprint/manifest only",
+    "parquet": "materialize from raw JSONL later on a host with a Parquet writer"
+  },
+  "files": [
+    {
+      "name": "metadata.json",
+      "bytes": 28073,
+      "sha256": "c32d6bba3e67cdd9b04eb2431166abbf03e09934839929c4ad5e36e8a96877e4",
+      "gitSync": true
+    },
+    {
+      "name": "events.jsonl",
+      "bytes": 1249,
+      "sha256": "7faacbcd73991035e0cd372c116f35e5b5d0bf354387bb3fde7cf83e1f211f7a",
+      "gitSync": true
+    },
+    {
+      "name": "trades.raw.jsonl",
+      "bytes": 9922225,
+      "sha256": "1d05508ee2574da533772290227085d2a4f031a13d33ff607f2b7c5db8cf9ee4",
+      "gitSync": false
+    },
+    {
+      "name": "orderbook.raw.jsonl",
+      "bytes": 1314456,
+      "sha256": "e3a5362d5d6ced7b5fbdde3a0369807d8501473e9b6a2291d9b7fe8c2e1941ed",
+      "gitSync": false
+    },
+    {
+      "name": "features.jsonl",
+      "bytes": 137679634,
+      "sha256": "9f147160c6b7ad0da4fc1f2d80ede901a43b20e8b590709e5eba19520e2a0b55",
+      "gitSync": false
+    },
+    {
+      "name": "footprint.json",
+      "bytes": 114984,
+      "sha256": "7e4c17a107a09939fefe0361141cc6bb0c28fbebb8fbd68d1e95231cf8563abd",
+      "gitSync": true
+    }
+  ]
+}

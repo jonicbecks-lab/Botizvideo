@@ -6,16 +6,16 @@
   "galkaLevel": 76673.22504940529,
   "campaignActivatedAt": "2026-08-24T05:24:19Z",
   "campaignActivatedAtMs": 1787549059536,
-  "status": "recording",
+  "status": "completed",
   "recordingStartedAt": "2026-08-24T05:24:19Z",
-  "recordingStoppedAt": null,
+  "recordingStoppedAt": "2026-08-24T09:03:18.183Z",
   "crossedBelowGalka": null,
   "returnToGalka": null,
-  "campaignCompletedAt": null,
-  "campaignCompletedAtMs": 0,
+  "campaignCompletedAt": "2026-08-24T09:03:18Z",
+  "campaignCompletedAtMs": 1787562198000,
   "maxDeviationBelowGalkaPct": 0.0,
-  "minimumObservedPrice": 76874.0,
-  "maximumObservedPrice": 77526.0,
+  "minimumObservedPrice": 76862.0,
+  "maximumObservedPrice": 77859.0,
   "levels": [
     {
       "index": 1,
@@ -130,7 +130,23 @@
       "status": "resting"
     }
   ],
-  "executions": [],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1787547232325,
+      "localReceiveTimestampNs": 1787555954193324726,
+      "ownerKind": null,
+      "ownerLevel": null,
+      "oid": 524716655594,
+      "cloid": "0x0082417b599c4d618ddf6a9068013dc9",
+      "side": "A",
+      "price": 76887.0,
+      "size": 0.01469,
+      "fee": 0.16942,
+      "closedPnl": 1.68935,
+      "hash": "0x22d2108cd4d6f7e6244b0442d9411302050e00726fda16b8c69abbdf93dad1d0"
+    }
+  ],
   "actualRealizedPnl": 0.0,
   "fees": 0.0,
   "researchOnly": true,
@@ -205,7 +221,7 @@
     "baselineSeconds": 60,
     "footprintPriceStep": 0.0
   },
-  "updatedAt": "2026-08-24T06:44:36.436Z",
+  "updatedAt": "2026-08-24T09:03:37.520Z",
   "galkaStructure": {
     "schemaVersion": 2,
     "selectionMethod": "manual_crosshair_structure_v3",
@@ -695,6 +711,7 @@
   },
   "captureFromPlacement": true,
   "recordingStartBasis": "manual_galka_structure_locked",
-  "campaignStatus": "waiting",
-  "lastCampaignUpdateReason": "fills_updated"
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-08-24T09:03:36.383Z"
 }
