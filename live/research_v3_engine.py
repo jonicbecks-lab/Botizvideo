@@ -16,7 +16,63 @@ def _positive_int(value: Any) -> int:
 
 
 class V3ClusterAwareGalkaLiveEngine(ClusterAwareGalkaLiveEngine):
-    """Accept V3 research geometry and protect trading during controlled updates."""
+    """Accept V3 research geometry, expose read-only observation and protect LIVE writes."""
+
+    def __init__(self, config: Any, gateway: Any):
+        self.agent_readonly_api = None
+        self._agent_api_error: str | None = None
+        super().__init__(config, gateway)
+
+    def start(self) -> None:
+        super().start()
+        try:
+            from .agent_api import AgentReadOnlyAPIServer
+
+            api = AgentReadOnlyAPIServer(self)
+            api.start()
+            self.agent_readonly_api = api
+            self._agent_api_error = None
+            with self.lock:
+                self._event_locked(
+                    "research",
+                    f"Read-only Agent API запущен на отдельном порту {api.port}",
+                    port=api.port,
+                    readOnly=True,
+                )
+                self._save_locked()
+        except Exception as exc:
+            # Observation must never block trading startup. The browser Control
+            # Center can surface this error while GALKA continues in its normal
+            # fail-closed trading mode.
+            self._agent_api_error = f"{type(exc).__name__}: {exc}"
+            with self.lock:
+                self._event_locked(
+                    "research",
+                    f"Read-only Agent API не запущен: {self._agent_api_error}",
+                    readOnly=True,
+                )
+                self._save_locked()
+
+    def stop(self) -> None:
+        api = self.agent_readonly_api
+        if api is not None:
+            try:
+                api.stop()
+            except Exception:
+                pass
+        self.agent_readonly_api = None
+        super().stop()
+
+    def agent_api_status(self, *, include_token: bool = False) -> dict[str, Any]:
+        api = self.agent_readonly_api
+        if api is not None:
+            return api.status(include_token=include_token)
+        return {
+            "enabled": True,
+            "running": False,
+            "readOnly": True,
+            "error": self._agent_api_error or "Agent API has not started yet",
+        }
 
     def _require_live_writes(self) -> None:
         super()._require_live_writes()
