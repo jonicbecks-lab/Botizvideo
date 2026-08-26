@@ -68,3 +68,12 @@
 .agent-api-actions button:disabled {
   opacity: 0.45;
 }
+
+.agent-api-copy-fallback {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
