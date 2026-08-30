@@ -11,7 +11,7 @@ from .live_ladder import estimated_target_pnl, estimated_target_pnl_mixed, weigh
 
 SIZING_POLICY = "whole_dollars_with_entry_fee_reserve_v1"
 TECHNICAL_BUFFER_USD = 0.05
-_MIN_NOTIONAL = 80.0
+_MIN_NOTIONAL = 40.0
 _EPSILON = 1e-9
 
 _ORIGINAL_NEW_CAMPAIGN = SafeCompatibleGalkaLiveEngine._new_campaign
@@ -85,7 +85,7 @@ def _preview(self: SafeCompatibleGalkaLiveEngine, coin: str, galka_price: float)
     if whole_dollar_ceiling < minimum_whole_dollars:
         raise LiveEngineError(
             f"Недостаточно свободной маржи для новой GALKA: доступно ${available_margin:.2f}; "
-            f"для 8 лимиток нужно минимум около ${minimum_whole_dollars:.0f} маржи."
+            f"для 4 активных лимиток нужно минимум около ${minimum_whole_dollars:.0f} маржи."
         )
 
     selected: dict[str, Any] | None = None
