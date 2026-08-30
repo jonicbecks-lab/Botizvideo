@@ -172,6 +172,24 @@ class HyperliquidGatewayTests(unittest.TestCase):
         with self.assertRaisesRegex(GatewayError, "not filled immediately"):
             gateway.emergency_market_close("BTC")
 
+    def test_emergency_close_passes_explicit_size_and_bounded_slippage(self):
+        gateway = self.make_gateway()
+        calls = []
+
+        def market_close(*args, **kwargs):
+            calls.append((args, kwargs))
+            return {
+                "status": "ok",
+                "response": {"type": "order", "data": {"statuses": [{"filled": {"oid": 42}}]}},
+            }
+
+        gateway.exchange.market_close = market_close
+        gateway.emergency_market_close("BTC", size=0.002, slippage=0.05)
+        self.assertEqual(calls[0][1]["sz"], 0.002)
+        self.assertEqual(calls[0][1]["slippage"], 0.05)
+        with self.assertRaisesRegex(GatewayError, "slippage"):
+            gateway.emergency_market_close("BTC", size=0.002, slippage=0.11)
+
     def test_order_response_surfaces_embedded_error(self):
         gateway = self.make_gateway()
         response = {

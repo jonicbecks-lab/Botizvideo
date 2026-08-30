@@ -9,16 +9,34 @@
   <title>Galka · Hyperliquid LIVE</title>
   <link rel="icon" href="icons/galka-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="live.css?v=2">
-  <link rel="stylesheet" href="live-chart.css?v=1">
-  <script src="vendor/galka-chart.js?v=1"></script>
+  <link rel="stylesheet" href="live-chart.css?v=3">
+  <link rel="stylesheet" href="vertical-price-pan.css?v=1">
+  <link rel="stylesheet" href="auto-queue.css?v=1">
+  <link rel="stylesheet" href="cluster-volume.css?v=1">
+  <link rel="stylesheet" href="galka-structure-draft.css?v=1">
+  <link rel="stylesheet" href="galka-updater.css?v=1">
+  <link rel="stylesheet" href="control-center.css?v=1">
+  <link rel="stylesheet" href="galka-agent-api.css?v=1">
+  <script src="vendor/galka-chart.js?v=3"></script>
+  <script src="vendor/galka-future-pan.js?v=1"></script>
+  <script src="vendor/galka-native-plot-pan.js?v=4"></script>
+  <script src="vendor/galka-visibility-recovery.js?v=3"></script>
+  <script src="vendor/galka-resume-refresh.js?v=2"></script>
+  <script src="vendor/galka-dex-actions.js?v=3"></script>
+  <script src="vendor/galka-touch-actions.js?v=5"></script>
+  <script src="vendor/galka-live-session.js?v=1"></script>
+  <script src="vendor/galka-safe-notification.js?v=1"></script>
+  <script src="vendor/galka-request-priority.js?v=1"></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">G</span><span><b>GALKA</b><small>HYPERLIQUID</small></span></div>
       <div class="market-controls">
-        <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>SOL</option></select>
-        <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option>5m</option><option selected>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+        <select id="symbolSelect" aria-label="Монета"><option>BTC</option><option>ETH</option><option>BNB</option></select>
+        <select id="intervalSelect" aria-label="Таймфрейм"><option>1m</option><option>3m</option><option selected>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
+        <button class="cluster-toggle" id="chartRefreshButton" type="button" aria-label="Обновить график до последних свечей" title="Обновить до последних свечей">↻</button>
+        <button class="cluster-toggle" id="clusterToggle" type="button" aria-pressed="false" title="Кластеры объёма; удерживай для настроек">CL</button>
       </div>
       <div class="ticker" id="ticker">—</div>
       <a class="mode-link" href="pro.html">PAPER</a>
@@ -27,7 +45,12 @@
 
     <main class="workspace">
       <div id="chart"></div>
-      <div class="watermark" id="watermark">BTC · 15m · HYPERLIQUID</div>
+      <div class="watermark" id="watermark">BTC · 5m · HYPERLIQUID</div>
+      <button class="crosshair-galka-action hidden" id="crosshairGalkaAction" type="button">Поставить GALKA</button>
+      <div class="auto-queue-controls" aria-label="Следующая GALKA">
+        <button class="auto-queue-button" id="autoQueueButton" type="button" disabled>AUTO</button>
+        <button class="auto-queue-clear hidden" id="autoQueueClear" type="button" aria-label="Удалить AUTO GALKA">×</button>
+      </div>
       <button class="details-button" id="detailsButton" type="button">Счёт</button>
       <div class="loading" id="loading">Загрузка Hyperliquid…</div>
       <div class="toast hidden" id="toast"></div>
@@ -36,7 +59,7 @@
     <section class="tradebar" aria-label="Запуск реальной GALKA">
       <button id="campaignStatus" class="campaign-status idle" type="button">BTC · нет GALKA</button>
       <input id="galkaInput" type="number" inputmode="decimal" step="any" placeholder="Цена GALKA" aria-label="Цена GALKA">
-      <button id="previewButton" class="launch" type="button">Проверить</button>
+      <button id="previewButton" class="launch" type="button">Поставить GALKA</button>
     </section>
   </div>
 
@@ -49,6 +72,7 @@
       <span><small>Маржа</small><b id="marginUsed">—</b></span>
       <span><small>Режим</small><b id="riskMode">—</b></span>
     </div>
+    <div class="control-center-entry"><button id="openControlCenter" type="button">Центр управления проектом</button></div>
     <div class="section-head"><b>Текущая GALKA</b></div>
     <div id="campaignDetails" class="campaign-details">Нет активной GALKA.</div>
     <div class="drawer-actions">
@@ -58,6 +82,37 @@
     <div class="section-head"><b>Последние события</b><button id="reconcileState" type="button">Сверить</button><button id="enableNotifications" type="button">Оповещения</button></div>
     <div id="events" class="events"></div>
   </aside>
+
+  <section id="controlCenterPanel" class="control-center-panel hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="controlCenterTitle" tabindex="-1">
+    <div class="control-center-shell">
+      <header class="control-center-head">
+        <div><small>GALKA LIVE · КАРТА ПРОЕКТА</small><b id="controlCenterTitle">Центр управления</b></div>
+        <button id="closeControlCenter" class="control-center-close" type="button" aria-label="Закрыть Центр управления">×</button>
+      </header>
+      <div id="controlCenterContent"><div class="control-center-loading">Загрузка реального состояния проекта…</div></div>
+    </div>
+  </section>
+
+  <div class="cluster-settings-backdrop hidden" id="clusterSettingsBackdrop">
+    <section class="cluster-settings" role="dialog" aria-modal="true" aria-labelledby="clusterSettingsTitle">
+      <div class="cluster-settings-head">
+        <div><small>ИНДИКАТОР</small><b id="clusterSettingsTitle">Кластерный объём</b></div>
+        <button id="clusterSettingsClose" type="button" aria-label="Закрыть настройки">×</button>
+      </div>
+      <div class="cluster-setting-grid">
+        <label class="cluster-setting"><span>Что измеряем</span><select id="clusterMode"><option value="total">Total volume</option><option value="buy">Aggressive buy</option><option value="sell">Aggressive sell</option><option value="delta">|Delta|</option></select></label>
+        <label class="cluster-setting"><span>Цена × время</span><select id="clusterAggregation"><option value="auto">Auto</option><option value="fine">Fine</option><option value="normal">Normal</option><option value="coarse">Coarse</option></select></label>
+        <div class="cluster-setting"><span>Авто-фильтр</span><button id="clusterAutoThreshold" type="button">AUTO ✓</button></div>
+        <label class="cluster-setting"><span>Размер пузырей</span><input id="clusterBubbleScale" type="range" min="0.6" max="1.6" step="0.1" value="1"></label>
+      </div>
+      <label class="cluster-range">
+        <span class="cluster-range-head"><small>Минимальный объём, USD notional</small><b id="clusterThresholdLabel">—</b></span>
+        <input id="clusterThreshold" type="range" min="0" max="100" step="1" value="50">
+      </label>
+      <div class="cluster-stats" id="clusterStats">Подключение…</div>
+      <div class="cluster-hint">Размер круга = объём. Цвет = направление delta. Двигай фильтр вправо, чтобы убирать шум. Удерживай CL для повторного открытия настроек.</div>
+    </section>
+  </div>
 
   <div class="modal hidden" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
     <div class="modal-card">
@@ -74,6 +129,27 @@
     </div>
   </div>
 
-  <script type="module" src="live.js?v=2"></script>
+  <!-- Cluster layer loads before trade markers so entry/exit markers stay on top. -->
+  <script src="vendor/galka-cluster-volume.js?v=1"></script>
+  <script src="vendor/galka-cluster-history-range.js?v=2"></script>
+  <!-- Must load after galka-future-pan: that patch replaces chart.draw(). -->
+  <script src="vendor/galka-trade-markers-v2.js?v=3"></script>
+  <script src="vendor/galka-ui-performance.js?v=1"></script>
+  <script src="vendor/galka-pnl-log.js?v=1"></script>
+  <script src="vendor/galka-sizing-breakdown.js?v=1"></script>
+  <script src="vendor/galka-live-ui-bridge.js?v=1"></script>
+  <script src="vendor/galka-chart-refresh.js?v=1"></script>
+  <script src="vendor/galka-structure-draft.js?v=1"></script>
+  <script src="vendor/galka-structure-guard.js?v=1"></script>
+  <script src="vendor/galka-structure-relative-drag.js?v=1"></script>
+  <script src="vendor/galka-structure-v3.js?v=2"></script>
+  <script src="vendor/galka-updater.js?v=1"></script>
+  <script src="vendor/galka-agent-api.js?v=1"></script>
+  <script src="vendor/galka-control-center.js?v=1"></script>
+  <script type="module" src="live.js?v=5"></script>
+  <script type="module" src="vendor/galka-auto-queue.js?v=1"></script>
+  <script type="module" src="vendor/galka-startup-defaults.js?v=3"></script>
+  <script type="module" src="vendor/galka-quick-cancel.js?v=2"></script>
+  <script type="module" src="vendor/galka-near-market-exit.js?v=1"></script>
 </body>
 </html>

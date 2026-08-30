@@ -6,7 +6,9 @@ from math import floor, log10
 from typing import Iterable
 
 MANUAL_DEPTHS = (0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00)
-MANUAL_WEIGHTS = (0.42, 0.22, 0.12, 0.08, 0.06, 0.04, 0.03, 0.03)
+# LIVE capital allocation: L1 25%, L2 32%, L3 25%, L4 18%.
+# L5-L8 remain reference depths on the chart and must not create exchange orders.
+MANUAL_WEIGHTS = (0.25, 0.32, 0.25, 0.18, 0.0, 0.0, 0.0, 0.0)
 MIN_ORDER_NOTIONAL = Decimal("10")
 
 
@@ -63,7 +65,7 @@ def _allocate_targets(total: Decimal, raw: list[Decimal], minimums: list[Decimal
     if sum(minimums) > total:
         required = sum(minimums)
         raise ValueError(
-            f"Eight Hyperliquid orders require at least ${required:.2f} notional at current prices; "
+            f"Active Hyperliquid orders require at least ${required:.2f} notional at current prices; "
             f"requested ${total:.2f}"
         )
 
@@ -97,29 +99,37 @@ def build_ladder(galka_price: float, total_notional: float, sz_decimals: int) ->
     if abs(sum(MANUAL_WEIGHTS) - 1.0) > 1e-9:
         raise RuntimeError("manual ladder weights must sum to one")
 
+    active_rows = [
+        (index, depth_pct, weight)
+        for index, (depth_pct, weight) in enumerate(zip(MANUAL_DEPTHS, MANUAL_WEIGHTS), start=1)
+        if weight > 0
+    ]
+    if not active_rows:
+        raise RuntimeError("manual ladder has no active order levels")
+
     prices = [
         _decimal(round_perp_price(galka_price * (1 - depth_pct / 100), sz_decimals))
-        for depth_pct in MANUAL_DEPTHS
+        for _, depth_pct, _ in active_rows
     ]
     minimum_sizes = [_minimum_size(price, sz_decimals) for price in prices]
     minimum_notionals = [price * size for price, size in zip(prices, minimum_sizes)]
     total = _decimal(total_notional)
-    raw_targets = [total * _decimal(weight) for weight in MANUAL_WEIGHTS]
+    raw_targets = [total * _decimal(weight) for _, _, weight in active_rows]
     targets = _allocate_targets(total, raw_targets, minimum_notionals)
 
     levels: list[LadderLevel] = []
     quantum = Decimal("1").scaleb(-int(sz_decimals))
-    for index, (depth_pct, weight, price, target, minimum_size) in enumerate(
-        zip(MANUAL_DEPTHS, MANUAL_WEIGHTS, prices, targets, minimum_sizes), start=1
+    for (level_index, depth_pct, weight), price, target, minimum_size in zip(
+        active_rows, prices, targets, minimum_sizes
     ):
         size = (target / price).quantize(quantum, rounding=ROUND_DOWN)
         size = max(size, minimum_size)
         actual_notional = price * size
         if actual_notional < MIN_ORDER_NOTIONAL:
-            raise ValueError(f"L{index} notional {actual_notional:.4f} is below Hyperliquid minimum $10")
+            raise ValueError(f"L{level_index} notional {actual_notional:.4f} is below Hyperliquid minimum $10")
         levels.append(
             LadderLevel(
-                index=index,
+                index=level_index,
                 depth_pct=depth_pct,
                 weight=weight,
                 price=float(price),

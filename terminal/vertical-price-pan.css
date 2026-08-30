@@ -1,0 +1,24 @@
+.vertical-price-reset {
+  position: absolute;
+  right: 10px;
+  top: 66px;
+  z-index: 8;
+  min-width: 68px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid #3a4658;
+  border-radius: 10px;
+  background: rgba(16, 22, 31, 0.92);
+  color: #d8dee9;
+  font: 600 12px/1 system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  touch-action: manipulation;
+}
+
+.vertical-price-reset:active {
+  transform: scale(0.97);
+}
+
+.vertical-price-reset.hidden {
+  display: none;
+}

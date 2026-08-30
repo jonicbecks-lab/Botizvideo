@@ -15,14 +15,13 @@ from .config import ConfigError, load_config
 from .engine import LiveEngineError
 from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
 from .hyperliquid_gateway import GatewayError
+from .trade_history import build_chart_history
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TERMINAL_ROOT = REPO_ROOT / "terminal"
 
 
 class LiveProcessLock:
-    """Hold a non-blocking OS lock for the lifetime of one LIVE server."""
-
     def __init__(self, data_dir: Path):
         self.path = data_dir / "server.lock"
         self._descriptor: int | None = None
@@ -42,9 +41,7 @@ class LiveProcessLock:
                 os.close(descriptor)
             except (OSError, UnboundLocalError):
                 pass
-            raise LiveEngineError(
-                "Another Galka LIVE server already owns this state directory"
-            ) from exc
+            raise LiveEngineError("Another Galka LIVE server already owns this state directory") from exc
         except OSError as exc:
             try:
                 os.close(descriptor)
@@ -82,12 +79,7 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         sys.stdout.flush()
 
     def end_headers(self) -> None:
-        self.send_header(
-            "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self'; object-src 'none'; "
-            "base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
-        )
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
@@ -104,18 +96,11 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _allowed_origins(self) -> set[str]:
-        return {
-            f"http://127.0.0.1:{self.server_port}",
-            f"http://localhost:{self.server_port}",
-        }
+        return {f"http://127.0.0.1:{self.server_port}", f"http://localhost:{self.server_port}"}
 
     def _authorized_api_request(self) -> bool:
         host = (self.headers.get("Host") or "").lower()
-        allowed_hosts = {
-            f"127.0.0.1:{self.server_port}",
-            f"localhost:{self.server_port}",
-        }
-        if host not in allowed_hosts:
+        if host not in {f"127.0.0.1:{self.server_port}", f"localhost:{self.server_port}"}:
             return False
         origin = self.headers.get("Origin")
         if origin and origin not in self._allowed_origins():
@@ -150,13 +135,23 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             raise LiveEngineError("Ожидается JSON-объект")
         return data
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
             if not self._require_api_auth():
                 return
             if parsed.path == "/api/live/status":
                 return self._handle(lambda: self.engine.status())
+            if parsed.path == "/api/live/history":
+                query = parse_qs(parsed.query)
+                coin = query.get("coin", [""])[0]
+                try:
+                    limit = int(query.get("limit", ["24"])[0])
+                except ValueError:
+                    return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
+                return self._handle(
+                    lambda: build_chart_history(self.engine.config.data_dir, coin, limit)
+                )
             if parsed.path == "/api/live/candles":
                 query = parse_qs(parsed.query)
                 coin = query.get("coin", [""])[0]
@@ -167,7 +162,6 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
                     return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
                 return self._handle(lambda: self.engine.candles(coin, interval, limit))
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
-
         if parsed.path == "/":
             self.send_response(HTTPStatus.FOUND)
             self.send_header("Location", "/terminal/live.html")
@@ -176,16 +170,14 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         if not parsed.path.startswith("/terminal/"):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        # The static file root is terminal/. Strip the public /terminal prefix.
         original = self.path
-        suffix = original[len("/terminal"):]
-        self.path = suffix or "/live.html"
+        self.path = original[len("/terminal"):] or "/live.html"
         try:
             return super().do_GET()
         finally:
             self.path = original
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         parsed = urlparse(self.path)
         if not parsed.path.startswith("/api/"):
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
@@ -197,30 +189,17 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
 
         if parsed.path == "/api/live/preview":
-            return self._handle(
-                lambda: self.engine.preview(str(data.get("coin", "")), float(data.get("galkaPrice", 0)))
-            )
+            return self._handle(lambda: self.engine.preview(str(data.get("coin", "")), float(data.get("galkaPrice", 0))))
         if parsed.path == "/api/live/campaign":
-            return self._handle(
-                lambda: self.engine.create_campaign(
-                    str(data.get("coin", "")),
-                    float(data.get("galkaPrice", 0)),
-                    str(data.get("confirmation", "")),
-                )
-            )
+            return self._handle(lambda: self.engine.create_campaign(str(data.get("coin", "")), float(data.get("galkaPrice", 0)), str(data.get("confirmation", ""))))
         if parsed.path == "/api/live/cancel":
             return self._handle(lambda: self.engine.cancel_waiting_campaign(str(data.get("coin", ""))))
+        if parsed.path == "/api/live/close-near-market":
+            return self._handle(lambda: self.engine.close_near_market(str(data.get("coin", "")), str(data.get("confirmation", ""))))
         if parsed.path == "/api/live/emergency":
-            return self._handle(
-                lambda: self.engine.emergency_close(
-                    str(data.get("coin", "")),
-                    str(data.get("confirmation", "")),
-                )
-            )
+            return self._handle(lambda: self.engine.emergency_close(str(data.get("coin", "")), str(data.get("confirmation", ""))))
         if parsed.path == "/api/live/reconcile":
-            return self._handle(
-                lambda: self.engine.reconcile_system(str(data.get("confirmation", "")))
-            )
+            return self._handle(lambda: self.engine.reconcile_system(str(data.get("confirmation", ""))))
         return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
     def _handle(self, action) -> None:
@@ -229,16 +208,16 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             self._json(HTTPStatus.OK, {"ok": True, "data": result})
         except (LiveEngineError, GatewayError, ValueError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
-        except Exception as exc:  # do not expose secrets or tracebacks to the browser
+        except Exception as exc:
             sys.stderr.write(f"LIVE API error: {type(exc).__name__}\n")
             sys.stderr.flush()
             self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": "Внутренняя ошибка LIVE-сервера"})
 
 
 def main() -> int:
-    lock: LiveProcessLock | None = None
-    engine: CompatibleGalkaLiveEngine | None = None
-    server: ThreadingHTTPServer | None = None
+    lock = None
+    engine = None
+    server = None
     try:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
@@ -268,10 +247,7 @@ def main() -> int:
     print(f"Galka LIVE URL: {session_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
-    print(
-        f"Плечо: {config.leverage}x isolated · номинал одной GALKA: ${config.total_notional:.2f}",
-        flush=True,
-    )
+    print(f"Плечо: {config.leverage}x isolated · номинал одной GALKA: ${config.total_notional:.2f}", flush=True)
     print("Секретный ключ загружен из локального файла и не передаётся браузеру.", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
