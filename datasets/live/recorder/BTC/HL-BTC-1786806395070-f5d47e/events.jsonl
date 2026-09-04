@@ -1,3 +1,0 @@
-{"event":"galka_event","recordedAt":"2026-08-15T15:06:37.554Z","localReceiveTimestampNs":1786806397554522929,"type":"live","message":"BTC: реальная GALKA 62924.3, одним batch выставлено 8 входов и 8 TP","meta":{"campaignId":"HL-BTC-1786806395070-f5d47e","actualNotional":2436.38008,"batchOrders":16}}
-{"event":"galka_event","recordedAt":"2026-08-16T13:24:56.673Z","localReceiveTimestampNs":1786886696673822031,"type":"live","message":"BTC: GALKA быстро отменена без позиции","meta":{"campaignId":"HL-BTC-1786806395070-f5d47e","fastCancel":true,"entryOrders":8,"targetOrders":0}}
-{"event":"campaign_completed","recordedAt":"2026-08-16T13:24:56.675Z","campaignStatus":"canceled","actualRealizedPnl":0.0,"fees":0.0}
