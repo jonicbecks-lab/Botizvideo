@@ -5,6 +5,10 @@ const html = fs.readFileSync('terminal/live.html', 'utf8');
 const css = fs.readFileSync('terminal/live.css', 'utf8');
 const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
+const memHtml = fs.readFileSync('terminal/mem.html', 'utf8');
+const memCss = fs.readFileSync('terminal/mem.css', 'utf8');
+const memJs = fs.readFileSync('terminal/mem.js', 'utf8');
+const memChartJs = fs.readFileSync('terminal/mem-chart.js', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
@@ -33,15 +37,24 @@ const checks = [
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js)],
+  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + memHtml + memCss + memJs + memChartJs)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
   ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
+  ['MEM chart exists', memHtml.includes('id="memChart"') && memHtml.includes('vendor/lightweight-charts.standalone.production.js')],
+  ['MEM chart workflow', memHtml.includes('id="newGalka"') && memHtml.includes('id="chartAddUpper"') && memHtml.includes('id="chartDone"')],
+  ['MEM chart candle endpoint', server.includes('/api/mem/candles') && memChartJs.includes('/api/mem/candles')],
+  ['MEM chart session auth', memChartJs.includes('X-Galka-Session')],
+  ['MEM anchor-left-right-upper sequence', memChartJs.includes("runtime.stage = 'anchor'") && memChartJs.includes("runtime.stage = 'left'") && memChartJs.includes("runtime.stage = 'right'") && memChartJs.includes("runtime.stage = 'upper'")],
+  ['MEM automatic lower ladder', memChartJs.includes('[0.98, 0.96, 0.94, 0.92]') && memChartJs.includes("els.preview?.click()")],
+  ['MEM chart mobile layout', memCss.includes('.mem-chart') && memCss.includes('.chart-actions')],
 ];
 
 for (const [name, ok] of checks) {
   if (!ok) throw new Error(`Live terminal check failed: ${name}`);
 }
 execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/mem.js'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['--check', 'terminal/mem-chart.js'], { stdio: 'inherit' });
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
