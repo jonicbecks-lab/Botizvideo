@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#090c12">
   <meta name="referrer" content="no-referrer">
   <title>GALKA MEM · Hyperliquid LIVE</title>
-  <link rel="stylesheet" href="mem.css?v=2">
+  <link rel="stylesheet" href="mem.css?v=3">
 </head>
 <body>
   <main class="shell">
@@ -25,12 +25,15 @@
     <section class="card chart-card">
       <div class="section-title chart-title">
         <div><b>Поставить GALKA на графике</b><small id="chartSymbol">1m · Hyperliquid</small></div>
-        <select id="chartInterval" class="interval-select" aria-label="Таймфрейм">
-          <option value="1m" selected>1m</option>
-          <option value="3m">3m</option>
-          <option value="5m">5m</option>
-          <option value="15m">15m</option>
-        </select>
+        <div class="chart-selects">
+          <select id="coinSelect" class="coin-select" aria-label="Монета"></select>
+          <select id="chartInterval" class="interval-select" aria-label="Таймфрейм">
+            <option value="1m" selected>1m</option>
+            <option value="3m">3m</option>
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+          </select>
+        </div>
       </div>
       <div id="memChart" class="mem-chart" aria-label="График GALKA MEM"></div>
       <div class="chart-step">
@@ -52,7 +55,6 @@
     <section class="card form-card">
       <h2>Параметры кампании</h2>
       <div class="grid two">
-        <label>Монета<select id="coinSelect"></select></label>
         <label>Цена сейчас<input id="currentPrice" disabled value="—"></label>
         <label>GALKA<input id="galkaPrice" type="number" inputmode="decimal" step="any" placeholder="выбери на графике"></label>
         <label>Маржа $<input id="campaignMargin" type="number" inputmode="decimal" min="1" max="100" step="1" value="100"></label>
