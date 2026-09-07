@@ -49,6 +49,11 @@ const checks = [
   ['MEM anchor-left-right-upper sequence', memChartJs.includes("runtime.stage = 'anchor'") && memChartJs.includes("runtime.stage = 'left'") && memChartJs.includes("runtime.stage = 'right'") && memChartJs.includes("runtime.stage = 'upper'")],
   ['MEM automatic lower ladder', memChartJs.includes('[0.98, 0.96, 0.94, 0.92]') && memChartJs.includes("els.preview?.click()")],
   ['MEM chart mobile layout', memCss.includes('.mem-chart') && memCss.includes('.chart-actions')],
+  ['MEM Galka Pro touch gestures', memChartJs.includes('horzTouchDrag: true') && memChartJs.includes('vertTouchDrag: true') && memChartJs.includes('pinch: true')],
+  ['MEM drawing overlay', memHtml.includes('id="memDrawingCanvas"') && memCss.includes('.mem-drawing-canvas.drawing') && memChartJs.includes("addEventListener('pointerdown', handlePickPointer)")],
+  ['MEM cursor crosshair GALKA tools', memHtml.includes('id="chartCursorTool"') && memHtml.includes('id="chartCrosshairTool"') && memHtml.includes('id="chartGalkaTool"')],
+  ['MEM left right chronology gate', memChartJs.includes('point.time < runtime.anchor.time') && memChartJs.includes('point.time > runtime.anchor.time')],
+  ['MEM GALKA shape overlay', memChartJs.includes("drawHandle(ctx, anchor, COLORS.galka, 'G')") && memChartJs.includes('ctx.lineTo(anchor.x, anchor.y)')],
 ];
 
 for (const [name, ok] of checks) {
