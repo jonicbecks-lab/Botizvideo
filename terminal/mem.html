@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#090c12">
   <meta name="referrer" content="no-referrer">
   <title>GALKA MEM · Hyperliquid LIVE</title>
-  <link rel="stylesheet" href="mem.css?v=1">
+  <link rel="stylesheet" href="mem.css?v=2">
 </head>
 <body>
   <main class="shell">
@@ -22,21 +22,48 @@
       <div><small>SAFE</small><b id="safeMode">—</b></div>
     </section>
 
+    <section class="card chart-card">
+      <div class="section-title chart-title">
+        <div><b>Поставить GALKA на графике</b><small id="chartSymbol">1m · Hyperliquid</small></div>
+        <select id="chartInterval" class="interval-select" aria-label="Таймфрейм">
+          <option value="1m" selected>1m</option>
+          <option value="3m">3m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+        </select>
+      </div>
+      <div id="memChart" class="mem-chart" aria-label="График GALKA MEM"></div>
+      <div class="chart-step">
+        <span id="chartStepBadge" class="badge">ГОТОВ</span>
+        <b id="chartInstruction">Нажми «Новая GALKA», затем отмечай точки пальцем прямо на графике.</b>
+      </div>
+      <div id="chartSelections" class="chart-selections">
+        <span>Якорь —</span><span>Левая —</span><span>Правая —</span><span>Верх —</span>
+      </div>
+      <div class="chart-actions">
+        <button id="newGalka" class="primary compact" type="button">Новая GALKA</button>
+        <button id="chartAddUpper" type="button" disabled>+ ещё лимитка</button>
+        <button id="chartDone" type="button" disabled>Готово</button>
+        <button id="chartReset" type="button">Сброс</button>
+      </div>
+      <p class="rule">Порядок: якорь = уровень GALKA → левая часть → правая часть → верхняя лимитка. Нужна ещё одна верхняя — нажми «+ ещё лимитка». После «Готово» нижние −2 / −4 / −6 / −8% добавятся автоматически, затем откроется safety-preview.</p>
+    </section>
+
     <section class="card form-card">
-      <h2>Новая GALKA</h2>
+      <h2>Параметры кампании</h2>
       <div class="grid two">
         <label>Монета<select id="coinSelect"></select></label>
         <label>Цена сейчас<input id="currentPrice" disabled value="—"></label>
-        <label>GALKA<input id="galkaPrice" type="number" inputmode="decimal" step="any" placeholder="0.1866"></label>
+        <label>GALKA<input id="galkaPrice" type="number" inputmode="decimal" step="any" placeholder="выбери на графике"></label>
         <label>Маржа $<input id="campaignMargin" type="number" inputmode="decimal" min="1" max="100" step="1" value="100"></label>
         <label>Плечо<input id="leverage" type="number" inputmode="numeric" min="1" step="1" value="3"></label>
         <label>Max рынка<input id="maxLeverage" disabled value="—"></label>
       </div>
 
-      <div class="section-title"><b>Верхняя корзина</b><small>GALKA … максимум +5%</small></div>
+      <div class="section-title"><b>Верхняя корзина</b><small>выбор на графике или ручной ввод · GALKA … +5%</small></div>
       <div id="upperLevels" class="upper-levels"></div>
       <div class="row-actions">
-        <button id="addUpper" type="button">+ уровень</button>
+        <button id="addUpper" type="button">+ уровень вручную</button>
         <button id="templateUpper" type="button">GALKA / +2 / +3 / +4%</button>
       </div>
 
@@ -78,6 +105,8 @@
 
     <div id="toast" class="toast hidden"></div>
   </main>
-  <script type="module" src="mem.js?v=1"></script>
+  <script src="vendor/lightweight-charts.standalone.production.js"></script>
+  <script type="module" src="mem.js?v=2"></script>
+  <script type="module" src="mem-chart.js?v=1"></script>
 </body>
 </html>
