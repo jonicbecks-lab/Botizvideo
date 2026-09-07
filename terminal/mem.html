@@ -2,43 +2,61 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#090c12">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#080b10">
   <meta name="referrer" content="no-referrer">
   <title>GALKA MEM · Hyperliquid LIVE</title>
-  <link rel="stylesheet" href="mem.css?v=3">
+  <link rel="stylesheet" href="mem.css?v=4">
 </head>
 <body>
   <main class="shell">
-    <header class="top">
-      <div><b>GALKA MEM</b><small>HYPERLIQUID · ONE SHOT</small></div>
+    <header class="mem-topbar">
+      <div class="brand">
+        <span class="brand-mark">G</span>
+        <span class="brand-copy"><b>GALKA MEM</b><small>HYPERLIQUID</small></span>
+      </div>
+      <div class="market-controls">
+        <select id="coinSelect" aria-label="Монета"></select>
+        <select id="chartInterval" aria-label="Таймфрейм">
+          <option value="1m" selected>1m</option>
+          <option value="3m">3m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+        </select>
+      </div>
+      <div id="chartTicker" class="chart-ticker">—</div>
       <span id="liveBadge" class="badge off">LIVE OFF</span>
     </header>
 
-    <section class="card account">
-      <div><small>Аккаунт</small><b id="account">—</b></div>
-      <div><small>Свободно</small><b id="withdrawable">—</b></div>
-      <div><small>Маржа</small><b id="marginUsed">—</b></div>
-      <div><small>SAFE</small><b id="safeMode">—</b></div>
-    </section>
-
     <section class="card chart-card">
-      <div class="section-title chart-title">
-        <div><b>Поставить GALKA на графике</b><small id="chartSymbol">1m · Hyperliquid</small></div>
-        <div class="chart-selects">
-          <select id="coinSelect" class="coin-select" aria-label="Монета"></select>
-          <select id="chartInterval" class="interval-select" aria-label="Таймфрейм">
-            <option value="1m" selected>1m</option>
-            <option value="3m">3m</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-          </select>
+      <div class="chart-head">
+        <div><b>График</b><small id="chartSymbol">1m · Hyperliquid</small></div>
+        <div class="chart-head-actions">
+          <button id="chartFit" type="button">Fit</button>
+          <button id="chartLatest" type="button">Сейчас</button>
         </div>
       </div>
-      <div id="memChart" class="mem-chart" aria-label="График GALKA MEM"></div>
+
+      <div id="memChartFrame" class="mem-chart-frame">
+        <div id="memChart" class="mem-chart" aria-label="График GALKA MEM"></div>
+        <canvas id="memDrawingCanvas" class="mem-drawing-canvas" aria-label="Слой выбора GALKA"></canvas>
+
+        <div class="chart-identity" aria-hidden="true">
+          <div class="watermark">GALKA MEM</div>
+          <span>HYPERLIQUID · LIVE</span>
+        </div>
+        <div id="chartOhlc" class="chart-ohlc">O — H — L — C —</div>
+
+        <aside class="chart-tools" aria-label="Инструменты графика">
+          <button id="chartCursorTool" class="active" type="button" title="Курсор" aria-label="Курсор">⌖</button>
+          <button id="chartCrosshairTool" type="button" title="Перекрестие" aria-label="Перекрестие">＋</button>
+          <button id="chartGalkaTool" class="galka-tool" type="button" title="Поставить GALKA" aria-label="Поставить GALKA">G</button>
+        </aside>
+      </div>
+
       <div class="chart-step">
         <span id="chartStepBadge" class="badge">ГОТОВ</span>
-        <b id="chartInstruction">Нажми «Новая GALKA», затем отмечай точки пальцем прямо на графике.</b>
+        <b id="chartInstruction">Нажми «Новая GALKA». Масштаб и перемещение графика работают как в Galka Pro.</b>
       </div>
       <div id="chartSelections" class="chart-selections">
         <span>Якорь —</span><span>Левая —</span><span>Правая —</span><span>Верх —</span>
@@ -49,7 +67,14 @@
         <button id="chartDone" type="button" disabled>Готово</button>
         <button id="chartReset" type="button">Сброс</button>
       </div>
-      <p class="rule">Порядок: якорь = уровень GALKA → левая часть → правая часть → верхняя лимитка. Нужна ещё одна верхняя — нажми «+ ещё лимитка». После «Готово» нижние −2 / −4 / −6 / −8% добавятся автоматически, затем откроется safety-preview.</p>
+      <p class="rule">GALKA: якорь → левая часть → правая часть. После правой части ставь верхние лимитки. Курсор возвращает обычное перемещение/zoom; «＋» включает перекрестие; «G» возвращает режим выбора текущей точки.</p>
+    </section>
+
+    <section class="card account">
+      <div><small>Аккаунт</small><b id="account">—</b></div>
+      <div><small>Свободно</small><b id="withdrawable">—</b></div>
+      <div><small>Маржа</small><b id="marginUsed">—</b></div>
+      <div><small>SAFE</small><b id="safeMode">—</b></div>
     </section>
 
     <section class="card form-card">
@@ -109,6 +134,6 @@
   </main>
   <script src="vendor/lightweight-charts.standalone.production.js"></script>
   <script type="module" src="mem.js?v=2"></script>
-  <script type="module" src="mem-chart.js?v=1"></script>
+  <script type="module" src="mem-chart.js?v=2"></script>
 </body>
 </html>
