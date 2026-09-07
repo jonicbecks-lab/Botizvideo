@@ -6,8 +6,8 @@ Working rules agreed for the first live meme-perp campaign variant.
 
 - Uses the same Hyperliquid account/API wallet as hardened GALKA LIVE.
 - Isolated margin only.
-- Campaign margin budget is user-selectable; current working default/ceiling for the first version is $100.
-- Leverage is user-selectable up to the market's allowed maximum (for CASHCAT, use 3x when selected).
+- Campaign risk/margin budget is user-selectable; current working ceiling/default for the first version is $100.
+- Leverage is user-selectable up to the selected market's venue maximum.
 - The application must not assume that wallet balance is the campaign risk budget.
 
 ## Manual structure
@@ -16,11 +16,16 @@ User enters:
 - coin/perp,
 - leverage,
 - GALKA price,
-- arbitrary manual entry prices at/above GALKA,
-- arbitrary manual entry prices below GALKA,
-- campaign margin budget.
+- manual entry prices for the upper basket,
+- campaign budget.
 
-Number and spacing of levels are adaptive/manual; there is no fixed 8-level ladder.
+Upper-basket levels are chosen manually by the user. GALKA itself may be an upper-basket entry. Upper entries must be between GALKA and +5% from GALKA; typical intended entries are around +2%, +3%, +4% and/or GALKA.
+
+The lower basket uses the first-version default ladder relative to GALKA:
+
+`-2%, -4%, -6%, -8%`
+
+These lower levels can become editable in a later version; for v1 they are the default automatic lower basket.
 
 ## Two independent baskets
 
@@ -30,11 +35,19 @@ Default budget split:
 - upper basket (GALKA and above): 1/3 of campaign margin,
 - lower basket (below GALKA): 2/3 of campaign margin.
 
+For a $100 campaign this is approximately:
+- upper: $33.33 margin,
+- lower: $66.67 margin.
+
+The full budget assigned to each basket is distributed across the levels that exist in that basket. No unused reserve is kept inside the upper basket merely because the user selected fewer upper levels.
+
 Within each basket, size increases as price gets lower. Weight sequence:
 
 `1, 1.5, 2, 2.5, 3, ...`
 
-For N user levels, use the first N weights and normalize them to that basket's budget. Hyperliquid order minimums and size/price precision are applied after normalization; preview must expose any adjustment.
+For N levels in a basket, use the first N weights and normalize them to 100% of that basket's budget. Hyperliquid order minimums and size/price precision are applied after normalization; preview must expose any adjustment.
+
+Example: with two upper levels, the upper $33.33 is normalized across weights `1, 1.5`, approximately $13.33 and $20.00 of margin before exchange rounding.
 
 ## Exit v1
 
@@ -47,7 +60,7 @@ For N user levels, use the first N weights and normalize them to that basket's b
 
 The campaign must fail closed if liquidation safety cannot be demonstrated.
 
-Before allowing LIVE launch, preview must evaluate every sequential fill state from the first entry through the deepest planned lower entry.
+Before allowing LIVE launch, preview must evaluate every sequential fill state from the first upper entry through the deepest planned lower entry.
 
 Required invariant:
 
