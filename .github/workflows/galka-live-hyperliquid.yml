@@ -5,12 +5,15 @@ on:
     branches:
       - main
       - agent/galka-live-hardening-v3
+      - agent/galka-mem-live-v1
     paths:
       - '.githooks/**'
       - '.gitignore'
       - 'live/**'
       - 'terminal/live.*'
+      - 'terminal/mem.*'
       - 'scripts/*galka-live*.sh'
+      - 'scripts/start-galka-mem.sh'
       - 'scripts/check-live-*.mjs'
       - 'scripts/check-python-lock.py'
       - 'scripts/check-repository-secrets.py'
@@ -28,7 +31,9 @@ on:
       - '.gitignore'
       - 'live/**'
       - 'terminal/live.*'
+      - 'terminal/mem.*'
       - 'scripts/*galka-live*.sh'
+      - 'scripts/start-galka-mem.sh'
       - 'scripts/check-live-*.mjs'
       - 'scripts/check-python-lock.py'
       - 'scripts/check-repository-secrets.py'
@@ -84,6 +89,7 @@ jobs:
         with:
           node-version: 20
       - run: node --check terminal/live.js
+      - run: node --check terminal/mem.js
       - run: node scripts/check-live-secret-isolation.mjs
       - run: node scripts/check-live-terminal.mjs
       - run: python3 scripts/check-workflows.py
