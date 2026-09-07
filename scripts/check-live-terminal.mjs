@@ -10,6 +10,7 @@ const memCss = fs.readFileSync('terminal/mem.css', 'utf8');
 const memLive = fs.readFileSync('terminal/mem-live.js', 'utf8');
 const memSourceChart = fs.readFileSync('terminal/vendor/mem-source-galka-chart.js', 'utf8');
 const memSourceTouch = fs.readFileSync('terminal/vendor/mem-source-galka-touch-actions.js', 'utf8');
+const memSourceRelativeDrag = fs.readFileSync('terminal/vendor/mem-source-galka-structure-relative-drag.js', 'utf8');
 const memSourceStructure = fs.readFileSync('terminal/vendor/mem-source-galka-structure-draft.js', 'utf8');
 const memSourceChartCss = fs.readFileSync('terminal/mem-source-live-chart.css', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
@@ -48,9 +49,10 @@ const checks = [
   ['MEM source chart workspace', memHtml.includes('<main class="workspace">') && memHtml.includes('id="chart"') && memHtml.includes('id="crosshairGalkaAction"') && memHtml.includes('id="detailsButton"')],
   ['MEM source tradebar', memHtml.includes('id="campaignStatus"') && memHtml.includes('id="galkaInput"') && memHtml.includes('id="previewButton"')],
   ['MEM custom source chart', memHtml.includes('mem-source-galka-chart.js') && memSourceChart.includes('galka-live-canvas') && memSourceChartCss.includes('.galka-touch-overlay')],
-  ['MEM source touch behavior', memSourceTouch.includes('HOLD_MS=650') && memSourceTouch.includes("type:'crosshair'") && memSourceTouch.includes("galka:select-price") && memSourceTouch.includes('startPinch')],
-  ['MEM source structure workflow', memSourceStructure.includes("state.phase='choose-left'") && memSourceStructure.includes("state.phase='choose-right'") && memSourceStructure.includes('galka:mem-structure-ready')],
-  ['MEM structure cannot call legacy LIVE campaign', !memSourceStructure.includes('/api/live/campaign') && !memSourceStructure.includes('PLACE_REAL_ORDERS')],
+  ['MEM source touch behavior', memSourceTouch.includes('HOLD_MS=650') && memSourceTouch.includes("type:'crosshair'") && memSourceTouch.includes('galka:select-price') && memSourceTouch.includes('startPinch')],
+  ['MEM exact V3 anchor-left-right workflow', memSourceStructure.includes("state.phase='choose-anchor'") && memSourceStructure.includes("state.phase='choose-left'") && memSourceStructure.includes("state.phase='choose-right'") && memSourceStructure.includes("selectionMethod:'manual_crosshair_structure_v3'")],
+  ['MEM relative boundary drag', memHtml.includes('mem-source-galka-structure-relative-drag.js') && memSourceRelativeDrag.includes('originX') && memSourceRelativeDrag.includes('dispatchSynthetic')],
+  ['MEM structure hands off instead of trading', memSourceStructure.includes('galka:mem-structure-ready') && !memSourceStructure.includes('/api/live/campaign') && !memSourceStructure.includes('PLACE_REAL_ORDERS')],
   ['MEM only uses MEM endpoints', memLive.includes('/api/mem/candles') && memLive.includes('/api/mem/status') && memLive.includes('/api/mem/preview') && memLive.includes('/api/mem/campaign')],
   ['MEM explicit real confirmation isolated', memLive.includes('PLACE_GALKA_MEM_REAL_ORDERS') && !memLive.includes("confirmation:'PLACE_REAL_ORDERS'") && !memLive.includes('/api/live/campaign')],
   ['MEM upper crosshair then automatic lower', memLive.includes('handleSelectedCrosshairPrice') && memLive.includes('[.98,.96,.94,.92]')],
@@ -67,6 +69,7 @@ for (const file of [
   'terminal/vendor/mem-source-galka-future-pan.js',
   'terminal/vendor/mem-source-galka-native-plot-pan.js',
   'terminal/vendor/mem-source-galka-touch-actions.js',
+  'terminal/vendor/mem-source-galka-structure-relative-drag.js',
   'terminal/vendor/mem-source-galka-structure-draft.js',
 ]) {
   execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
