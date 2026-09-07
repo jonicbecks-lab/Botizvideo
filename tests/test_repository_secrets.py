@@ -60,6 +60,23 @@ class RepositorySecretScannerTests(unittest.TestCase):
         self.assertIn("history:leaked.txt", result.stderr)
         self.assertNotIn(secret, result.stderr)
 
+    def test_public_blockchain_hash_field_is_not_treated_as_private_key(self):
+        public_hash = "0x" + "0123456789abcdef" * 4
+        path = self.root / "fills.jsonl"
+        path.write_text('{"coin":"ETH","hash":"' + public_hash + '"}\n', encoding="utf-8")
+        subprocess.run(["git", "add", "fills.jsonl"], cwd=self.root, check=True)
+        result = self.scan("--staged")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_unlabelled_64_hex_value_is_still_rejected(self):
+        secret = "0x" + "89abcdef01234567" * 4
+        path = self.root / "candidate.txt"
+        path.write_text(secret + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "candidate.txt"], cwd=self.root, check=True)
+        result = self.scan("--staged")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("64-hex-private-key", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
