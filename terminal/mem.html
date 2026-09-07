@@ -11,13 +11,14 @@
   <link rel="stylesheet" href="live.css?v=2">
   <link rel="stylesheet" href="mem-source-live-chart.css?v=1">
   <link rel="stylesheet" href="mem-source-structure-draft.css?v=1">
-  <link rel="stylesheet" href="mem.css?v=6">
+  <link rel="stylesheet" href="mem.css?v=7">
   <script src="vendor/mem-source-galka-chart.js?v=1"></script>
   <script src="vendor/mem-source-galka-future-pan.js?v=1"></script>
   <script src="vendor/mem-source-galka-native-plot-pan.js?v=1"></script>
   <script src="vendor/mem-source-galka-touch-actions.js?v=1"></script>
   <script src="vendor/mem-source-galka-structure-relative-drag.js?v=1"></script>
   <script src="vendor/mem-source-galka-structure-draft.js?v=2"></script>
+  <script src="vendor/mem-protection-chart-hook.js?v=1"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -63,6 +64,22 @@
     <div class="mem-upper-summary"><small>Верхние лимитки</small><div id="upperSummary">Не выбраны</div></div>
     <div class="section-head"><b>Текущая GALKA MEM</b></div>
     <div id="campaignDetails" class="campaign-details">Нет активной GALKA MEM.</div>
+
+    <div id="protectionCard" class="protection-card hidden">
+      <div class="section-head protection-head"><b>Безубыток / защита</b></div>
+      <div class="protection-grid">
+        <span><small>Безубыток</small><b id="protectionFloor">—</b></span>
+        <span><small>BE STOP</small><b id="protectionPrice">OFF</b></span>
+      </div>
+      <div class="protection-actions">
+        <button id="activateBreakEven" type="button">Активировать безубыток</button>
+        <button id="moveProtection" type="button">Передвинуть</button>
+      </div>
+      <label class="protection-draft"><small>Новая цена защиты</small><input id="protectionDraft" type="number" inputmode="decimal" step="any" placeholder="Выбери перекрестием +"></label>
+      <button id="applyProtection" class="apply-protection" type="button">Применить</button>
+      <div id="protectionHint" class="protection-hint">Защита доступна после открытия Long.</div>
+    </div>
+
     <div class="drawer-actions"><button id="cancelCampaign" type="button">Отменить без позиции</button><button id="emergencyClose" class="danger" type="button">Аварийно закрыть</button></div>
     <div class="section-head"><b>Последние события</b><button id="reconcileState" type="button">Сверить</button></div>
     <div id="events" class="events"></div>
@@ -80,5 +97,6 @@
   </div>
 
   <script type="module" src="mem-live.js?v=1"></script>
+  <script type="module" src="mem-protection.js?v=1"></script>
 </body>
 </html>
