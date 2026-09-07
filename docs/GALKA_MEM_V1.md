@@ -49,15 +49,24 @@ For N levels in a basket, use the first N weights and normalize them to 100% of 
 
 Example: with two upper levels, the upper $33.33 is normalized across weights `1, 1.5`, approximately $13.33 and $20.00 of margin before exchange rounding.
 
-## Exit v1
+## Campaign lifecycle and exits v1
 
-- Lower basket: reduce-only take-profit at GALKA.
+A GALKA MEM setup is traded only once. There is no re-arm and no second cycle on the same GALKA.
+
+Two possible paths:
+
+1. Small cycle: upper basket fills and later reaches its upper-basket take-profit before the campaign extends into the lower basket. As soon as that upper basket is fully closed in profit, the entire campaign is finished. All still-pending lower-basket entry orders for this GALKA are canceled. This GALKA is not traded again.
+
+2. Large cycle: upper basket has started filling, but price continues down through GALKA and into the lower basket before the small-cycle exit completes. The campaign then continues as one large cycle using the lower basket. Lower-basket entries are managed toward the GALKA exit. Once the resulting campaign position is closed according to the large-cycle exit logic, the entire campaign is finished and this GALKA is not traded again.
+
+Exit rules:
 - Upper basket: reduce-only take-profit from the weighted average entry of the upper basket only.
-- Initial target for upper basket: +3.5% underlying price move from its weighted average entry (approximately +10.5% gross ROE at 3x before fees/funding).
-- Lower fills must not alter upper-basket average or upper-basket TP.
-- Once the upper basket has completed its TP, it is finished for that campaign and is never re-armed.
-- Remaining lower-basket limits stay active. If they fill, they are managed only toward their GALKA take-profit.
-- After the upper basket is finished and the lower basket has completed its exit, the campaign is finished. No new upper cycle starts inside the same campaign.
+- Initial upper target: +3.5% underlying price move from the weighted average upper entry (approximately +10.5% gross ROE at 3x before fees/funding).
+- Lower basket: target is GALKA.
+- Lower fills must not alter the stored upper-basket average used to define the upper basket's original small-cycle TP.
+- If the small cycle completes first, cancel every remaining lower entry order immediately after exchange-confirmed closure.
+- If price enters the lower basket before the small cycle completes, do not treat a later upper-only TP touch as a fresh small cycle; the campaign is already in the large-cycle path.
+- After either path finishes, the campaign is permanently closed for that GALKA.
 
 ## Liquidation safety gate
 
