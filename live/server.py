@@ -188,6 +188,15 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
                 return self._handle(lambda: self.engine.candles(coin, interval, limit))
             if parsed.path == "/api/mem/status":
                 return self._handle(lambda: self._mem().status())
+            if parsed.path == "/api/mem/candles":
+                query = parse_qs(parsed.query)
+                coin = query.get("coin", [""])[0]
+                interval = query.get("interval", ["1m"])[0]
+                try:
+                    limit = int(query.get("limit", ["600"])[0])
+                except ValueError:
+                    return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
+                return self._handle(lambda: self._mem().gateway.candles(coin, interval, limit))
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
         if parsed.path == "/":
