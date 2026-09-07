@@ -15,6 +15,8 @@ from .config import ConfigError, load_config
 from .engine import LiveEngineError
 from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
 from .hyperliquid_gateway import GatewayError
+from .mem_engine import GalkaMemEngine
+from .mem_gateway import MemHyperliquidGateway
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TERMINAL_ROOT = REPO_ROOT / "terminal"
@@ -68,6 +70,7 @@ class LiveProcessLock:
 
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
     engine: CompatibleGalkaLiveEngine
+    mem_engine: GalkaMemEngine | None = None
     session_token: str
     server_port: int
 
@@ -76,7 +79,7 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, fmt: str, *args) -> None:
         message = fmt % args
-        if self.path.startswith("/api/live/status"):
+        if self.path.startswith("/api/live/status") or self.path.startswith("/api/mem/status"):
             return
         sys.stdout.write(f"[{self.log_date_time_string()}] {message}\n")
         sys.stdout.flush()
@@ -150,6 +153,23 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             raise LiveEngineError("Ожидается JSON-объект")
         return data
 
+    @staticmethod
+    def _float_list(value) -> list[float]:
+        if not isinstance(value, list):
+            raise LiveEngineError("upperPrices должен быть массивом цен")
+        output: list[float] = []
+        for item in value:
+            try:
+                output.append(float(item))
+            except (TypeError, ValueError) as exc:
+                raise LiveEngineError("Некорректная цена верхней лимитки") from exc
+        return output
+
+    def _mem(self) -> GalkaMemEngine:
+        if self.mem_engine is None:
+            raise LiveEngineError("GALKA MEM engine is not initialized")
+        return self.mem_engine
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
@@ -166,6 +186,8 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
                 except ValueError:
                     return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Некорректный limit"})
                 return self._handle(lambda: self.engine.candles(coin, interval, limit))
+            if parsed.path == "/api/mem/status":
+                return self._handle(lambda: self._mem().status())
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
         if parsed.path == "/":
@@ -176,7 +198,6 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         if not parsed.path.startswith("/terminal/"):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        # The static file root is terminal/. Strip the public /terminal prefix.
         original = self.path
         suffix = original[len("/terminal"):]
         self.path = suffix or "/live.html"
@@ -221,6 +242,40 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             return self._handle(
                 lambda: self.engine.reconcile_system(str(data.get("confirmation", "")))
             )
+
+        if parsed.path == "/api/mem/preview":
+            return self._handle(
+                lambda: self._mem().preview(
+                    str(data.get("coin", "")),
+                    float(data.get("galkaPrice", 0)),
+                    self._float_list(data.get("upperPrices", [])),
+                    float(data.get("campaignMargin", 100)),
+                    int(data.get("leverage", 1)),
+                )
+            )
+        if parsed.path == "/api/mem/campaign":
+            return self._handle(
+                lambda: self._mem().create_campaign(
+                    str(data.get("coin", "")),
+                    float(data.get("galkaPrice", 0)),
+                    self._float_list(data.get("upperPrices", [])),
+                    float(data.get("campaignMargin", 100)),
+                    int(data.get("leverage", 1)),
+                    str(data.get("confirmation", "")),
+                )
+            )
+        if parsed.path == "/api/mem/cancel":
+            return self._handle(
+                lambda: self._mem().cancel_waiting_campaign(str(data.get("confirmation", "")))
+            )
+        if parsed.path == "/api/mem/emergency":
+            return self._handle(
+                lambda: self._mem().emergency_close(str(data.get("confirmation", "")))
+            )
+        if parsed.path == "/api/mem/reconcile":
+            return self._handle(
+                lambda: self._mem().reconcile(str(data.get("confirmation", "")))
+            )
         return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
 
     def _handle(self, action) -> None:
@@ -229,7 +284,7 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             self._json(HTTPStatus.OK, {"ok": True, "data": result})
         except (LiveEngineError, GatewayError, ValueError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
-        except Exception as exc:  # do not expose secrets or tracebacks to the browser
+        except Exception as exc:
             sys.stderr.write(f"LIVE API error: {type(exc).__name__}\n")
             sys.stderr.flush()
             self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": "Внутренняя ошибка LIVE-сервера"})
@@ -238,21 +293,28 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 def main() -> int:
     lock: LiveProcessLock | None = None
     engine: CompatibleGalkaLiveEngine | None = None
+    mem_engine: GalkaMemEngine | None = None
     server: ThreadingHTTPServer | None = None
     try:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
         gateway = CompatibleHyperliquidGateway(config)
+        mem_gateway = MemHyperliquidGateway(config)
         engine = CompatibleGalkaLiveEngine(config, gateway)
+        mem_engine = GalkaMemEngine(config, mem_gateway)
         token = secrets.token_urlsafe(32)
         GalkaRequestHandler.engine = engine
+        GalkaRequestHandler.mem_engine = mem_engine
         GalkaRequestHandler.session_token = token
         GalkaRequestHandler.server_port = config.port
         server = ThreadingHTTPServer((config.host, config.port), GalkaRequestHandler)
         server.daemon_threads = True
         engine.start()
+        mem_engine.start()
     except (ConfigError, RuntimeError, GatewayError, LiveEngineError, OSError) as exc:
+        if mem_engine is not None:
+            mem_engine.stop()
         if engine is not None:
             engine.stop()
         if server is not None:
@@ -264,20 +326,24 @@ def main() -> int:
 
     base_url = f"http://{config.host}:{config.port}/terminal/live.html"
     session_url = f"{base_url}#token={token}"
+    mem_url = f"http://{config.host}:{config.port}/terminal/mem.html#token={token}"
     print(f"Galka LIVE: {base_url}", flush=True)
     print(f"Galka LIVE URL: {session_url}", flush=True)
+    print(f"Galka MEM URL: {mem_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
     print(
-        f"Плечо: {config.leverage}x isolated · номинал одной GALKA: ${config.total_notional:.2f}",
+        f"Плечо базовой GALKA: {config.leverage}x isolated · номинал: ${config.total_notional:.2f}",
         flush=True,
     )
+    print("GALKA MEM: плечо и маржа задаются в приложении; ceiling v1 = $100 margin.", flush=True)
     print("Секретный ключ загружен из локального файла и не передаётся браузеру.", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
         pass
     finally:
+        mem_engine.stop()
         engine.stop()
         server.server_close()
         lock.release()
