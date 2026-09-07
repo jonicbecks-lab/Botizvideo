@@ -16,7 +16,8 @@
   <script src="vendor/mem-source-galka-future-pan.js?v=1"></script>
   <script src="vendor/mem-source-galka-native-plot-pan.js?v=1"></script>
   <script src="vendor/mem-source-galka-touch-actions.js?v=1"></script>
-  <script src="vendor/mem-source-galka-structure-draft.js?v=1"></script>
+  <script src="vendor/mem-source-galka-structure-relative-drag.js?v=1"></script>
+  <script src="vendor/mem-source-galka-structure-draft.js?v=2"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -24,9 +25,7 @@
       <div class="brand"><span class="brand-mark">G</span><span><b>GALKA</b><small>MEM · HYPERLIQUID</small></span></div>
       <div class="market-controls">
         <select id="symbolSelect" aria-label="Монета"></select>
-        <select id="intervalSelect" aria-label="Таймфрейм">
-          <option selected>1m</option><option>3m</option><option>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option>
-        </select>
+        <select id="intervalSelect" aria-label="Таймфрейм"><option selected>1m</option><option>3m</option><option>5m</option><option>15m</option><option>30m</option><option>1h</option><option>4h</option><option>1d</option></select>
         <button class="cluster-toggle" id="chartRefreshButton" type="button" aria-label="Обновить график до последних свечей" title="Обновить до последних свечей">↻</button>
         <button class="cluster-toggle" id="clusterToggle" type="button" disabled title="Кластеры пока не подключены к MEM">CL</button>
       </div>
@@ -54,30 +53,17 @@
   <div class="backdrop hidden" id="backdrop"></div>
   <aside class="drawer hidden" id="drawer" aria-label="GALKA MEM состояние">
     <div class="drawer-head"><div><small>HYPERLIQUID LIVE</small><b id="drawerAccount">—</b></div><button id="closeDrawer" type="button">×</button></div>
-    <div class="account-grid">
-      <span><small>Счёт</small><b id="accountValue">—</b></span>
-      <span><small>Свободно</small><b id="withdrawable">—</b></span>
-      <span><small>Маржа</small><b id="marginUsed">—</b></span>
-      <span><small>Режим</small><b id="riskMode">—</b></span>
-    </div>
-
+    <div class="account-grid"><span><small>Счёт</small><b id="accountValue">—</b></span><span><small>Свободно</small><b id="withdrawable">—</b></span><span><small>Маржа</small><b id="marginUsed">—</b></span><span><small>Режим</small><b id="riskMode">—</b></span></div>
     <div class="section-head"><b>Параметры MEM</b></div>
     <div class="mem-config-grid">
       <label><small>Маржа кампании</small><input id="campaignMargin" type="number" min="1" max="100" step="1" value="100" inputmode="decimal"></label>
       <label><small>Плечо</small><input id="leverage" type="number" min="1" step="1" value="3" inputmode="numeric"></label>
-      <span><small>Max рынка</small><b id="maxLeverage">—</b></span>
-      <span><small>Upper</small><b>33.33%</b></span>
-      <span><small>Lower</small><b>66.67%</b></span>
-      <span><small>Низ</small><b>−2 / −4 / −6 / −8%</b></span>
+      <span><small>Max рынка</small><b id="maxLeverage">—</b></span><span><small>Upper</small><b>33.33%</b></span><span><small>Lower</small><b>66.67%</b></span><span><small>Низ</small><b>−2 / −4 / −6 / −8%</b></span>
     </div>
     <div class="mem-upper-summary"><small>Верхние лимитки</small><div id="upperSummary">Не выбраны</div></div>
-
     <div class="section-head"><b>Текущая GALKA MEM</b></div>
     <div id="campaignDetails" class="campaign-details">Нет активной GALKA MEM.</div>
-    <div class="drawer-actions">
-      <button id="cancelCampaign" type="button">Отменить без позиции</button>
-      <button id="emergencyClose" class="danger" type="button">Аварийно закрыть</button>
-    </div>
+    <div class="drawer-actions"><button id="cancelCampaign" type="button">Отменить без позиции</button><button id="emergencyClose" class="danger" type="button">Аварийно закрыть</button></div>
     <div class="section-head"><b>Последние события</b><button id="reconcileState" type="button">Сверить</button></div>
     <div id="events" class="events"></div>
   </aside>
@@ -86,12 +72,7 @@
     <div class="modal-card">
       <div class="modal-head"><div><small>РЕАЛЬНЫЕ ОРДЕРА · MEM</small><b id="previewTitle">Проверка GALKA</b></div><button id="closePreview" type="button">×</button></div>
       <div class="warning"><b>Это LIVE.</b> Реальные ордера отправятся только после отдельного подтверждения ниже.</div>
-      <div class="preview-summary">
-        <span><small>GALKA</small><b id="previewGalka">—</b></span>
-        <span><small>Номинал</small><b id="previewNotional">—</b></span>
-        <span><small>Маржа</small><b id="previewMargin">—</b></span>
-        <span><small>Плечо</small><b id="previewLeverage">—</b></span>
-      </div>
+      <div class="preview-summary"><span><small>GALKA</small><b id="previewGalka">—</b></span><span><small>Номинал</small><b id="previewNotional">—</b></span><span><small>Маржа</small><b id="previewMargin">—</b></span><span><small>Плечо</small><b id="previewLeverage">—</b></span></div>
       <div id="previewSafety" class="mem-safety"></div>
       <div class="levels" id="previewLevels"></div>
       <div class="modal-actions"><button id="previewCancel" type="button">Отмена</button><button id="confirmLive" class="confirm-live" type="button">Выставить реальные лимитки</button></div>
