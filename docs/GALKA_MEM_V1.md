@@ -55,6 +55,9 @@ Example: with two upper levels, the upper $33.33 is normalized across weights `1
 - Upper basket: reduce-only take-profit from the weighted average entry of the upper basket only.
 - Initial target for upper basket: +3.5% underlying price move from its weighted average entry (approximately +10.5% gross ROE at 3x before fees/funding).
 - Lower fills must not alter upper-basket average or upper-basket TP.
+- Once the upper basket has completed its TP, it is finished for that campaign and is never re-armed.
+- Remaining lower-basket limits stay active. If they fill, they are managed only toward their GALKA take-profit.
+- After the upper basket is finished and the lower basket has completed its exit, the campaign is finished. No new upper cycle starts inside the same campaign.
 
 ## Liquidation safety gate
 
