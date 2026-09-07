@@ -53,6 +53,13 @@ HEX_SECRET_RE = re.compile(r"0x" + r"[0-9a-fA-F]{64}")
 ASSIGNMENT_RE = re.compile(
     r"(?im)^\s*(?:HL_" + r"API_SECRET_KEY|PRIVATE_KEY|SECRET_KEY)\s*=\s*([^\s#]+)"
 )
+# 32-byte public identifiers are common in blockchain telemetry. A transaction,
+# block, fill, event, digest or content hash is public data, not a private key.
+# Only suppress the generic 0x+64 heuristic when the value is explicitly named
+# as a hash/digest field; secret assignments are scanned separately below.
+PUBLIC_HASH_FIELD_RE = re.compile(
+    r"(?i)(?:\"|')?(?:tx_?|transaction_?|block_?|fill_?|event_?|content_?|state_?|config_?|snapshot_?|commit_?|order_?)?(?:hash|digest|sha256)(?:\"|')?\s*[:=]\s*(?:\"|')?\s*$"
+)
 
 
 def looks_like_fixture(value: str) -> bool:
@@ -76,6 +83,12 @@ def entropy_bits_per_character(value: str) -> float:
     return -sum((count / len(value)) * math.log2(count / len(value)) for count in counts.values())
 
 
+def public_hash_context(text: str, start: int) -> bool:
+    line_start = text.rfind("\n", 0, start) + 1
+    prefix = text[line_start:start]
+    return bool(PUBLIC_HASH_FIELD_RE.search(prefix[-160:]))
+
+
 def scan_blob(path: str, blob: bytes) -> list[str]:
     if len(blob) > MAX_BLOB_BYTES or b"\0" in blob:
         return []
@@ -86,6 +99,8 @@ def scan_blob(path: str, blob: bytes) -> list[str]:
             findings.append(name)
     for match in HEX_SECRET_RE.finditer(text):
         value = match.group(0)
+        if public_hash_context(text, match.start()):
+            continue
         if not looks_like_fixture(value) and entropy_bits_per_character(value[2:].lower()) > 2.5:
             findings.append("64-hex-private-key")
             break
