@@ -5,135 +5,224 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#080b10">
   <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>GALKA MEM · Hyperliquid LIVE</title>
-  <link rel="stylesheet" href="mem.css?v=4">
+  <link rel="icon" href="icons/galka-mark.svg" type="image/svg+xml">
+  <!-- Deliberately reuse the exact Galka Pro visual system. -->
+  <link rel="stylesheet" href="pro.css?v=7">
+  <link rel="stylesheet" href="mem.css?v=5">
+  <script src="vendor/lightweight-charts.standalone.production.js"></script>
 </head>
-<body>
-  <main class="shell">
-    <header class="mem-topbar">
-      <div class="brand">
-        <span class="brand-mark">G</span>
-        <span class="brand-copy"><b>GALKA MEM</b><small>HYPERLIQUID</small></span>
-      </div>
-      <div class="market-controls">
-        <select id="coinSelect" aria-label="Монета"></select>
+<body data-theme="dark">
+<div id="app">
+  <!-- Same top bar structure as Galka Pro. -->
+  <header class="topbar">
+    <a class="brand" href="#chart" aria-label="GALKA MEM, график">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span class="brand-copy"><strong>GALKA</strong><small>MEM LIVE</small></span>
+    </a>
+
+    <div class="market-controls" aria-label="Рынок и таймфрейм">
+      <label class="compact-select">
+        <span class="sr-only">Инструмент</span>
+        <select id="coinSelect" aria-label="Инструмент"></select>
+      </label>
+      <label class="compact-select timeframe-select">
+        <span class="sr-only">Таймфрейм</span>
         <select id="chartInterval" aria-label="Таймфрейм">
           <option value="1m" selected>1m</option>
           <option value="3m">3m</option>
           <option value="5m">5m</option>
           <option value="15m">15m</option>
+          <option value="30m">30m</option>
+          <option value="1h">1h</option>
+          <option value="4h">4h</option>
+          <option value="1d">1D</option>
         </select>
-      </div>
-      <div id="chartTicker" class="chart-ticker">—</div>
-      <span id="liveBadge" class="badge off">LIVE OFF</span>
-    </header>
+      </label>
+    </div>
 
-    <section class="card chart-card">
-      <div class="chart-head">
-        <div><b>График</b><small id="chartSymbol">1m · Hyperliquid</small></div>
-        <div class="chart-head-actions">
-          <button id="chartFit" type="button">Fit</button>
-          <button id="chartLatest" type="button">Сейчас</button>
+    <div class="live-price" id="chartTicker" aria-live="polite">—</div>
+    <div class="top-actions">
+      <button class="connection-button" id="connectionButton" type="button" aria-label="Состояние LIVE">
+        <span id="connectionDot" class="dot warn"></span>
+        <span id="liveBadge" class="mem-live-badge off">LIVE OFF</span>
+      </button>
+      <button class="icon-btn desktop-only" id="fullscreenBtn" type="button" aria-label="На весь экран">⛶</button>
+      <button class="icon-btn" id="toggleSidebar" type="button" aria-label="Открыть меню">•••</button>
+    </div>
+  </header>
+
+  <main class="terminal-grid">
+    <!-- Same drawing rail as Galka Pro. The graph interaction is shared; MEM trading logic stays separate. -->
+    <aside class="leftbar" id="leftbar" aria-label="Инструменты рисования">
+      <div class="tool-rail-head"><span>DRAW</span><button id="closeTools" class="mobile-only" type="button" aria-label="Закрыть инструменты">×</button></div>
+      <button data-tool="cursor" class="active" title="Курсор" aria-label="Курсор"><span>⌖</span></button>
+      <button data-tool="crosshair" title="Перекрестие" aria-label="Перекрестие"><span>＋</span></button>
+      <button data-tool="trend" title="Трендовая линия" aria-label="Трендовая линия"><span>╱</span></button>
+      <button data-tool="ray" title="Луч" aria-label="Луч"><span>↗</span></button>
+      <button data-tool="horizontal" title="Горизонтальная линия" aria-label="Горизонтальная линия"><span>—</span></button>
+      <button data-tool="manualGalka" class="galka-tool" title="Поставить GALKA" aria-label="Поставить GALKA"><span>G</span></button>
+      <button data-tool="vertical" title="Вертикальная линия" aria-label="Вертикальная линия"><span>│</span></button>
+      <button data-tool="rect" title="Прямоугольник" aria-label="Прямоугольник"><span>▭</span></button>
+      <button data-tool="channel" title="Канал" aria-label="Параллельный канал"><span>▥</span></button>
+      <button data-tool="fib" title="Fibonacci" aria-label="Fibonacci"><span>Fib</span></button>
+      <button data-tool="measure" title="Измерение" aria-label="Измерение"><span>↔</span></button>
+      <button data-tool="longPosition" title="Long position" aria-label="Измерение long position"><span>L</span></button>
+      <button data-tool="text" title="Текст" aria-label="Текст"><span>T</span></button>
+      <span class="tool-separator"></span>
+      <button id="magnetBtn" title="Магнит" aria-label="Магнит"><span>⌁</span></button>
+      <button id="lockBtn" title="Заблокировать рисунки" aria-label="Заблокировать рисунки"><span>▣</span></button>
+      <button id="hideDrawingsBtn" title="Скрыть рисунки" aria-label="Скрыть рисунки"><span>◉</span></button>
+      <button id="undoBtn" title="Отменить" aria-label="Отменить"><span>↶</span></button>
+      <button id="redoBtn" title="Повторить" aria-label="Повторить"><span>↷</span></button>
+      <button id="deleteBtn" title="Удалить выбранное" aria-label="Удалить выбранное"><span>⌫</span></button>
+      <button id="clearBtn" class="danger-ghost" title="Удалить все" aria-label="Удалить все рисунки"><span>×</span></button>
+    </aside>
+
+    <!-- Same full-screen chart stack as Galka Pro. -->
+    <section class="workspace" id="chart" aria-label="График">
+      <div class="chart-stack" id="chartStack">
+        <div class="chart-main-wrap" id="chartMainWrap">
+          <div id="mainChart"></div>
+          <canvas id="drawingCanvas" aria-label="Слой рисования"></canvas>
+
+          <div class="chart-identity" aria-hidden="true">
+            <div class="watermark" id="watermark">MEM · 1m</div>
+            <span>HYPERLIQUID PERP · LIVE</span>
+          </div>
+
+          <button class="chart-health" id="chartHealth" type="button" aria-label="Состояние потока">
+            <span class="health-pulse"></span><span id="chartHealthText">Поток запускается</span>
+          </button>
+          <div class="ohlc" id="ohlc" aria-live="polite">O — H — L — C —</div>
+
+          <div class="mem-stage-pill" id="memStagePill">
+            <span id="chartStepBadge">ГОТОВ</span><b id="chartInstruction">Нажми G или «Новая GALKA».</b>
+          </div>
+          <div id="chartSelections" class="mem-selections hidden"></div>
+
+          <div class="chart-actions">
+            <div class="chart-action-menu hidden" id="chartActionMenu" role="menu">
+              <button id="quickSetGalka" type="button" role="menuitem"><span class="action-icon galka">G</span><span><b>Новая GALKA</b><small>Якорь → левая → правая</small></span></button>
+              <button id="quickExactGalka" type="button" role="menuitem"><span class="action-icon">#</span><span><b>Точная цена</b><small>Открыть параметры</small></span></button>
+              <button id="quickLevels" type="button" role="menuitem"><span class="action-icon">≡</span><span><b>Уровни</b><small>Показать / скрыть</small></span></button>
+              <div class="menu-grid"><button id="fitBtn" type="button">Fit</button><button id="latestBtn" type="button">Сейчас</button></div>
+            </div>
+            <button class="chart-action-fab" id="chartActionBtn" type="button" aria-label="Быстрые действия" aria-expanded="false">＋</button>
+          </div>
+
+          <button class="drawing-pill" id="toggleTools" type="button" aria-label="Инструменты рисования"><span>╱</span><span>Рисовать</span></button>
+          <div class="loading" id="loading"><span class="loader"></span><span>Загрузка Hyperliquid…</span></div>
+          <div class="toast hidden" id="toast" role="status"></div>
         </div>
       </div>
-
-      <div id="memChartFrame" class="mem-chart-frame">
-        <div id="memChart" class="mem-chart" aria-label="График GALKA MEM"></div>
-        <canvas id="memDrawingCanvas" class="mem-drawing-canvas" aria-label="Слой выбора GALKA"></canvas>
-
-        <div class="chart-identity" aria-hidden="true">
-          <div class="watermark">GALKA MEM</div>
-          <span>HYPERLIQUID · LIVE</span>
-        </div>
-        <div id="chartOhlc" class="chart-ohlc">O — H — L — C —</div>
-
-        <aside class="chart-tools" aria-label="Инструменты графика">
-          <button id="chartCursorTool" class="active" type="button" title="Курсор" aria-label="Курсор">⌖</button>
-          <button id="chartCrosshairTool" type="button" title="Перекрестие" aria-label="Перекрестие">＋</button>
-          <button id="chartGalkaTool" class="galka-tool" type="button" title="Поставить GALKA" aria-label="Поставить GALKA">G</button>
-        </aside>
-      </div>
-
-      <div class="chart-step">
-        <span id="chartStepBadge" class="badge">ГОТОВ</span>
-        <b id="chartInstruction">Нажми «Новая GALKA». Масштаб и перемещение графика работают как в Galka Pro.</b>
-      </div>
-      <div id="chartSelections" class="chart-selections">
-        <span>Якорь —</span><span>Левая —</span><span>Правая —</span><span>Верх —</span>
-      </div>
-      <div class="chart-actions">
-        <button id="newGalka" class="primary compact" type="button">Новая GALKA</button>
-        <button id="chartAddUpper" type="button" disabled>+ ещё лимитка</button>
-        <button id="chartDone" type="button" disabled>Готово</button>
-        <button id="chartReset" type="button">Сброс</button>
-      </div>
-      <p class="rule">GALKA: якорь → левая часть → правая часть. После правой части ставь верхние лимитки. Курсор возвращает обычное перемещение/zoom; «＋» включает перекрестие; «G» возвращает режим выбора текущей точки.</p>
+      <div class="chart-attribution">GALKA MEM · Hyperliquid</div>
     </section>
 
-    <section class="card account">
-      <div><small>Аккаунт</small><b id="account">—</b></div>
-      <div><small>Свободно</small><b id="withdrawable">—</b></div>
-      <div><small>Маржа</small><b id="marginUsed">—</b></div>
-      <div><small>SAFE</small><b id="safeMode">—</b></div>
-    </section>
-
-    <section class="card form-card">
-      <h2>Параметры кампании</h2>
-      <div class="grid two">
-        <label>Цена сейчас<input id="currentPrice" disabled value="—"></label>
-        <label>GALKA<input id="galkaPrice" type="number" inputmode="decimal" step="any" placeholder="выбери на графике"></label>
-        <label>Маржа $<input id="campaignMargin" type="number" inputmode="decimal" min="1" max="100" step="1" value="100"></label>
-        <label>Плечо<input id="leverage" type="number" inputmode="numeric" min="1" step="1" value="3"></label>
-        <label>Max рынка<input id="maxLeverage" disabled value="—"></label>
+    <!-- Same Galka Pro bottom-sheet/sidebar pattern, but MEM content. -->
+    <aside class="sidebar" id="sidebar" aria-label="GALKA MEM панель" aria-hidden="true">
+      <div class="sheet-head" id="sheetHandle">
+        <span class="sheet-grabber" aria-hidden="true"></span>
+        <div><b id="sheetTitle">GALKA MEM</b><small id="sheetSubtitle">One-shot · Hyperliquid</small></div>
+        <button id="closeSidebarSheet" type="button" aria-label="Закрыть панель">×</button>
       </div>
 
-      <div class="section-title"><b>Верхняя корзина</b><small>выбор на графике или ручной ввод · GALKA … +5%</small></div>
-      <div id="upperLevels" class="upper-levels"></div>
-      <div class="row-actions">
-        <button id="addUpper" type="button">+ уровень вручную</button>
-        <button id="templateUpper" type="button">GALKA / +2 / +3 / +4%</button>
+      <nav class="side-tabs" aria-label="Разделы терминала">
+        <button data-panel="galka" class="active" type="button">GALKA</button>
+        <button data-panel="campaign" type="button">Campaign</button>
+        <button data-panel="account" type="button">Account</button>
+        <button data-panel="more" type="button">More</button>
+      </nav>
+
+      <div class="sheet-scroll">
+        <section class="side-panel active" data-panel-id="galka">
+          <div class="section-head"><div><span class="eyebrow">GALKA MEM</span><h2>Новая кампания</h2></div><span class="paper-only">LIVE</span></div>
+
+          <div class="mem-workflow-card">
+            <div class="mem-workflow-title"><b>Выделение GALKA</b><small>точно как на привычном графике: G включает слой, курсор возвращает pan/zoom</small></div>
+            <div class="mem-workflow-actions">
+              <button id="newGalka" class="primary" type="button">Новая GALKA</button>
+              <button id="chartAddUpper" type="button" disabled>+ лимитка</button>
+              <button id="chartDone" type="button" disabled>Готово</button>
+              <button id="chartReset" class="danger-ghost" type="button">Сброс</button>
+            </div>
+          </div>
+
+          <div class="level-editor">
+            <div class="level-editor-head"><span><b>Уровень GALKA</b><small>Якорь задаёт цену. Левая и правая точки рисуют саму «галку».</small></span><span class="editable-chip">до LIVE</span></div>
+            <div class="level-price-row">
+              <label><span class="sr-only">Цена GALKA</span><input id="galkaPrice" type="number" step="any" inputmode="decimal" placeholder="Цена GALKA"></label>
+              <button id="previewButton" class="primary" type="button">Проверить</button>
+            </div>
+          </div>
+
+          <div class="settings-card mem-settings">
+            <div class="form-grid">
+              <label>Цена сейчас<input id="currentPrice" disabled value="—"></label>
+              <label>Маржа $<input id="campaignMargin" type="number" inputmode="decimal" min="1" max="100" step="1" value="100"></label>
+              <label>Плечо<input id="leverage" type="number" inputmode="numeric" min="1" step="1" value="3"></label>
+              <label>Max рынка<input id="maxLeverage" disabled value="—"></label>
+            </div>
+          </div>
+
+          <div class="section-head compact"><div><h2>Верхние лимитки</h2><small>GALKA … +5% · ставь на графике после правой точки</small></div><button id="addUpper" type="button">+ вручную</button></div>
+          <div id="upperLevels" class="upper-levels"></div>
+          <button id="templateUpper" class="mem-secondary" type="button">Шаблон: GALKA / +2 / +3 / +4%</button>
+
+          <div class="section-head compact"><div><h2>Нижние лимитки</h2><small>добавляются после «Готово»</small></div></div>
+          <div class="lower-pills"><span>−2%</span><span>−4%</span><span>−6%</span><span>−8%</span></div>
+
+          <section id="previewCard" class="mem-preview hidden">
+            <div class="section-head compact"><div><h2>Safety preview</h2></div><span id="safetyBadge" class="badge">—</span></div>
+            <div class="stats">
+              <div><small>Номинал</small><b id="previewNotional">—</b></div><div><small>Маржа</small><b id="previewMargin">—</b></div>
+              <div><small>Upper AVG</small><b id="upperAvg">—</b></div><div><small>Upper TP</small><b id="upperTp">—</b></div>
+              <div><small>Последний низ</small><b id="deepestLower">—</b></div><div><small>Max liq</small><b id="maxLiq">—</b></div>
+            </div>
+            <div id="safetyReason" class="notice"></div>
+            <div id="planLevels" class="plan"></div>
+            <div id="liqStates" class="liq"></div>
+            <button id="startLive" class="danger" type="button">Выставить реальные лимитки</button>
+          </section>
+        </section>
+
+        <section class="side-panel" data-panel-id="campaign">
+          <div class="section-head"><div><span class="eyebrow">ONE SHOT</span><h2>Кампания</h2></div><button id="reconcile" type="button">Сверить</button></div>
+          <div id="campaignBox" class="campaign-box">Нет активной GALKA MEM.</div>
+          <div class="mem-workflow-actions"><button id="cancelCampaign" type="button">Отменить до fill</button><button id="emergencyClose" class="danger" type="button">Аварийно закрыть</button></div>
+        </section>
+
+        <section class="side-panel" data-panel-id="account">
+          <div class="section-head"><div><span class="eyebrow">HYPERLIQUID</span><h2>Аккаунт</h2></div></div>
+          <div class="health-grid">
+            <span><small>Аккаунт</small><b id="account">—</b></span>
+            <span><small>Свободно</small><b id="withdrawable">—</b></span>
+            <span><small>Маржа</small><b id="marginUsed">—</b></span>
+            <span><small>SAFE</small><b id="safeMode">—</b></span>
+          </div>
+        </section>
+
+        <section class="side-panel" data-panel-id="more">
+          <div class="section-head"><div><span class="eyebrow">EVENTS</span><h2>Последние события</h2></div></div>
+          <div id="events" class="events"></div>
+          <div class="mem-note">Размер кампании: максимум $100 margin. Верхняя корзина 1/3, нижняя 2/3. Нижние уровни −2/−4/−6/−8%. Все реальные входы ALO, выходы reduce-only.</div>
+        </section>
       </div>
-
-      <div class="section-title"><b>Нижняя корзина</b><small>автоматически</small></div>
-      <div class="lower-pills"><span>−2%</span><span>−4%</span><span>−6%</span><span>−8%</span></div>
-      <p class="rule">$33.33 сверху / $66.67 снизу при марже $100. Внутри корзины размер растёт вниз: 1 / 1.5 / 2 / 2.5…</p>
-      <button id="previewButton" class="primary" type="button">Рассчитать и проверить</button>
-    </section>
-
-    <section id="previewCard" class="card hidden">
-      <div class="section-title"><b>Предпросмотр</b><span id="safetyBadge" class="badge">—</span></div>
-      <div class="stats">
-        <div><small>Номинал</small><b id="previewNotional">—</b></div>
-        <div><small>Маржа</small><b id="previewMargin">—</b></div>
-        <div><small>Upper AVG</small><b id="upperAvg">—</b></div>
-        <div><small>Upper TP</small><b id="upperTp">—</b></div>
-        <div><small>Последний низ</small><b id="deepestLower">—</b></div>
-        <div><small>Max liq</small><b id="maxLiq">—</b></div>
-      </div>
-      <div id="safetyReason" class="notice"></div>
-      <div id="planLevels" class="plan"></div>
-      <div id="liqStates" class="liq"></div>
-      <button id="startLive" class="danger" type="button">Выставить реальные лимитки</button>
-    </section>
-
-    <section class="card">
-      <div class="section-title"><b>Кампания</b><button id="reconcile" type="button">Сверить</button></div>
-      <div id="campaignBox" class="campaign-box">Нет активной GALKA MEM.</div>
-      <div class="row-actions">
-        <button id="cancelCampaign" type="button">Отменить до fill</button>
-        <button id="emergencyClose" class="danger ghost" type="button">Аварийно закрыть</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="section-title"><b>События</b><small>последние 30</small></div>
-      <div id="events" class="events"></div>
-    </section>
-
-    <div id="toast" class="toast hidden"></div>
+    </aside>
   </main>
-  <script src="vendor/lightweight-charts.standalone.production.js"></script>
-  <script type="module" src="mem.js?v=2"></script>
-  <script type="module" src="mem-chart.js?v=2"></script>
+
+  <div id="sheetBackdrop" class="sheet-backdrop"></div>
+  <nav class="mobile-nav" aria-label="Основная навигация">
+    <button data-mobile-panel="chart" class="active" type="button"><span>⌁</span><small>Chart</small></button>
+    <button data-mobile-panel="galka" type="button"><span>G</span><small>GALKA</small></button>
+    <button data-mobile-panel="campaign" type="button"><span>▤</span><small>Campaign</small></button>
+    <button data-mobile-panel="account" type="button"><span>◉</span><small>Account</small></button>
+    <button data-mobile-panel="more" type="button"><span>•••</span><small>More</small></button>
+  </nav>
+</div>
+
+<script type="module" src="mem.js?v=3"></script>
+<script type="module" src="mem-chart.js?v=3"></script>
 </body>
 </html>
