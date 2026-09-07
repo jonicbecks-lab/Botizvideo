@@ -14,7 +14,7 @@ class GalkaMemPlannerTests(unittest.TestCase):
             campaign_margin=100,
             leverage=3,
             max_leverage=3,
-            sz_decimals=5,
+            sz_decimals=1,
         )
         self.assertTrue(plan["safe"])
         self.assertEqual(len(plan["levels"]), 8)
@@ -55,7 +55,7 @@ class GalkaMemPlannerTests(unittest.TestCase):
         self.assertTrue(any(not row["safe"] for row in plan["liquidationStates"]))
 
     def test_upper_level_above_five_percent_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "between GALKA and \+5%"):
+        with self.assertRaisesRegex(ValueError, r"between GALKA and \+5%"):
             build_mem_plan(
                 galka_price=100.0,
                 upper_prices=[105.01],
@@ -66,7 +66,7 @@ class GalkaMemPlannerTests(unittest.TestCase):
             )
 
     def test_campaign_margin_is_capped_at_one_hundred(self):
-        with self.assertRaisesRegex(ValueError, "between \$0 and \$100"):
+        with self.assertRaisesRegex(ValueError, r"between \$0 and \$100"):
             build_mem_plan(
                 galka_price=100.0,
                 upper_prices=[102.0],
