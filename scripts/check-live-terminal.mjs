@@ -11,6 +11,7 @@ const memLive = fs.readFileSync('terminal/mem-live.js', 'utf8');
 const memProtectionUi = fs.readFileSync('terminal/mem-protection.js', 'utf8');
 const memProtectionHook = fs.readFileSync('terminal/vendor/mem-protection-chart-hook.js', 'utf8');
 const memProtectionBackend = fs.readFileSync('live/mem_protection.py', 'utf8');
+const memQuickBackend = fs.readFileSync('live/mem_quick_controls.py', 'utf8');
 const memSourceChart = fs.readFileSync('terminal/vendor/mem-source-galka-chart.js', 'utf8');
 const memSourceTouch = fs.readFileSync('terminal/vendor/mem-source-galka-touch-actions.js', 'utf8');
 const memSourceRelativeDrag = fs.readFileSync('terminal/vendor/mem-source-galka-structure-relative-drag.js', 'utf8');
@@ -60,10 +61,13 @@ const checks = [
   ['MEM explicit real confirmation isolated', memLive.includes('PLACE_GALKA_MEM_REAL_ORDERS') && !memLive.includes("confirmation:'PLACE_REAL_ORDERS'") && !memLive.includes('/api/live/campaign')],
   ['MEM upper crosshair then automatic lower', memLive.includes('handleSelectedCrosshairPrice') && memLive.includes('[.98,.96,.94,.92]')],
   ['MEM browser has no secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(memHtml + memCss + memLive + memProtectionUi + memSourceStructure)],
-  ['MEM break-even controls', memHtml.includes('id="activateBreakEven"') && memHtml.includes('id="moveProtection"') && memHtml.includes('id="applyProtection"')],
+  ['MEM quick chart risk dock', memHtml.includes('id="quickRiskDock"') && memHtml.includes('id="quickBe"') && memHtml.includes('id="quickSl"') && memHtml.includes('id="quickTp"') && memHtml.includes('id="quickApply"')],
+  ['MEM one-tap break-even', memProtectionUi.includes('ACTIVATE_GALKA_MEM_BREAK_EVEN') && memProtectionUi.includes("els.be?.addEventListener('click'")],
   ['MEM break-even uses reduce-only stop-market backend', memProtectionBackend.includes('"isMarket": True') && memProtectionBackend.includes('"tpsl": "sl"') && memProtectionBackend.includes('reduce_only=True')],
   ['MEM protection only moves upward', memProtectionBackend.includes('Protection can only move upward') && memProtectionUi.includes('MOVE_GALKA_MEM_PROTECTION:')],
-  ['MEM TP and BE lines visible', memProtectionUi.includes("'TP'") && memProtectionUi.includes("'BE STOP'") && memProtectionHook.includes('window.GalkaMemChart')],
+  ['MEM manual TP persists', memQuickBackend.includes('manualUpperTakeProfit') && memQuickBackend.includes('MOVE_GALKA_MEM_TP:') && memQuickBackend.includes('TP')],
+  ['MEM TP must remain above market', memQuickBackend.includes('must remain above current market')],
+  ['MEM TP SL lines visible', memProtectionUi.includes("'TP'") && memProtectionUi.includes("'SL'") && memProtectionHook.includes('window.GalkaMemChart')],
 ];
 
 for (const [name, ok] of checks) {
