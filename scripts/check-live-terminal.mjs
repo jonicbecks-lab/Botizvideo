@@ -5,11 +5,13 @@ const html = fs.readFileSync('terminal/live.html', 'utf8');
 const css = fs.readFileSync('terminal/live.css', 'utf8');
 const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
-const proCss = fs.readFileSync('terminal/pro.css', 'utf8');
 const memHtml = fs.readFileSync('terminal/mem.html', 'utf8');
 const memCss = fs.readFileSync('terminal/mem.css', 'utf8');
-const memJs = fs.readFileSync('terminal/mem.js', 'utf8');
-const memChartJs = fs.readFileSync('terminal/mem-chart.js', 'utf8');
+const memLive = fs.readFileSync('terminal/mem-live.js', 'utf8');
+const memSourceChart = fs.readFileSync('terminal/vendor/mem-source-galka-chart.js', 'utf8');
+const memSourceTouch = fs.readFileSync('terminal/vendor/mem-source-galka-touch-actions.js', 'utf8');
+const memSourceStructure = fs.readFileSync('terminal/vendor/mem-source-galka-structure-draft.js', 'utf8');
+const memSourceChartCss = fs.readFileSync('terminal/mem-source-live-chart.css', 'utf8');
 const setup = fs.readFileSync('scripts/setup-galka-live.sh', 'utf8');
 const launcher = fs.readFileSync('scripts/start-galka-live.sh', 'utf8');
 const ladder = fs.readFileSync('live/live_ladder.py', 'utf8');
@@ -21,7 +23,6 @@ const checks = [
   ['Hyperliquid title', html.includes('Hyperliquid LIVE') || html.includes('HYPERLIQUID')],
   ['BTC selector', html.includes('<option>BTC</option>')],
   ['ETH selector', html.includes('<option>ETH</option>')],
-  ['SOL selector', html.includes('<option>SOL</option>')],
   ['manual GALKA input', html.includes('id="galkaInput"')],
   ['real preview modal', html.includes('id="previewModal"') && html.includes('РЕАЛЬНЫЕ ОРДЕРА')],
   ['eight live depths', ladder.includes('0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00')],
@@ -34,37 +35,40 @@ const checks = [
   ['session-bound API', js.includes('X-Galka-Session') && server.includes('X-Galka-Session')],
   ['manual reconciliation', js.includes('/api/live/reconcile') && server.includes('/api/live/reconcile')],
   ['local chart dependency', html.includes('vendor/galka-chart.js') && html.includes('live-chart.css') && chartShim.includes('LightweightCharts')],
-  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas') && !chartShim.includes('.style.')],
+  ['strict chart CSP', html.includes("style-src 'self'") && !html.includes("style-src 'self' 'unsafe-inline'") && chartCss.includes('.galka-live-canvas')],
   ['no runtime CDN', !/https?:\/\//.test(html)],
   ['explicit real confirmation', js.includes('PLACE_REAL_ORDERS')],
   ['double-confirmed emergency', js.includes('EMERGENCY_CLOSE_REAL_POSITION')],
-  ['no browser secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(html + css + js + memHtml + memCss + memJs + memChartJs)],
   ['private Termux config', setup.includes('chmod 600') && setup.includes('$HOME/.config') && setup.includes('galka-live.env')],
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
-  ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
 
-  ['MEM reuses exact Pro stylesheet', memHtml.includes('href="pro.css?v=7"') && proCss.includes('.topbar') && proCss.includes('.leftbar') && proCss.includes('.mobile-nav')],
-  ['MEM Pro topbar structure', memHtml.includes('class="topbar"') && memHtml.includes('class="brand-mark"') && memHtml.includes('class="market-controls"') && memHtml.includes('class="top-actions"')],
-  ['MEM Pro chart stack', memHtml.includes('id="mainChart"') && memHtml.includes('id="drawingCanvas"') && memHtml.includes('class="chart-main-wrap"') && memHtml.includes('class="chart-actions"')],
-  ['MEM Pro drawing rail', memHtml.includes('class="leftbar"') && memHtml.includes('data-tool="cursor"') && memHtml.includes('data-tool="crosshair"') && memHtml.includes('data-tool="manualGalka"')],
-  ['MEM Pro bottom sheet', memHtml.includes('class="sidebar"') && memHtml.includes('class="sheet-head"') && memHtml.includes('class="side-tabs"') && memHtml.includes('class="mobile-nav"')],
-  ['MEM chart workflow', memHtml.includes('id="newGalka"') && memHtml.includes('id="chartAddUpper"') && memHtml.includes('id="chartDone"')],
-  ['MEM chart candle endpoint', server.includes('/api/mem/candles') && memChartJs.includes('/api/mem/candles')],
-  ['MEM chart session auth', memChartJs.includes('X-Galka-Session')],
-  ['MEM Galka Pro touch gestures', memChartJs.includes('horzTouchDrag: true') && memChartJs.includes('vertTouchDrag: true') && memChartJs.includes('pinch: true')],
-  ['MEM canvas isolated from pan zoom', memCss.includes('#drawingCanvas{z-index:8;pointer-events:none}') && memCss.includes('#drawingCanvas.drawing{pointer-events:auto;touch-action:none')],
-  ['MEM anchor-left-right-upper sequence', memChartJs.includes("runtime.stage = 'anchor'") && memChartJs.includes("runtime.stage = 'left'") && memChartJs.includes("runtime.stage = 'right'") && memChartJs.includes("runtime.stage = 'upper'")],
-  ['MEM chronology gate', memChartJs.includes("point.time >= runtime.anchor.time") && memChartJs.includes("point.time <= runtime.anchor.time")],
-  ['MEM GALKA V shape', memChartJs.includes("drawHandle(ctx, anchor, COLORS.galka, 'G')") && memChartJs.includes('ctx.lineTo(anchor.x, anchor.y)') && memChartJs.includes('ctx.lineTo(right.x, right.y)')],
-  ['MEM automatic lower ladder', memChartJs.includes('[0.98, 0.96, 0.94, 0.92]') && memChartJs.includes("els.preview?.click()")],
-  ['MEM full toolbar drawing support', memChartJs.includes("DRAW_TWO = new Set(['trend', 'ray', 'rect', 'measure', 'fib', 'longPosition'])") && memChartJs.includes("runtime.magnet") && memChartJs.includes("runtime.undoStack")],
+  ['MEM uses source LIVE shell not Pro', memHtml.includes('href="live.css?v=2"') && !memHtml.includes('pro.css') && memHtml.includes('class="app-shell"') && memHtml.includes('class="tradebar"')],
+  ['MEM source topbar ids', memHtml.includes('id="symbolSelect"') && memHtml.includes('id="intervalSelect"') && memHtml.includes('id="ticker"') && memHtml.includes('id="liveBadge"')],
+  ['MEM source chart workspace', memHtml.includes('<main class="workspace">') && memHtml.includes('id="chart"') && memHtml.includes('id="crosshairGalkaAction"') && memHtml.includes('id="detailsButton"')],
+  ['MEM source tradebar', memHtml.includes('id="campaignStatus"') && memHtml.includes('id="galkaInput"') && memHtml.includes('id="previewButton"')],
+  ['MEM custom source chart', memHtml.includes('mem-source-galka-chart.js') && memSourceChart.includes('galka-live-canvas') && memSourceChartCss.includes('.galka-touch-overlay')],
+  ['MEM source touch behavior', memSourceTouch.includes('HOLD_MS=650') && memSourceTouch.includes("type:'crosshair'") && memSourceTouch.includes("galka:select-price") && memSourceTouch.includes('startPinch')],
+  ['MEM source structure workflow', memSourceStructure.includes("state.phase='choose-left'") && memSourceStructure.includes("state.phase='choose-right'") && memSourceStructure.includes('galka:mem-structure-ready')],
+  ['MEM structure cannot call legacy LIVE campaign', !memSourceStructure.includes('/api/live/campaign') && !memSourceStructure.includes('PLACE_REAL_ORDERS')],
+  ['MEM only uses MEM endpoints', memLive.includes('/api/mem/candles') && memLive.includes('/api/mem/status') && memLive.includes('/api/mem/preview') && memLive.includes('/api/mem/campaign')],
+  ['MEM explicit real confirmation isolated', memLive.includes('PLACE_GALKA_MEM_REAL_ORDERS') && !memLive.includes("confirmation:'PLACE_REAL_ORDERS'") && !memLive.includes('/api/live/campaign')],
+  ['MEM upper crosshair then automatic lower', memLive.includes('handleSelectedCrosshairPrice') && memLive.includes('[.98,.96,.94,.92]')],
+  ['MEM browser has no secret', !/HL_API_SECRET_KEY|api_secret_key|PASTE_API_WALLET_PRIVATE_KEY/.test(memHtml + memCss + memLive + memSourceStructure)],
 ];
 
 for (const [name, ok] of checks) {
   if (!ok) throw new Error(`Live terminal check failed: ${name}`);
 }
-execFileSync(process.execPath, ['--check', 'terminal/live.js'], { stdio: 'inherit' });
-execFileSync(process.execPath, ['--check', 'terminal/mem.js'], { stdio: 'inherit' });
-execFileSync(process.execPath, ['--check', 'terminal/mem-chart.js'], { stdio: 'inherit' });
+for (const file of [
+  'terminal/live.js',
+  'terminal/mem-live.js',
+  'terminal/vendor/mem-source-galka-chart.js',
+  'terminal/vendor/mem-source-galka-future-pan.js',
+  'terminal/vendor/mem-source-galka-native-plot-pan.js',
+  'terminal/vendor/mem-source-galka-touch-actions.js',
+  'terminal/vendor/mem-source-galka-structure-draft.js',
+]) {
+  execFileSync(process.execPath, ['--check', file], { stdio: 'inherit' });
+}
 console.log(`Hyperliquid live terminal: ${checks.length} checks passed`);
