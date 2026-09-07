@@ -5,6 +5,7 @@ const html = fs.readFileSync('terminal/live.html', 'utf8');
 const css = fs.readFileSync('terminal/live.css', 'utf8');
 const chartCss = fs.readFileSync('terminal/live-chart.css', 'utf8');
 const js = fs.readFileSync('terminal/live.js', 'utf8');
+const proCss = fs.readFileSync('terminal/pro.css', 'utf8');
 const memHtml = fs.readFileSync('terminal/mem.html', 'utf8');
 const memCss = fs.readFileSync('terminal/mem.css', 'utf8');
 const memJs = fs.readFileSync('terminal/mem.js', 'utf8');
@@ -42,18 +43,22 @@ const checks = [
   ['live launcher', launcher.includes('Galka LIVE URL:') && launcher.includes('termux-open-url')],
   ['launcher hides session token', launcher.includes("sed '/^Galka LIVE URL: /d'")],
   ['mobile layout', css.includes('.tradebar') && css.includes('100dvh')],
-  ['MEM chart exists', memHtml.includes('id="memChart"') && memHtml.includes('vendor/lightweight-charts.standalone.production.js')],
+
+  ['MEM reuses exact Pro stylesheet', memHtml.includes('href="pro.css?v=7"') && proCss.includes('.topbar') && proCss.includes('.leftbar') && proCss.includes('.mobile-nav')],
+  ['MEM Pro topbar structure', memHtml.includes('class="topbar"') && memHtml.includes('class="brand-mark"') && memHtml.includes('class="market-controls"') && memHtml.includes('class="top-actions"')],
+  ['MEM Pro chart stack', memHtml.includes('id="mainChart"') && memHtml.includes('id="drawingCanvas"') && memHtml.includes('class="chart-main-wrap"') && memHtml.includes('class="chart-actions"')],
+  ['MEM Pro drawing rail', memHtml.includes('class="leftbar"') && memHtml.includes('data-tool="cursor"') && memHtml.includes('data-tool="crosshair"') && memHtml.includes('data-tool="manualGalka"')],
+  ['MEM Pro bottom sheet', memHtml.includes('class="sidebar"') && memHtml.includes('class="sheet-head"') && memHtml.includes('class="side-tabs"') && memHtml.includes('class="mobile-nav"')],
   ['MEM chart workflow', memHtml.includes('id="newGalka"') && memHtml.includes('id="chartAddUpper"') && memHtml.includes('id="chartDone"')],
   ['MEM chart candle endpoint', server.includes('/api/mem/candles') && memChartJs.includes('/api/mem/candles')],
   ['MEM chart session auth', memChartJs.includes('X-Galka-Session')],
-  ['MEM anchor-left-right-upper sequence', memChartJs.includes("runtime.stage = 'anchor'") && memChartJs.includes("runtime.stage = 'left'") && memChartJs.includes("runtime.stage = 'right'") && memChartJs.includes("runtime.stage = 'upper'")],
-  ['MEM automatic lower ladder', memChartJs.includes('[0.98, 0.96, 0.94, 0.92]') && memChartJs.includes("els.preview?.click()")],
-  ['MEM chart mobile layout', memCss.includes('.mem-chart') && memCss.includes('.chart-actions')],
   ['MEM Galka Pro touch gestures', memChartJs.includes('horzTouchDrag: true') && memChartJs.includes('vertTouchDrag: true') && memChartJs.includes('pinch: true')],
-  ['MEM drawing overlay', memHtml.includes('id="memDrawingCanvas"') && memCss.includes('.mem-drawing-canvas.drawing') && memChartJs.includes("addEventListener('pointerdown', handlePickPointer)")],
-  ['MEM cursor crosshair GALKA tools', memHtml.includes('id="chartCursorTool"') && memHtml.includes('id="chartCrosshairTool"') && memHtml.includes('id="chartGalkaTool"')],
-  ['MEM left right chronology gate', memChartJs.includes('point.time < runtime.anchor.time') && memChartJs.includes('point.time > runtime.anchor.time')],
-  ['MEM GALKA shape overlay', memChartJs.includes("drawHandle(ctx, anchor, COLORS.galka, 'G')") && memChartJs.includes('ctx.lineTo(anchor.x, anchor.y)')],
+  ['MEM canvas isolated from pan zoom', memCss.includes('#drawingCanvas{z-index:8;pointer-events:none}') && memCss.includes('#drawingCanvas.drawing{pointer-events:auto;touch-action:none')],
+  ['MEM anchor-left-right-upper sequence', memChartJs.includes("runtime.stage = 'anchor'") && memChartJs.includes("runtime.stage = 'left'") && memChartJs.includes("runtime.stage = 'right'") && memChartJs.includes("runtime.stage = 'upper'")],
+  ['MEM chronology gate', memChartJs.includes("point.time >= runtime.anchor.time") && memChartJs.includes("point.time <= runtime.anchor.time")],
+  ['MEM GALKA V shape', memChartJs.includes("drawHandle(ctx, anchor, COLORS.galka, 'G')") && memChartJs.includes('ctx.lineTo(anchor.x, anchor.y)') && memChartJs.includes('ctx.lineTo(right.x, right.y)')],
+  ['MEM automatic lower ladder', memChartJs.includes('[0.98, 0.96, 0.94, 0.92]') && memChartJs.includes("els.preview?.click()")],
+  ['MEM full toolbar drawing support', memChartJs.includes("DRAW_TWO = new Set(['trend', 'ray', 'rect', 'measure', 'fib', 'longPosition'])") && memChartJs.includes("runtime.magnet") && memChartJs.includes("runtime.undoStack")],
 ];
 
 for (const [name, ok] of checks) {
