@@ -1,0 +1,10 @@
+.galka-v2-preview-backdrop{position:fixed;inset:0;z-index:10050;background:rgba(2,5,9,.78);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.galka-v2-preview-backdrop.hidden{display:none}
+.galka-v2-preview{width:min(620px,100%);max-height:88vh;overflow:auto;background:#0d121a;border:1px solid #2a3442;border-radius:18px;padding:16px;color:#eef3f8;box-shadow:0 20px 70px rgba(0,0,0,.55)}
+.galka-v2-preview h2{font-size:18px;margin:0 0 4px}.galka-v2-preview p{margin:0 0 12px;color:#9aa8b8;font-size:13px}
+.galka-v2-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+.galka-v2-stat{background:#121a24;border:1px solid #26303e;border-radius:10px;padding:9px}.galka-v2-stat small{display:block;color:#8795a6;font-size:11px}.galka-v2-stat b{font-size:15px}
+.galka-v2-level{display:grid;grid-template-columns:70px 1fr auto;gap:8px;align-items:center;padding:8px 4px;border-top:1px solid #202936;font-size:13px}.galka-v2-level small{color:#8d9baa}.galka-v2-level.upper b{color:#42c9e8}.galka-v2-level.lower b{color:#aab5c3}.galka-v2-level.galka b{color:#ffb547}
+.galka-v2-actions{display:flex;gap:10px;position:sticky;bottom:-16px;background:#0d121a;padding:14px 0 2px}.galka-v2-actions button{flex:1;min-height:44px;border:0;border-radius:11px;font-weight:700}.galka-v2-cancel{background:#202936;color:#d7dee7}.galka-v2-confirm{background:#16a36a;color:white}.galka-v2-confirm:disabled{opacity:.38}
+.galka-v2-warning{padding:9px 10px;border-radius:10px;background:#2a1b10;color:#ffc787;font-size:12px;margin:8px 0}
+.galka-v2-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border:1px solid #314052;border-radius:999px;color:#9fdcf0;font-size:11px;margin-left:6px}
