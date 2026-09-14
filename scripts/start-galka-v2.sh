@@ -11,6 +11,7 @@ PID_FILE="$RUNTIME_DIR/server.pid"
 REV_FILE="$RUNTIME_DIR/server.rev"
 PORT_FILE="$RUNTIME_DIR/server.port"
 LOG_FILE="$RUNTIME_DIR/server.log"
+LEGACY_URL_FILE="$RUNTIME_DIR/bootstrap.url"
 
 mkdir -p "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR"
@@ -36,7 +37,9 @@ managed_pid_alive() {
   if [[ -r "/proc/$pid/cmdline" ]]; then
     cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
   fi
-  [[ "$cmdline" == *"live.galka_v2_server_entry"* ]]
+  # Accept both the current entrypoint and the previous launcher version so an
+  # update can safely replace only a process created by this dedicated V2 PID file.
+  [[ "$cmdline" == *"live.galka_v2_server_entry"* || "$cmdline" == *"-m live.server"* ]]
 }
 
 server_health() {
@@ -97,7 +100,7 @@ if [[ -f "$PID_FILE" ]]; then
     echo "Перезапускаю старый процесс GALKA V2 после обновления кода..."
     stop_managed_pid "$old_pid"
   fi
-  rm -f "$PID_FILE" "$REV_FILE" "$PORT_FILE"
+  rm -f "$PID_FILE" "$REV_FILE" "$PORT_FILE" "$LEGACY_URL_FILE"
 fi
 
 preferred_port="$($VENV_PY - "$SOURCE_CONFIG" <<'PY'
