@@ -10,21 +10,15 @@ from .hyperliquid_gateway import HyperliquidGateway
 
 
 class FastGalkaV2Gateway(GalkaV2Gateway):
-    """V2 gateway that removes redundant network round-trips without weakening checks.
+    """V2 gateway with one safe duplicate account read removed during placement.
 
-    During create_campaign_v2 the engine immediately repeats one account read
-    before any exchange mutation; that exact snapshot can be reused. After a
-    successful nine-order bulk placement, the accepted resting-order response is
-    also sufficient for the engine's immediate order-registration pass. A fresh
-    account read still follows, and any detected fill falls back to the normal
-    authoritative sync path.
+    create_campaign_v2 calls preview_v2 and then immediately asks for the same
+    account snapshot again before any exchange mutation. Reuse only that second
+    read. Any account read after leverage/order mutations remains fresh. Order
+    verification after the batch stays authoritative and still hits Hyperliquid.
     """
 
     _PLACEMENT_TRACE_NAMES = {"create_campaign", "create_campaign_v2"}
-
-    def __init__(self, config: Any):
-        super().__init__(config)
-        self._v2_batch_ack_snapshot: tuple[str, list[dict[str, Any]]] | None = None
 
     def fresh_account_state(self) -> dict[str, Any]:
         with self._trace_lock:
@@ -51,53 +45,6 @@ class FastGalkaV2Gateway(GalkaV2Gateway):
                 self._trace_account_snapshot = deepcopy(result)
                 self._trace_account_snapshot_at = time.monotonic()
         return result
-
-    def place_entries_batch(self, coin, levels, entry_cloids):
-        placed = super().place_entries_batch(coin, levels, entry_cloids)
-        normalized = self._coin(coin)
-        if len(placed) == len(levels) and all(
-            row.status == "resting" and int(row.oid or 0) > 0 for row in placed
-        ):
-            rows: list[dict[str, Any]] = []
-            for level, order, cloid in zip(levels, placed, entry_cloids):
-                rows.append(
-                    {
-                        "coin": normalized,
-                        "oid": int(order.oid),
-                        "cloid": cloid,
-                        "side": "B",
-                        "price": float(level.price),
-                        "size": float(level.size),
-                        "originalSize": float(level.size),
-                        "reduceOnly": False,
-                        "tif": "Alo",
-                        "orderType": "Limit",
-                        "isTrigger": False,
-                        "triggerPrice": 0.0,
-                        "timestamp": 0,
-                    }
-                )
-            self._v2_batch_ack_snapshot = (normalized, rows)
-        else:
-            self._v2_batch_ack_snapshot = None
-        return placed
-
-    def fresh_open_orders(self, coin: str | None = None) -> list[dict[str, Any]]:
-        snapshot = self._v2_batch_ack_snapshot
-        with self._trace_lock:
-            trace_name = self._trace_name
-        if (
-            trace_name == "create_campaign_v2"
-            and coin is not None
-            and snapshot is not None
-            and snapshot[0] == self._coin(coin)
-        ):
-            self._v2_batch_ack_snapshot = None
-            return self._timed(
-                "fresh_open_orders_batch_ack",
-                lambda: deepcopy(snapshot[1]),
-            )
-        return super().fresh_open_orders(coin)
 
 
 class FastGalkaV2Engine(GalkaV2Engine):
