@@ -13,7 +13,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
+from .galka_v2_engine import GalkaV2Engine, GalkaV2Gateway
+from .galka_v2_strategy import V2_LEVERAGE, V2_MARGIN_USD, V2_TOTAL_NOTIONAL
 from .hyperliquid_gateway import GatewayError
 from .trade_history import build_chart_history
 
@@ -64,7 +65,7 @@ class LiveProcessLock:
 
 
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
-    engine: CompatibleGalkaLiveEngine
+    engine: GalkaV2Engine
     session_token: str
     server_port: int
 
@@ -189,9 +190,22 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
 
         if parsed.path == "/api/live/preview":
-            return self._handle(lambda: self.engine.preview(str(data.get("coin", "")), float(data.get("galkaPrice", 0))))
+            return self._handle(
+                lambda: self.engine.preview_v2(
+                    str(data.get("coin", "")),
+                    float(data.get("galkaPrice", 0)),
+                    data.get("researchSetup"),
+                )
+            )
         if parsed.path == "/api/live/campaign":
-            return self._handle(lambda: self.engine.create_campaign(str(data.get("coin", "")), float(data.get("galkaPrice", 0)), str(data.get("confirmation", ""))))
+            return self._handle(
+                lambda: self.engine.create_campaign_v2(
+                    str(data.get("coin", "")),
+                    float(data.get("galkaPrice", 0)),
+                    str(data.get("confirmation", "")),
+                    data.get("researchSetup"),
+                )
+            )
         if parsed.path == "/api/live/cancel":
             return self._handle(lambda: self.engine.cancel_waiting_campaign(str(data.get("coin", ""))))
         if parsed.path == "/api/live/close-near-market":
@@ -222,8 +236,8 @@ def main() -> int:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = CompatibleHyperliquidGateway(config)
-        engine = CompatibleGalkaLiveEngine(config, gateway)
+        gateway = GalkaV2Gateway(config)
+        engine = GalkaV2Engine(config, gateway)
         token = secrets.token_urlsafe(32)
         GalkaRequestHandler.engine = engine
         GalkaRequestHandler.session_token = token
@@ -247,7 +261,10 @@ def main() -> int:
     print(f"Galka LIVE URL: {session_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
-    print(f"Плечо: {config.leverage}x isolated · номинал одной GALKA: ${config.total_notional:.2f}", flush=True)
+    print(
+        f"GALKA V2: {V2_LEVERAGE}x isolated · маржа до ${V2_MARGIN_USD:.2f} · номинал ${V2_TOTAL_NOTIONAL:.2f}",
+        flush=True,
+    )
     print("Секретный ключ загружен из локального файла и не передаётся браузеру.", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
