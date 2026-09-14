@@ -103,7 +103,7 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE" "$REV_FILE" "$PORT_FILE" "$LEGACY_URL_FILE"
 fi
 
-preferred_port="$($VENV_PY - "$SOURCE_CONFIG" <<'PY'
+preferred_port="$("$VENV_PY" - "$SOURCE_CONFIG" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -115,7 +115,7 @@ print(port if 1024 <= port <= 65535 else 3003)
 PY
 )"
 
-port="$($VENV_PY - "$preferred_port" <<'PY'
+port="$("$VENV_PY" - "$preferred_port" <<'PY'
 import socket
 import sys
 
