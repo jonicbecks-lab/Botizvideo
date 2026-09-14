@@ -182,8 +182,11 @@ class GalkaV2EngineTests(unittest.TestCase):
         self.assertTrue(campaign["v2LowerActivated"])
         self.assertEqual(campaign["v2TargetMode"], "galka")
         self.assertAlmostEqual(campaign["v2TargetPrice"], campaign["galkaPrice"])
-        self.assertNotIn(old_target, self.gateway.orders)
+        # Hyperliquid may modify the same reduce-only order in place, so an
+        # unchanged oid is valid. What matters is the replacement price/size.
+        self.assertEqual(int(campaign["fallbackTargetOid"]), old_target)
         target = self.gateway.orders[int(campaign["fallbackTargetOid"])]
+        self.assertAlmostEqual(target["price"], campaign["galkaPrice"])
         self.assertAlmostEqual(target["size"], self.gateway.position_sizes["BTC"])
         upper_open = [
             row for row in self.gateway.open_orders("BTC")
