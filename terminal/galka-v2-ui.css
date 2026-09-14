@@ -8,3 +8,7 @@
 .galka-v2-actions{display:flex;gap:10px;position:sticky;bottom:-16px;background:#0d121a;padding:14px 0 2px}.galka-v2-actions button{flex:1;min-height:44px;border:0;border-radius:11px;font-weight:700}.galka-v2-cancel{background:#202936;color:#d7dee7}.galka-v2-confirm{background:#16a36a;color:white}.galka-v2-confirm:disabled{opacity:.38}
 .galka-v2-warning{padding:9px 10px;border-radius:10px;background:#2a1b10;color:#ffc787;font-size:12px;margin:8px 0}
 .galka-v2-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border:1px solid #314052;border-radius:999px;color:#9fdcf0;font-size:11px;margin-left:6px}
+
+/* GALKA V2 runs a deliberately smaller API surface than the legacy research build.
+   Hide controls that would only call endpoints this server does not expose. */
+#clusterToggle,.auto-queue-controls,.control-center-entry,#controlCenterPanel,.galka-update-head,.galka-update-card,.galka-update-float{display:none!important}
