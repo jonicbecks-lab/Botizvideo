@@ -7,6 +7,7 @@ import os
 import secrets
 import sys
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -20,6 +21,7 @@ from .trade_history import build_chart_history
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TERMINAL_ROOT = REPO_ROOT / "terminal"
+SESSION_COOKIE = "galkaLocalSession"
 
 
 class LiveProcessLock:
@@ -73,6 +75,9 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(TERMINAL_ROOT), **kwargs)
 
     def log_message(self, fmt: str, *args) -> None:
+        # Never echo the one-time bootstrap token from /open/<token> into Termux logs.
+        if self.path.startswith("/open/"):
+            return
         message = fmt % args
         if self.path.startswith("/api/live/status"):
             return
@@ -99,7 +104,7 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
     def _allowed_origins(self) -> set[str]:
         return {f"http://127.0.0.1:{self.server_port}", f"http://localhost:{self.server_port}"}
 
-    def _authorized_api_request(self) -> bool:
+    def _local_request_ok(self) -> bool:
         host = (self.headers.get("Host") or "").lower()
         if host not in {f"127.0.0.1:{self.server_port}", f"localhost:{self.server_port}"}:
             return False
@@ -109,8 +114,28 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         fetch_site = (self.headers.get("Sec-Fetch-Site") or "").lower()
         if fetch_site and fetch_site not in {"same-origin", "none"}:
             return False
+        return True
+
+    def _cookie_session(self) -> str:
+        raw = self.headers.get("Cookie") or ""
+        if not raw:
+            return ""
+        try:
+            cookies = SimpleCookie()
+            cookies.load(raw)
+            morsel = cookies.get(SESSION_COOKIE)
+            return morsel.value if morsel else ""
+        except Exception:
+            return ""
+
+    def _authorized_api_request(self) -> bool:
+        if not self._local_request_ok():
+            return False
         supplied = self.headers.get("X-Galka-Session") or ""
-        return hmac.compare_digest(supplied, self.session_token)
+        if supplied and hmac.compare_digest(supplied, self.session_token):
+            return True
+        cookie = self._cookie_session()
+        return bool(cookie) and hmac.compare_digest(cookie, self.session_token)
 
     def _require_api_auth(self) -> bool:
         if self._authorized_api_request():
@@ -136,8 +161,34 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
             raise LiveEngineError("Ожидается JSON-объект")
         return data
 
+    def _send_session_cookie(self, *, redirect: bool = False) -> None:
+        if redirect:
+            self.send_response(HTTPStatus.FOUND)
+            self.send_header("Location", "/terminal/live.html")
+            self.send_header(
+                "Set-Cookie",
+                f"{SESSION_COOKIE}={self.session_token}; Path=/; HttpOnly; SameSite=Strict",
+            )
+            self.end_headers()
+            return
+        body = json.dumps({"ok": True}, ensure_ascii=False).encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header(
+            "Set-Cookie",
+            f"{SESSION_COOKIE}={self.session_token}; Path=/; HttpOnly; SameSite=Strict",
+        )
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/open/"):
+            supplied = parsed.path[len("/open/"):]
+            if not self._local_request_ok() or not hmac.compare_digest(supplied, self.session_token):
+                return self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Недействительная локальная LIVE-сессия"})
+            return self._send_session_cookie(redirect=True)
         if parsed.path.startswith("/api/"):
             if not self._require_api_auth():
                 return
@@ -182,6 +233,19 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not parsed.path.startswith("/api/"):
             return self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "API endpoint not found"})
+
+        if parsed.path == "/api/live/session":
+            if not self._local_request_ok():
+                return self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Недействительная локальная LIVE-сессия"})
+            try:
+                data = self._read_json()
+            except LiveEngineError as exc:
+                return self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            supplied = str(data.get("token") or "")
+            if not supplied or not hmac.compare_digest(supplied, self.session_token):
+                return self._json(HTTPStatus.UNAUTHORIZED, {"ok": False, "error": "Недействительная локальная LIVE-сессия"})
+            return self._send_session_cookie()
+
         if not self._require_api_auth():
             return
         try:
@@ -256,9 +320,9 @@ def main() -> int:
         return 2
 
     base_url = f"http://{config.host}:{config.port}/terminal/live.html"
-    session_url = f"{base_url}#token={token}"
-    print(f"Galka LIVE: {base_url}", flush=True)
-    print(f"Galka LIVE URL: {session_url}", flush=True)
+    session_url = f"http://{config.host}:{config.port}/open/{token}"
+    print(f"Galka V2 URL: {session_url}", flush=True)
+    print(f"После входа браузер сам откроет: {base_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
     print(
