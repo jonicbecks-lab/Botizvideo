@@ -39,6 +39,8 @@ const els = {
 };
 
 const ACTIVE = new Set(['placing', 'waiting', 'open', 'closing', 'canceling', 'emergency', 'recovery']);
+const ACTIVE_ENTRY_LEVELS = 4;
+const REFERENCE_DEPTHS = Object.freeze([0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00]);
 const COLORS = {
   green: '#16c784',
   red: '#ef5350',
@@ -46,7 +48,6 @@ const COLORS = {
   gray: '#7c8797',
   cyan: '#26c6da',
 };
-
 
 const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const hashToken = hashParams.get('token');
@@ -58,7 +59,7 @@ const sessionToken = sessionStorage.getItem('galkaLiveSession') || '';
 
 const runtime = {
   coin: 'BTC',
-  interval: '15m',
+  interval: '5m',
   chart: null,
   series: null,
   lines: [],
@@ -66,6 +67,7 @@ const runtime = {
   pendingPreview: null,
   lastEventKey: null,
   candleBusy: false,
+  pendingCandleReload: false,
   statusBusy: false,
   candlesLoaded: false,
   lastCandleTime: null,
@@ -215,7 +217,10 @@ function normalizeCandles(rows) {
 }
 
 async function loadCandles({ initial = false } = {}) {
-  if (runtime.candleBusy) return;
+  if (runtime.candleBusy) {
+    if (initial) runtime.pendingCandleReload = true;
+    return;
+  }
   runtime.candleBusy = true;
   const fullReload = initial || !runtime.candlesLoaded;
   const requestedCoin = runtime.coin;
@@ -229,7 +234,10 @@ async function loadCandles({ initial = false } = {}) {
       `&interval=${encodeURIComponent(requestedInterval)}&limit=${limit}`,
     );
 
-    if (requestedCoin !== runtime.coin || requestedInterval !== runtime.interval) return;
+    if (requestedCoin !== runtime.coin || requestedInterval !== runtime.interval) {
+      if (fullReload) runtime.pendingCandleReload = true;
+      return;
+    }
     const candles = normalizeCandles(rows);
     if (!candles.length) return;
 
@@ -250,6 +258,10 @@ async function loadCandles({ initial = false } = {}) {
   } finally {
     runtime.candleBusy = false;
     if (fullReload) els.loading.classList.add('hidden');
+    if (runtime.pendingCandleReload) {
+      runtime.pendingCandleReload = false;
+      queueMicrotask(() => loadCandles({ initial: true }));
+    }
   }
 }
 
@@ -299,16 +311,24 @@ function renderLines(campaign, position) {
   if (!campaign) return;
 
   addLine(campaign.galkaPrice, COLORS.orange, 'GALKA', LightweightCharts.LineStyle.Solid, 2);
-  for (const level of campaign.levels || []) {
-    const filled = ['filled', 'partial'].includes(level.status);
+  const activeByIndex = new Map(
+    (campaign.levels || []).map((level) => [Number(level.index), level]),
+  );
+  REFERENCE_DEPTHS.forEach((depthPct, offset) => {
+    const index = offset + 1;
+    const level = activeByIndex.get(index);
+    const guidePrice = Number(level?.price) > 0
+      ? Number(level.price)
+      : Number(campaign.galkaPrice) * (1 - depthPct / 100);
+    const filled = !!level && ['filled', 'partial'].includes(level.status);
     addLine(
-      level.price,
+      guidePrice,
       filled ? COLORS.green : COLORS.gray,
-      `L${level.index}`,
+      `L${index}`,
       LightweightCharts.LineStyle.Dashed,
       1,
     );
-  }
+  });
   if (position?.entryPrice) {
     addLine(position.entryPrice, COLORS.cyan, 'AVG', LightweightCharts.LineStyle.Solid, 2);
   }
@@ -421,7 +441,7 @@ function renderStatus() {
     els.status.className = 'campaign-status idle';
     els.preview.disabled = safeMode;
     els.input.disabled = safeMode;
-    els.preview.textContent = safeMode ? 'SAFE MODE' : 'Проверить';
+    els.preview.textContent = safeMode ? 'SAFE MODE' : 'Поставить GALKA';
   } else {
     const filled = (campaign.levels || []).filter((level) =>
       ['filled', 'partial'].includes(level.status)).length;
@@ -432,10 +452,10 @@ function renderStatus() {
 
     if (position && Math.abs(position.size) > 0) {
       els.status.textContent =
-        `${runtime.coin} · ${filled}/8 · ${signedMoney(position.unrealizedPnl)}${cycleText}`;
+        `${runtime.coin} · ${filled}/${ACTIVE_ENTRY_LEVELS} · ${signedMoney(position.unrealizedPnl)}${cycleText}`;
       els.status.className = 'campaign-status open';
     } else {
-      els.status.textContent = `${runtime.coin} · ждём ${filled}/8${cycleText}`;
+      els.status.textContent = `${runtime.coin} · ждём ${filled}/${ACTIVE_ENTRY_LEVELS}${cycleText}`;
       els.status.className = 'campaign-status waiting';
     }
     els.preview.disabled = true;
@@ -522,7 +542,7 @@ async function previewGalka() {
   } finally {
     const safeMode = !!runtime.status?.system?.safeMode;
     els.preview.disabled = !!currentCampaign() || safeMode;
-    els.preview.textContent = currentCampaign() ? 'Активна' : (safeMode ? 'SAFE MODE' : 'Проверить');
+    els.preview.textContent = currentCampaign() ? 'Активна' : (safeMode ? 'SAFE MODE' : 'Поставить GALKA');
   }
 }
 
@@ -601,7 +621,12 @@ async function reconcileState() {
 }
 
 els.symbol.onchange = async () => {
-  runtime.coin = els.symbol.value;
+  const nextCoin = els.symbol.value;
+  if (nextCoin === runtime.coin && runtime.candlesLoaded) {
+    renderStatus();
+    return;
+  }
+  runtime.coin = nextCoin;
   runtime.candlesLoaded = false;
   runtime.lastCandleTime = null;
   runtime.lineSignature = '';
@@ -612,7 +637,12 @@ els.symbol.onchange = async () => {
 };
 
 els.interval.onchange = async () => {
-  runtime.interval = els.interval.value;
+  const nextInterval = els.interval.value;
+  if (nextInterval === runtime.interval && runtime.candlesLoaded) {
+    renderStatus();
+    return;
+  }
+  runtime.interval = nextInterval;
   runtime.candlesLoaded = false;
   runtime.lastCandleTime = null;
   await loadCandles({ initial: true });

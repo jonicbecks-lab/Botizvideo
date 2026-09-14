@@ -4,7 +4,7 @@
 
 - Hyperliquid perpetuals: BTC, ETH, SOL.
 - Long only, manual GALKA price.
-- One active LIVE campaign across all supported coins.
+- Up to three simultaneous LIVE campaigns: one independent campaign per BTC, ETH, and SOL.
 - 1–10x isolated margin only.
 - Eight ALO/post-only entries below GALKA: 0.15%, 0.30%, 0.45%, 0.60%, 0.90%, 1.20%, 1.50%, 2.00%.
 - Every entry is submitted with an exchange-native reduce-only trigger-limit TP at GALKA.
@@ -17,7 +17,9 @@
 
 The live ladder enforces the exchange minimum order notional after lot-size rounding. It starts from the configured weights, raises small levels to the minimum, and reduces larger levels so the total does not exceed the requested notional. A campaign is rejected when eight valid orders do not fit.
 
-The engine also rejects a campaign when its estimated initial margin exceeds `HL_MAX_MARGIN_FRACTION` of current withdrawable funds. This is a placement guard, not a guarantee against liquidation or later margin changes.
+The engine also rejects a campaign when the combined reserved initial margin of all active ladders would exceed `HL_MAX_MARGIN_FRACTION` of current account value. This is a placement guard, not a guarantee against liquidation or later margin changes.
+
+The margin guard reserves the full-fill initial margin of every active ladder. Creating a second or third coin therefore cannot bypass the account-wide cap merely because earlier entries have not filled yet. Positions remain netted per coin, so a second simultaneous campaign for the same coin is always rejected.
 
 ## Secret handling
 

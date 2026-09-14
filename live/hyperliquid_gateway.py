@@ -577,13 +577,25 @@ class HyperliquidGateway:
         self._invalidate("open_orders", "account_state")
         return response
 
-    def emergency_market_close(self, coin: str, cloid: str | None = None) -> PlacedOrder:
+    def emergency_market_close(
+        self,
+        coin: str,
+        cloid: str | None = None,
+        *,
+        size: float | None = None,
+        slippage: float = 0.02,
+    ) -> PlacedOrder:
         self._require_live_write("emergency market close")
         coin = self._coin(coin)
+        if size is not None and (not math.isfinite(size) or size <= 0):
+            raise GatewayError("Emergency-close size must be finite and positive")
+        if not math.isfinite(slippage) or slippage <= 0 or slippage > 0.10:
+            raise GatewayError("Emergency-close slippage must be between 0 and 0.10")
         with self._io_lock:
             response = self.exchange.market_close(
                 coin,
-                slippage=0.02,
+                sz=size,
+                slippage=slippage,
                 cloid=self._cloid(cloid),
             )
         self._invalidate("open_orders", "account_state")

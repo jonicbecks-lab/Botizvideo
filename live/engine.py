@@ -402,37 +402,42 @@ class GalkaLiveEngine:
                     self._set_safe_mode_locked("Фоновый LIVE-монитор остановлен")
                     self._save_locked()
                     raise LiveEngineError("SAFE MODE: фоновый LIVE-монитор остановлен")
-                active_campaigns = self._active_campaigns_locked()
-                if active_campaigns:
-                    active_coin = active_campaigns[0].get("coin", "?")
+                if self._active_campaign_locked(coin):
                     raise LiveEngineError(
-                        f"Уже активна GALKA {active_coin}. Hardened LIVE допускает только одну кампанию одновременно."
+                        f"Уже активна GALKA {coin}. Для каждой монеты разрешена только одна кампания."
                     )
 
             preview = self.preview(coin, galka_price)
             account = self.gateway.fresh_account_state()
             all_orders = self.gateway.fresh_open_orders()
-            existing_positions = {
-                item: self._position_size(account, item)
-                for item in SUPPORTED_COINS
-                if abs(self._position_size(account, item)) > self._size_tolerance(item)
-            }
-            if existing_positions:
-                details = ", ".join(f"{item} {size:g}" for item, size in sorted(existing_positions.items()))
+            selected_position = self._position_size(account, coin)
+            selected_orders = [row for row in all_orders if row.get("coin") == coin]
+            if abs(selected_position) > self._size_tolerance(coin):
                 raise LiveEngineError(
-                    f"На поддерживаемых рынках уже есть реальные позиции: {details}. Новая GALKA не создана."
+                    f"На {coin} уже есть реальная позиция {selected_position:g}. Новая GALKA не создана."
                 )
-            supported_orders = [row for row in all_orders if row.get("coin") in SUPPORTED_COINS]
-            if supported_orders:
+            if selected_orders:
                 raise LiveEngineError(
-                    f"На BTC/ETH/SOL уже есть {len(supported_orders)} открытых ордеров. Сначала убери их вручную."
+                    f"На {coin} уже есть {len(selected_orders)} открытых ордеров. Сначала выполни сверку."
                 )
-            allowed_margin = max(0.0, account["withdrawable"] * self.config.max_margin_fraction)
-            if preview["requiredMargin"] > allowed_margin:
+
+            # Reserve the full-fill initial margin of every active ladder, even
+            # when its entries have not filled yet. This prevents three valid
+            # per-coin previews from collectively bypassing the account limit.
+            with self.lock:
+                reserved_margin = sum(
+                    float(active.get("actualNotional") or active.get("requestedNotional") or 0)
+                    / max(1, int(active.get("leverage") or self.config.leverage))
+                    for active in self._active_campaigns_locked()
+                )
+            allowed_margin = max(0.0, account["accountValue"] * self.config.max_margin_fraction)
+            aggregate_margin = reserved_margin + preview["requiredMargin"]
+            if aggregate_margin > allowed_margin:
                 raise LiveEngineError(
-                    f"Риск-лимит маржи: нужно около ${preview['requiredMargin']:.2f}, "
+                    f"Общий риск-лимит маржи: зарезервировано ${reserved_margin:.2f}, "
+                    f"новой GALKA нужно ${preview['requiredMargin']:.2f}, "
                     f"разрешено не более ${allowed_margin:.2f} "
-                    f"({self.config.max_margin_fraction:.0%} от свободных ${account['withdrawable']:.2f})."
+                    f"({self.config.max_margin_fraction:.0%} от капитала ${account['accountValue']:.2f})."
                 )
 
             self.gateway.set_leverage(coin)
@@ -441,8 +446,8 @@ class GalkaLiveEngine:
             campaign = self._new_campaign(campaign_id, coin, galka_price, preview, levels)
             with self.lock:
                 # Re-check after network reads in case another request completed first.
-                if self._active_campaigns_locked():
-                    raise LiveEngineError("Другая LIVE-кампания успела стать активной")
+                if self._active_campaign_locked(coin):
+                    raise LiveEngineError(f"Другая LIVE-кампания {coin} успела стать активной")
                 self.state.setdefault("campaigns", {})[coin] = campaign
                 self._save_locked()
 
@@ -667,15 +672,24 @@ class GalkaLiveEngine:
                 cancel_error = exc
 
             close_error: Exception | None = None
-            for attempt in range(3):
+            close_attempts: list[str] = []
+            emergency_slippages = (0.02, 0.05, 0.10)
+            for attempt, slippage in enumerate(emergency_slippages):
                 account = self.gateway.fresh_account_state()
                 actual = self._position_size(account, coin)
                 if abs(actual) <= self._size_tolerance(coin):
                     break
                 try:
-                    self.gateway.emergency_market_close(coin, new_cloid())
+                    self.gateway.emergency_market_close(
+                        coin,
+                        new_cloid(),
+                        size=abs(actual),
+                        slippage=slippage,
+                    )
+                    close_attempts.append(f"{slippage:.0%}: accepted")
                 except Exception as exc:
                     close_error = exc
+                    close_attempts.append(f"{slippage:.0%}: {type(exc).__name__}: {exc}")
                 time.sleep(0.45 * (attempt + 1))
 
             success = False
@@ -707,7 +721,8 @@ class GalkaLiveEngine:
             if not success:
                 reason = (
                     f"Аварийное закрытие не подтверждено: position={final_actual:g}; "
-                    f"cancel={cancel_error}; close={close_error}"
+                    f"cancel={cancel_error}; close={close_error}; "
+                    f"attempts={' | '.join(close_attempts) or 'position read failed'}"
                 )
                 if campaign:
                     self._enter_recovery(campaign, reason, final_actual, final_orders)

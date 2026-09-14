@@ -1,28 +1,13 @@
 name: Galka Hyperliquid Live
 
 on:
+  # Full LIVE matrix is expensive. Run it on trusted branch pushes or manually.
+  # Feature-branch PRs use the normal CI workflow; this avoids re-running the
+  # same Python/tests for every small GALKA commit.
   push:
     branches:
       - main
       - agent/galka-live-hardening-v3
-    paths:
-      - '.githooks/**'
-      - '.gitignore'
-      - 'live/**'
-      - 'terminal/live.*'
-      - 'scripts/*galka-live*.sh'
-      - 'scripts/check-live-*.mjs'
-      - 'scripts/check-python-lock.py'
-      - 'scripts/check-repository-secrets.py'
-      - 'scripts/check-workflows.py'
-      - 'scripts/test-installer-rollback.sh'
-      - 'scripts/termux-sync-and-prepare-galka.sh'
-      - 'scripts/test-termux-sync-and-prepare-galka.sh'
-      - 'scripts/import-production-bundle.sh'
-      - 'scripts/test-import-production-bundle.sh'
-      - 'tests/test_*.py'
-      - '.github/workflows/galka-live-hyperliquid.yml'
-  pull_request:
     paths:
       - '.githooks/**'
       - '.gitignore'

@@ -60,6 +60,31 @@ class RepositorySecretScannerTests(unittest.TestCase):
         self.assertIn("history:leaked.txt", result.stderr)
         self.assertNotIn(secret, result.stderr)
 
+    def test_public_transaction_hash_in_research_dataset_is_allowed(self):
+        transaction_hash = "0x" + "0123456789abcdef" * 4
+        dataset = self.root / "datasets" / "live"
+        dataset.mkdir(parents=True)
+        (dataset / "fills.jsonl").write_text(
+            '{"hash":"' + transaction_hash + '","campaignId":"test"}\n',
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", "datasets/live/fills.jsonl"], cwd=self.root, check=True)
+        self.assertEqual(self.scan("--staged").returncode, 0)
+
+    def test_random_64_hex_in_research_dataset_is_still_rejected(self):
+        secret = "0x" + "abcdef0123456789" * 4
+        dataset = self.root / "datasets" / "live" / "recorder" / "ETH" / "campaign"
+        dataset.mkdir(parents=True)
+        (dataset / "events.jsonl").write_text(
+            '{"payload":"' + secret + '"}\n',
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", "datasets/live/recorder/ETH/campaign/events.jsonl"], cwd=self.root, check=True)
+        result = self.scan("--staged")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("64-hex-private-key", result.stderr)
+        self.assertNotIn(secret, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

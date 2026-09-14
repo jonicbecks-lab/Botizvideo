@@ -1,20 +1,13 @@
 name: Galka Final Integration
 
 on:
+  # Full UI/paper integration is kept for trusted branch pushes and explicit
+  # manual runs. Feature PRs are already covered by CI, so auto-running this
+  # five-job suite on every small terminal change wastes Actions minutes.
   push:
     branches:
       - main
       - agent/galka-live-hardening-v3
-    paths:
-      - 'terminal/**'
-      - 'scripts/check-pro-terminal.mjs'
-      - 'scripts/test-final-source-integration.mjs'
-      - 'scripts/test-galka-store.mjs'
-      - 'scripts/test-paper-engine.mjs'
-      - 'scripts/test-paper-recovery.mjs'
-      - 'scripts/test-pro-responsive.mjs'
-      - '.github/workflows/galka-final-integration.yml'
-  pull_request:
     paths:
       - 'terminal/**'
       - 'scripts/check-pro-terminal.mjs'
