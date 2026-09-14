@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from . import hyperliquid_gateway
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .galka_v2_engine import GalkaV2Engine, GalkaV2Gateway
+from .galka_v2_fast import FastGalkaV2Engine, FastGalkaV2Gateway
 from .galka_v2_strategy import V2_LEVERAGE, V2_MARGIN_USD, V2_TOTAL_NOTIONAL
 from .hyperliquid_gateway import GatewayError
 from .server import GalkaRequestHandler, LiveProcessLock
@@ -148,8 +148,8 @@ def main() -> int:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = GalkaV2Gateway(config)
-        engine = GalkaV2Engine(config, gateway)
+        gateway = FastGalkaV2Gateway(config)
+        engine = FastGalkaV2Engine(config, gateway)
 
         # Persist the local browser credential across server restarts. It never
         # leaves the private V2 data directory and never appears in the URL.
