@@ -10,7 +10,8 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from live.engine import LiveEngineError
-from live.server import GalkaRequestHandler, LiveProcessLock
+from live.galka_v2_server_entry import GalkaV2RequestHandler
+from live.server import LiveProcessLock
 
 
 class DummyEngine:
@@ -27,11 +28,11 @@ class DummyEngine:
 class LiveServerSecurityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        GalkaRequestHandler.engine = DummyEngine()
-        GalkaRequestHandler.session_token = "test-session-token"
-        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), GalkaRequestHandler)
+        GalkaV2RequestHandler.engine = DummyEngine()
+        GalkaV2RequestHandler.session_token = "test-session-token"
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), GalkaV2RequestHandler)
         cls.server.daemon_threads = True
-        GalkaRequestHandler.server_port = cls.server.server_port
+        GalkaV2RequestHandler.server_port = cls.server.server_port
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
@@ -81,14 +82,12 @@ class LiveServerSecurityTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["data"], {"ready": True})
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
 
-    def test_open_link_bootstraps_http_only_cookie_and_redirects(self):
+    def test_tokenless_open_bootstraps_http_only_cookie_and_redirects(self):
         headers = {
             "Host": f"127.0.0.1:{self.server.server_port}",
             "Sec-Fetch-Site": "none",
         }
-        status, response_headers, _ = self.request(
-            "GET", "/open/test-session-token", headers=headers
-        )
+        status, response_headers, _ = self.request("GET", "/open", headers=headers)
         self.assertEqual(status, 302)
         self.assertEqual(response_headers["Location"], "/terminal/live.html")
         self.assertIn("HttpOnly", response_headers["Set-Cookie"])
@@ -101,7 +100,15 @@ class LiveServerSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["data"], {"ready": True})
 
-    def test_hash_token_session_endpoint_bootstraps_cookie(self):
+    def test_tokenless_open_rejects_wrong_host(self):
+        headers = {
+            "Host": "evil.example",
+            "Sec-Fetch-Site": "none",
+        }
+        status, _, _ = self.request("GET", "/open", headers=headers)
+        self.assertEqual(status, 401)
+
+    def test_legacy_hash_token_session_endpoint_still_bootstraps_cookie(self):
         body = json.dumps({"token": "test-session-token"}).encode()
         headers = self.browser_headers()
         headers["Content-Type"] = "application/json"
@@ -113,7 +120,7 @@ class LiveServerSecurityTests(unittest.TestCase):
         self.assertTrue(json.loads(payload)["ok"])
         self.assertIn("HttpOnly", response_headers["Set-Cookie"])
 
-    def test_invalid_open_link_is_rejected(self):
+    def test_invalid_legacy_open_link_is_rejected(self):
         headers = {
             "Host": f"127.0.0.1:{self.server.server_port}",
             "Sec-Fetch-Site": "none",
