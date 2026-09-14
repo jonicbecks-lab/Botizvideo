@@ -58,6 +58,13 @@ class LiveServerSecurityTests(unittest.TestCase):
             "X-Galka-Session": "test-session-token",
         }
 
+    def browser_headers(self):
+        return {
+            "Host": f"127.0.0.1:{self.server.server_port}",
+            "Origin": f"http://127.0.0.1:{self.server.server_port}",
+            "Sec-Fetch-Site": "same-origin",
+        }
+
     def test_api_rejects_missing_session_token(self):
         status, _, _ = self.request("GET", "/api/live/status")
         self.assertEqual(status, 401)
@@ -73,6 +80,46 @@ class LiveServerSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["data"], {"ready": True})
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
+
+    def test_open_link_bootstraps_http_only_cookie_and_redirects(self):
+        headers = {
+            "Host": f"127.0.0.1:{self.server.server_port}",
+            "Sec-Fetch-Site": "none",
+        }
+        status, response_headers, _ = self.request(
+            "GET", "/open/test-session-token", headers=headers
+        )
+        self.assertEqual(status, 302)
+        self.assertEqual(response_headers["Location"], "/terminal/live.html")
+        self.assertIn("HttpOnly", response_headers["Set-Cookie"])
+        self.assertIn("SameSite=Strict", response_headers["Set-Cookie"])
+
+        cookie = response_headers["Set-Cookie"].split(";", 1)[0]
+        api_headers = self.browser_headers()
+        api_headers["Cookie"] = cookie
+        status, _, body = self.request("GET", "/api/live/status", headers=api_headers)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["data"], {"ready": True})
+
+    def test_hash_token_session_endpoint_bootstraps_cookie(self):
+        body = json.dumps({"token": "test-session-token"}).encode()
+        headers = self.browser_headers()
+        headers["Content-Type"] = "application/json"
+        headers["Content-Length"] = str(len(body))
+        status, response_headers, payload = self.request(
+            "POST", "/api/live/session", headers=headers, body=body
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(payload)["ok"])
+        self.assertIn("HttpOnly", response_headers["Set-Cookie"])
+
+    def test_invalid_open_link_is_rejected(self):
+        headers = {
+            "Host": f"127.0.0.1:{self.server.server_port}",
+            "Sec-Fetch-Site": "none",
+        }
+        status, _, _ = self.request("GET", "/open/wrong-token", headers=headers)
+        self.assertEqual(status, 401)
 
     def test_static_server_does_not_expose_repository_files(self):
         status, _, _ = self.request("GET", "/live/engine.py")
