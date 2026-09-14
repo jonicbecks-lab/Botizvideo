@@ -32,8 +32,7 @@
   }
 
   function fmtPrice(value) {
-    const coin = String(document.getElementById('symbolSelect')?.value || 'BTC').toUpperCase();
-    return Number(value || 0).toFixed(coin === 'SOL' ? 4 : 2);
+    return Number(value || 0).toFixed(2);
   }
 
   function installStyles() {
@@ -57,6 +56,7 @@
     const charts = window.LightweightCharts;
     if (!charts?.createChart || charts.createChart.__galkaV2Wrapped) return;
     const originalCreate = charts.createChart.bind(charts);
+
     function wrappedCreate(container, options) {
       const chart = originalCreate(container, options);
       if (container?.id === 'chart') {
@@ -70,11 +70,11 @@
               const originalCreateLine = series.createPriceLine?.bind(series);
               if (originalCreateLine) {
                 series.createPriceLine = function wrappedCreateLine(lineOptions) {
-                  const line = originalCreateLine(lineOptions);
+                  const priceLine = originalCreateLine(lineOptions);
                   if (/^L[1-8]$/.test(String(lineOptions?.title || ''))) {
-                    state.legacyLines.add(line);
+                    state.legacyLines.add(priceLine);
                   }
-                  return line;
+                  return priceLine;
                 };
               }
             }
@@ -84,22 +84,30 @@
       }
       return chart;
     }
+
     wrappedCreate.__galkaV2Wrapped = true;
-    charts.createChart = wrappedCreate;
+
+    // galka-structure-v3 deliberately freezes the LightweightCharts facade.
+    // Never mutate a property on that frozen object: replace the facade with a
+    // new frozen object that preserves every existing wrapper and adds ours.
+    window.LightweightCharts = Object.freeze({
+      ...charts,
+      createChart: wrappedCreate,
+    });
   }
 
   function removeLines(lines) {
     if (!state.series) return;
-    for (const line of lines) {
-      try { state.series.removePriceLine(line); } catch (_) {}
+    for (const priceLine of lines) {
+      try { state.series.removePriceLine(priceLine); } catch (_) {}
     }
     lines.length = 0;
   }
 
   function removeLegacyLines() {
     if (!state.series) return;
-    for (const line of state.legacyLines) {
-      try { state.series.removePriceLine(line); } catch (_) {}
+    for (const priceLine of state.legacyLines) {
+      try { state.series.removePriceLine(priceLine); } catch (_) {}
     }
     state.legacyLines.clear();
   }
@@ -119,9 +127,12 @@
     if (!state.series || !(Number(price) > 0)) return null;
     try {
       return state.series.createPriceLine({
-        price: Number(price), color, lineWidth: width,
+        price: Number(price),
+        color,
+        lineWidth: width,
         lineStyle: window.LightweightCharts?.LineStyle?.Dashed ?? 2,
-        axisLabelVisible: true, title,
+        axisLabelVisible: true,
+        title,
       });
     } catch (_) {
       return null;
@@ -214,7 +225,7 @@
         return `<div class="galka-v2-level ${kind}"><b>${esc(level.label)}</b><span>${fmtPrice(level.price)}</span><small>${money(level.notional)}</small></div>`;
       }).join('');
       const warning = readOnly
-        ? '<div class="galka-v2-warning">READ ONLY: это только проверка. Реальные ордера отправлены не будут.</div>'
+        ? '<div class="galka-v2-warning">READ ONLY: расчёт проверяется, реальные ордера не отправляются.</div>'
         : safe
           ? `<div class="galka-v2-warning">SAFE MODE: ${esc(state.latestStatus?.system?.safeModeReason || 'нужна сверка')}</div>`
           : '<div class="galka-v2-warning">После подтверждения будут отправлены реальные ордера Hyperliquid.</div>';
@@ -262,6 +273,8 @@
               galkaPrice: body.galkaPrice,
               researchSetup: body.researchSetup,
             }),
+            credentials: 'same-origin',
+            cache: 'no-store',
           });
           let previewPayload = null;
           try { previewPayload = await previewResponse.json(); } catch (_) {}
@@ -277,7 +290,7 @@
               ok: false,
               error: previewPayload.data?.liveEnabled
                 ? 'GALKA V2 отменена — реальные ордера не отправлены'
-                : 'READ ONLY: GALKA V2 проверена, реальные ордера не отправлены',
+                : 'READ ONLY: расчёт GALKA V2 проверен; реальные ордера не отправлены',
             }), {
               status: 409,
               headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -311,7 +324,7 @@
           : `${coin} · V2 · ждём ${filled}/9`;
     }
     const riskMode = document.getElementById('riskMode');
-    if (riskMode) riskMode.textContent = `V2 · $100 · 10x`;
+    if (riskMode) riskMode.textContent = 'V2 · $100 · 10x';
 
     const details = document.getElementById('campaignDetails');
     if (!details || state.renderingDetails) return;
@@ -337,10 +350,11 @@
 
   async function pollStatus() {
     const token = sessionStorage.getItem('galkaLiveSession') || '';
-    if (!token) return;
+    const headers = {};
+    if (token) headers['X-Galka-Session'] = token;
     try {
       const response = await fetch('/api/live/status', {
-        headers: { 'X-Galka-Session': token },
+        headers,
         cache: 'no-store',
         credentials: 'same-origin',
       });
@@ -363,8 +377,10 @@
   }
 
   installStyles();
-  captureChart();
+  // Install fetch interception first so a chart decoration problem can never
+  // bypass the V2 preview/safety confirmation path.
   interceptCampaignSubmit();
+  captureChart();
   setInterval(renderDraftLevels, 140);
   setInterval(pollStatus, 900);
   window.addEventListener('load', () => { renderDraftLevels(); pollStatus(); });
