@@ -15,11 +15,15 @@ FIB_RETRACEMENTS = (0.50, 0.618, 0.705, 0.786)
 UPPER_LABELS = ("F0.50", "F0.618", "F0.705", "F0.786", "GALKA")
 UPPER_INTERNAL_WEIGHTS = (0.10, 0.15, 0.20, 0.25, 0.30)
 
-# Lower GALKA ladder. Deeper entries receive progressively more capital.
+# Lower GALKA ladder. V2.1 keeps 80% of the campaign below GALKA and places
+# half of that lower reserve on D1 so the average price is pulled close to GALKA
+# as soon as the first lower limit is filled.
 LOWER_DEPTHS = (0.15, 0.30, 0.45, 0.60)
-LOWER_INTERNAL_WEIGHTS = (0.10, 0.20, 0.30, 0.40)
+LOWER_INTERNAL_WEIGHTS = (0.50, 0.125, 0.1625, 0.2125)
 
-UPPER_MAX_SHARE = 0.40
+# 20% is the normal upper allocation. The safety solver may reduce it further
+# for unusually tall right legs, but it never increases it above 20%.
+UPPER_MAX_SHARE = 0.20
 UPPER_MIN_SHARE = 0.10
 UPPER_SHARE_STEP = 0.005
 FULL_PLAN_MIN_NET_AT_GALKA_USD = 0.10
