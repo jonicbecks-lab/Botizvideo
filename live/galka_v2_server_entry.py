@@ -14,30 +14,24 @@ from urllib.parse import urlparse
 from . import hyperliquid_gateway
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .galka_v2_fast import FastGalkaV2Engine, FastGalkaV2Gateway
-from .galka_v2_strategy import V2_LEVERAGE, V2_MARGIN_USD, V2_TOTAL_NOTIONAL
+from .galka_classic_engine import GalkaClassicEngine, GalkaClassicGateway
 from .hyperliquid_gateway import GatewayError
 from .server import GalkaRequestHandler, LiveProcessLock
 from .tpsl_batch_compat import install as install_tpsl_batch_compat
 
-V2_COINS = {"BTC", "ETH", "BNB"}
+CLASSIC_COINS = {"BTC", "ETH", "BNB"}
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 
-def install_v2_runtime() -> None:
-    """Apply V2-only runtime compatibility without mutating the old GALKA branch."""
-    # engine.py imported the same mutable set object, so mutate in place.
+def install_classic_runtime() -> None:
+    """Apply mobile runtime compatibility while preserving the old branch."""
     hyperliquid_gateway.SUPPORTED_COINS.clear()
-    hyperliquid_gateway.SUPPORTED_COINS.update(V2_COINS)
-    # Adds BNB to the inherited near-market emergency/quick-close step map.
+    hyperliquid_gateway.SUPPORTED_COINS.update(CLASSIC_COINS)
     install_tpsl_batch_compat()
 
 
 def load_or_create_v2_session_token(data_dir: Path) -> str:
-    """Keep the browser session stable across safe V2 restarts.
-
-    The token stays in the private V2 data directory and is never placed in the URL.
-    """
+    """Keep the local browser session stable across safe restarts."""
     runtime_dir = data_dir / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -50,16 +44,16 @@ def load_or_create_v2_session_token(data_dir: Path) -> str:
         try:
             metadata = path.lstat()
         except OSError as exc:
-            raise LiveEngineError("Не удалось проверить локальную V2-сессию") from exc
+            raise LiveEngineError("Не удалось проверить локальную сессию GALKA") from exc
         if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise LiveEngineError("Небезопасный файл локальной V2-сессии")
+            raise LiveEngineError("Небезопасный файл локальной сессии GALKA")
         try:
             path.chmod(0o600)
             token = path.read_text(encoding="utf-8").strip()
         except OSError as exc:
-            raise LiveEngineError("Не удалось прочитать локальную V2-сессию") from exc
+            raise LiveEngineError("Не удалось прочитать локальную сессию GALKA") from exc
         if len(token) < 32:
-            raise LiveEngineError("Повреждён файл локальной V2-сессии")
+            raise LiveEngineError("Повреждён файл локальной сессии GALKA")
         return token
 
     token = secrets.token_urlsafe(48)
@@ -73,17 +67,12 @@ def load_or_create_v2_session_token(data_dir: Path) -> str:
             os.close(descriptor)
         path.chmod(0o600)
     except OSError as exc:
-        raise LiveEngineError("Не удалось создать локальную V2-сессию") from exc
+        raise LiveEngineError("Не удалось создать локальную сессию GALKA") from exc
     return token
 
 
 class GalkaV2RequestHandler(GalkaRequestHandler):
-    """Browser bootstrap for the local-only V2 server.
-
-    /open contains no bearer token. It only mints a port-specific HttpOnly cookie
-    for a loopback request. The cookie name includes the port so old GALKA and
-    GALKA V2 cannot overwrite each other's browser sessions on 127.0.0.1.
-    """
+    """Tokenless local bootstrap with a port-specific HttpOnly cookie."""
 
     def _loopback_host_ok(self) -> bool:
         host = (self.headers.get("Host") or "").lower()
@@ -144,15 +133,13 @@ def main() -> int:
     engine = None
     server = None
     try:
-        install_v2_runtime()
+        install_classic_runtime()
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = FastGalkaV2Gateway(config)
-        engine = FastGalkaV2Engine(config, gateway)
+        gateway = GalkaClassicGateway(config)
+        engine = GalkaClassicEngine(config, gateway)
 
-        # Persist the local browser credential across server restarts. It never
-        # leaves the private V2 data directory and never appears in the URL.
         token = load_or_create_v2_session_token(config.data_dir)
         GalkaV2RequestHandler.engine = engine
         GalkaV2RequestHandler.session_token = token
@@ -167,21 +154,21 @@ def main() -> int:
             server.server_close()
         if lock is not None:
             lock.release()
-        print(f"Galka V2 не запущена: {exc}", file=sys.stderr, flush=True)
+        print(f"Galka CLASSIC не запущена: {exc}", file=sys.stderr, flush=True)
         return 2
 
     open_url = f"http://{config.host}:{config.port}/open"
     base_url = f"http://{config.host}:{config.port}/terminal/live.html"
-    print(f"Galka V2 URL: {open_url}", flush=True)
+    print(f"Galka URL: {open_url}", flush=True)
     print(f"После входа браузер сам откроет: {base_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
     print(
-        f"GALKA V2: {V2_LEVERAGE}x isolated · маржа до ${V2_MARGIN_USD:.2f} · "
-        f"номинал ${V2_TOTAL_NOTIONAL:.2f}",
+        f"GALKA CLASSIC: {config.leverage}x isolated · номинал ${config.total_notional:.2f}",
         flush=True,
     )
-    print("Локальная браузерная сессия постоянная и изолирована от других портов GALKA.", flush=True)
+    print("L1-L8: 42% / 22% / 12% / 8% / 6% / 4% / 3% / 3%.", flush=True)
+    print("Автоматический L1 rearm отключён: после возврата на GALKA кампания завершается.", flush=True)
 
     try:
         server.serve_forever(poll_interval=0.5)
