@@ -14,8 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .galka_v2_engine import GalkaV2Engine, GalkaV2Gateway
-from .galka_v2_strategy import V2_LEVERAGE, V2_MARGIN_USD, V2_TOTAL_NOTIONAL
+from .galka_classic_engine import GalkaClassicEngine, GalkaClassicGateway
 from .hyperliquid_gateway import GatewayError
 from .trade_history import build_chart_history
 
@@ -67,7 +66,7 @@ class LiveProcessLock:
 
 
 class GalkaRequestHandler(SimpleHTTPRequestHandler):
-    engine: GalkaV2Engine
+    engine: GalkaClassicEngine
     session_token: str
     server_port: int
 
@@ -75,7 +74,6 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(TERMINAL_ROOT), **kwargs)
 
     def log_message(self, fmt: str, *args) -> None:
-        # Never echo the one-time bootstrap token from /open/<token> into Termux logs.
         if self.path.startswith("/open/"):
             return
         message = fmt % args
@@ -255,19 +253,17 @@ class GalkaRequestHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/live/preview":
             return self._handle(
-                lambda: self.engine.preview_v2(
+                lambda: self.engine.preview(
                     str(data.get("coin", "")),
                     float(data.get("galkaPrice", 0)),
-                    data.get("researchSetup"),
                 )
             )
         if parsed.path == "/api/live/campaign":
             return self._handle(
-                lambda: self.engine.create_campaign_v2(
+                lambda: self.engine.create_campaign(
                     str(data.get("coin", "")),
                     float(data.get("galkaPrice", 0)),
                     str(data.get("confirmation", "")),
-                    data.get("researchSetup"),
                 )
             )
         if parsed.path == "/api/live/cancel":
@@ -300,8 +296,8 @@ def main() -> int:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = GalkaV2Gateway(config)
-        engine = GalkaV2Engine(config, gateway)
+        gateway = GalkaClassicGateway(config)
+        engine = GalkaClassicEngine(config, gateway)
         token = secrets.token_urlsafe(32)
         GalkaRequestHandler.engine = engine
         GalkaRequestHandler.session_token = token
@@ -321,15 +317,12 @@ def main() -> int:
 
     base_url = f"http://{config.host}:{config.port}/terminal/live.html"
     session_url = f"http://{config.host}:{config.port}/open/{token}"
-    print(f"Galka V2 URL: {session_url}", flush=True)
+    print(f"Galka LIVE URL: {session_url}", flush=True)
     print(f"После входа браузер сам откроет: {base_url}", flush=True)
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
-    print(
-        f"GALKA V2: {V2_LEVERAGE}x isolated · маржа до ${V2_MARGIN_USD:.2f} · номинал ${V2_TOTAL_NOTIONAL:.2f}",
-        flush=True,
-    )
-    print("Секретный ключ загружен из локального файла и не передаётся браузеру.", flush=True)
+    print(f"GALKA CLASSIC: {config.leverage}x isolated · номинал ${config.total_notional:.2f}", flush=True)
+    print("Распределение: 42/22/12/8/6/4/3/3 по L1-L8.", flush=True)
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
