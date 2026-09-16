@@ -6,9 +6,8 @@ from math import floor, log10
 from typing import Iterable
 
 MANUAL_DEPTHS = (0.15, 0.30, 0.45, 0.60, 0.90, 1.20, 1.50, 2.00)
-# LIVE capital allocation: L1 25%, L2 32%, L3 25%, L4 18%.
-# L5-L8 remain reference depths on the chart and must not create exchange orders.
-MANUAL_WEIGHTS = (0.25, 0.32, 0.25, 0.18, 0.0, 0.0, 0.0, 0.0)
+# Classic GALKA allocation across all 8 live entry levels.
+MANUAL_WEIGHTS = (0.42, 0.22, 0.12, 0.08, 0.06, 0.04, 0.03, 0.03)
 MIN_ORDER_NOTIONAL = Decimal("10")
 
 

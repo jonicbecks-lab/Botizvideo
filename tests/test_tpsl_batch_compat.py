@@ -63,9 +63,10 @@ class TpslBatchCompatTests(unittest.TestCase):
         for index, call in enumerate(gateway.calls, start=1):
             self.assertEqual(call, ("BNB", index, 712.84, f"entry-{index}", f"target-{index}"))
 
-    def test_bnb_ladder_rounding_builds_all_eight_entries(self):
+    def test_bnb_ladder_rounding_builds_eight_active_entries(self):
         levels = build_ladder(712.84, 3000.0, 3)
         self.assertEqual(len(levels), 8)
+        self.assertEqual([level.index for level in levels], list(range(1, 9)))
         self.assertTrue(all(level.price > 0 and level.size > 0 for level in levels))
 
     def test_install_adds_bnb_near_market_step_and_removes_sol(self):
