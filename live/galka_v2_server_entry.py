@@ -20,6 +20,8 @@ from .server import GalkaRequestHandler, LiveProcessLock
 from .tpsl_batch_compat import install as install_tpsl_batch_compat
 
 CLASSIC_COINS = {"BTC", "ETH", "BNB"}
+# Backward-compatible names used by existing tests and launcher helpers.
+V2_COINS = CLASSIC_COINS
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 
@@ -28,6 +30,11 @@ def install_classic_runtime() -> None:
     hyperliquid_gateway.SUPPORTED_COINS.clear()
     hyperliquid_gateway.SUPPORTED_COINS.update(CLASSIC_COINS)
     install_tpsl_batch_compat()
+
+
+def install_v2_runtime() -> None:
+    """Backward-compatible alias; runtime now starts GALKA CLASSIC."""
+    install_classic_runtime()
 
 
 def load_or_create_v2_session_token(data_dir: Path) -> str:
