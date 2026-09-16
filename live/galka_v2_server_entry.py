@@ -171,10 +171,11 @@ def main() -> int:
     print(f"Сеть: {config.network_name} · аккаунт {config.masked_address}", flush=True)
     print(f"Режим: {'LIVE ENABLED' if config.live_enabled else 'READ ONLY'}", flush=True)
     print(
-        f"GALKA CLASSIC: {config.leverage}x isolated · номинал ${config.total_notional:.2f}",
+        f"GALKA CLASSIC: {config.leverage}x isolated · маржа рассчитывается по максимуму из свободного баланса",
         flush=True,
     )
     print("L1-L8: 42% / 22% / 12% / 8% / 6% / 4% / 3% / 3%.", flush=True)
+    print("Оставляется только резерв на входные комиссии и технический запас.", flush=True)
     print("Автоматический L1 rearm отключён: после возврата на GALKA кампания завершается.", flush=True)
 
     try:
