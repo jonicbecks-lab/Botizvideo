@@ -75,6 +75,24 @@ class GalkaClassicEngineTests(unittest.TestCase):
         with self.engine.lock:
             return self.engine._active_campaign_locked("BTC")
 
+    def test_preview_uses_maximum_available_whole_dollar_margin_with_fee_reserve(self):
+        # Fake venue reports $250 equity but only $218 withdrawable. Start from
+        # $218, then step down one whole dollar because fees + buffer need cash.
+        preview = self.engine.preview("BTC", 60_000.0)
+        self.assertEqual(preview["wholeDollarCeiling"], 218.0)
+        self.assertEqual(preview["targetMargin"], 217.0)
+        self.assertGreater(preview["requiredMargin"], 216.0)
+        self.assertLessEqual(preview["requiredMargin"], 217.0)
+        self.assertGreaterEqual(
+            preview["cashLeftAfterMargin"],
+            preview["technicalReserveRequired"],
+        )
+        self.assertEqual(
+            preview["sizingPolicy"],
+            "max_available_whole_dollars_with_fee_reserve_v1",
+        )
+        self.assertEqual(len(preview["levels"]), 8)
+
     def test_classic_uses_eight_levels_and_l1_exit_finishes_campaign(self):
         campaign = self.engine.create_campaign(
             "BTC", 60_000.0, "PLACE_REAL_ORDERS"
@@ -84,6 +102,8 @@ class GalkaClassicEngineTests(unittest.TestCase):
             [round(float(row["weight"]), 2) for row in campaign["levels"]],
             [0.42, 0.22, 0.12, 0.08, 0.06, 0.04, 0.03, 0.03],
         )
+        self.assertEqual(campaign["targetMargin"], 217.0)
+        self.assertTrue(campaign["autoSizedFromEquity"])
 
         active = self.active()
         self.gateway.fill_entry(active, 1, 1_000)
