@@ -1,0 +1,41 @@
+name: SUPER Model HOLDOUT 2026
+
+on:
+  push:
+    branches:
+      - research/super-model-warmup-v4
+    paths:
+      - '.github/workflows/super-model-holdout-2026.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  holdout:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [ETHUSDT, BTCUSDT]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BACKTEST_SYMBOL: ${{ matrix.symbol }}
+      BACKTEST_YEAR: 2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy pandas requests tabulate
+      - name: Run untouched 2026 holdout
+        working-directory: research
+        run: python super_model_warmup_one.py
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: super-holdout-2026-${{ matrix.symbol }}
+          path: research/research/super_model_output_warmup/${{ matrix.symbol }}_2026/**
+          if-no-files-found: warn
