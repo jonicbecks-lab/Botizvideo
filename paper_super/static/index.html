@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>SUPER PAPER</title>
+<style>
+:root{--bg:#0a0d12;--card:#121722;--line:#252d3b;--text:#eef2f7;--muted:#8994a7;--green:#34d399;--red:#fb7185;--amber:#fbbf24;--blue:#60a5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button{font:inherit}
+.wrap{max-width:860px;margin:auto;padding:12px 12px 40px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.brand{font-weight:800;letter-spacing:.4px}.paper{font-size:12px;color:var(--amber);border:1px solid #6b5417;padding:5px 8px;border-radius:999px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}.tab{background:#0e131c;border:1px solid var(--line);color:var(--text);padding:11px;border-radius:12px}.tab.active{border-color:var(--blue);background:#111a28}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}.label{font-size:12px;color:var(--muted);margin-bottom:4px}.value{font-size:20px;font-weight:800}.small{font-size:13px}.long{color:var(--green)}.short{color:var(--red)}.neutral{color:var(--amber)}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.btn{border:1px solid var(--line);background:#151c28;color:var(--text);padding:12px 8px;border-radius:12px;font-weight:700}.btn.longb{border-color:#17634e}.btn.shortb{border-color:#7a2737}.btn.warn{border-color:#745d17}.btn.blue{border-color:#275c8a}.section{margin-top:12px}.section h3{font-size:14px;margin:0 0 8px;color:#cbd5e1}.statusline{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}.event{border-top:1px solid var(--line);padding:8px 0;font-size:12px}.event:first-child{border-top:0}.actor{font-weight:800}.manual{color:var(--blue)}.auto{color:var(--green)}.model{color:var(--amber)}.error{color:var(--red);font-size:12px;margin-top:8px;white-space:pre-wrap}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 7px;font-size:11px;color:var(--muted)}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.actions{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand">SUPER MODEL · PAPER CONTROL</div><div class="paper">PAPER ONLY · NO REAL ORDERS</div></div>
+  <div class="tabs"><button class="tab active" data-symbol="BTCUSDT">BTC</button><button class="tab" data-symbol="ETHUSDT">ETH</button></div>
+  <div id="main"></div>
+</div>
+<script>
+let symbol='BTCUSDT', state={};
+const $=q=>document.querySelector(q); const money=x=>x==null?'—':'$'+Number(x).toFixed(2); const num=(x,d=2)=>x==null?'—':Number(x).toFixed(d);
+const sigClass=s=>s==='LONG'?'long':s==='SHORT'?'short':'neutral';
+function ts(x){if(!x)return'—';return new Date(x).toLocaleString();}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function render(){const a=state[symbol]; if(!a){$('#main').innerHTML='<div class="card">Загрузка...</div>';return} const p=a.position; const override=a.manual_override;
+ $('#main').innerHTML=`
+ <div class="grid">
+  <div class="card"><div class="label">Цена</div><div class="value">${num(a.price, symbol==='BTCUSDT'?1:2)}</div><div class="small">${symbol}</div></div>
+  <div class="card"><div class="label">Сигнал модели</div><div class="value ${sigClass(a.signal)}">${esc(a.signal)}</div><div class="small">P↑ ${a.p24==null?'—':(a.p24*100).toFixed(1)+'%'} · persist ${num(a.persist,0)}</div></div>
+  <div class="card"><div class="label">Депозит / Equity</div><div class="value">${money(a.equity)}</div><div class="small">balance ${money(a.balance)} · ${num(a.return_pct,1)}%</div></div>
+  <div class="card"><div class="label">Режим</div><div class="value" style="font-size:16px">${a.auto_enabled?'AUTO ON':'AUTO OFF'}</div><div class="small">${override?'MANUAL OVERRIDE':'model controls position'}</div></div>
+ </div>
+ <div class="section card">
+  <h3>Позиция</h3>
+  ${p?`<div class="row"><span class="pill ${sigClass(p.side)}">${p.side}</span><span>avg ${num(p.avg,2)}</span><span>margin ${money(p.margin)}</span><span>${p.tranches}/11 tranches</span></div>
+  <div class="statusline"><span>Open PnL ${money(p.upnl)} · ROE ${num(p.roe*100,1)}%</span><span>liq ${num(p.liq,2)}</span></div>
+  <div class="statusline"><span>profit lock ${p.profitStopArmed?('+'+(p.profitLockStep*10)+'% @ '+num(p.profitStopPrice,2)):'OFF'}</span><span>grid left ${a.pending.length}</span></div>`:'<div class="small">FLAT · открытой позиции нет</div>'}
+ </div>
+ <div class="actions">
+  <button class="btn longb" onclick="act('LONG')">LONG + GRID</button><button class="btn shortb" onclick="act('SHORT')">SHORT + GRID</button>
+  <button class="btn" onclick="act('CLOSE')">CLOSE</button><button class="btn warn" onclick="act('CANCEL_GRID')">CANCEL GRID</button>
+  <button class="btn" onclick="act('RESTORE_GRID')">RESTORE GRID</button><button class="btn" onclick="act('ADD')">ADD 1 TRANCHE</button>
+  <button class="btn blue" onclick="act('RETURN_AUTO')">RETURN AUTO</button><button class="btn" onclick="act('TOGGLE_AUTO')">AUTO ON/OFF</button>
+ </div>
+ <div class="statusline"><span>Risk: 10% equity / campaign · 10× · 1 initial + 10 grid</span><span>2H model / hidden 5m execution</span></div>
+ ${a.error?`<div class="error">${esc(a.error)}</div>`:''}
+ <div class="section card"><h3>Статистика</h3><div class="small">campaigns ${a.stats.campaigns} · profit stops ${a.stats.profitStops} · switches ${a.stats.switches} · liquidations ${a.stats.liquidations}</div></div>
+ <div class="section card"><h3>Журнал AUTO + MANUAL</h3>${a.events.slice(0,30).map(e=>`<div class="event"><span class="actor ${String(e.actor).toLowerCase()}">${esc(e.actor)}</span> · ${esc(e.action)} · ${esc(e.detail)}<div class="label">${ts(e.ts)}</div></div>`).join('')||'<div class="small">Пока пусто</div>'}</div>
+ <div class="section"><button class="btn warn" style="width:100%" onclick="resetPaper()">RESET PAPER ${symbol==='BTCUSDT'?'BTC':'ETH'} → $1000</button></div>`;
+}
+async function refresh(){try{const r=await fetch('/api/state',{cache:'no-store'});state=await r.json();render()}catch(e){console.log(e)}}
+async function act(action){const r=await fetch('/api/action',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,action})});const j=await r.json();if(j.error)alert(j.error);await refresh()}
+async function resetPaper(){if(!confirm('Точно сбросить PAPER счёт '+symbol+' до $1000?'))return;const r=await fetch('/api/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,confirm:'RESET PAPER'})});const j=await r.json();if(j.error)alert(j.error);await refresh()}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');symbol=b.dataset.symbol;render()});
+refresh();setInterval(refresh,5000);
+</script>
+</body>
+</html>
