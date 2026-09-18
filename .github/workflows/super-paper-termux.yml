@@ -1,0 +1,45 @@
+name: SUPER Paper Termux
+
+on:
+  push:
+    branches:
+      - app/super-paper-termux-v1
+    paths:
+      - 'paper_super/**'
+      - '.github/workflows/super-paper-termux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r paper_super/requirements.txt
+      - name: Syntax check
+        run: python -m py_compile paper_super/model.py paper_super/account.py paper_super/controller.py paper_super/app.py
+      - name: Risk engine test
+        working-directory: paper_super
+        run: |
+          python - <<'PY'
+          from account import PaperAccount
+          a=PaperAccount('BTCUSDT')
+          a.last_price=100
+          assert a.start_campaign('LONG',100,'TEST','START')
+          assert abs(a.position['campaignMarginCap']-100)<1e-9
+          assert len(a.pending)==10
+          for o in list(a.pending):
+              a.pending.remove(o)
+              assert a.add_fill('LONG',o['price'],'TEST',f"GRID L{o['gridLevel']}")
+          assert a.position['tranches']==11
+          assert abs(a.position['margin']-100)<1e-6
+          assert not a.add_fill('LONG',80,'TEST','ADD')
+          print('paper core ok')
+          PY
