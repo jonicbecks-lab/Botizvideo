@@ -1,0 +1,43 @@
+name: SUPER Model Warmup ORIGINAL vs 60D
+
+on:
+  push:
+    branches:
+      - research/super-model-warmup-v4
+    paths:
+      - 'research/super_model_warmup_one.py'
+      - '.github/workflows/super-model-warmup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [ETHUSDT, BTCUSDT]
+        year: [2020, 2021, 2022, 2023, 2024, 2025]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BACKTEST_SYMBOL: ${{ matrix.symbol }}
+      BACKTEST_YEAR: ${{ matrix.year }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy pandas requests tabulate
+      - name: Run warmup comparison
+        working-directory: research
+        run: python super_model_warmup_one.py
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: super-warmup-${{ matrix.symbol }}-${{ matrix.year }}
+          path: research/research/super_model_output_warmup/${{ matrix.symbol }}_${{ matrix.year }}/**
+          if-no-files-found: warn
