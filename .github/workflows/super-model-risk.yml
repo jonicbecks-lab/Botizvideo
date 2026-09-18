@@ -1,0 +1,76 @@
+name: SUPER Model Risk Management
+
+on:
+  push:
+    branches:
+      - research/super-model-risk-v8
+    paths:
+      - 'research/super_model_risk_backtest.py'
+      - '.github/workflows/super-model-risk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  annual:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [ETHUSDT, BTCUSDT]
+        year: [2020, 2021, 2022, 2023, 2024, 2025]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BACKTEST_KIND: ANNUAL
+      BACKTEST_SYMBOL: ${{ matrix.symbol }}
+      BACKTEST_YEAR: ${{ matrix.year }}
+      INITIAL_DEPOSIT: '1000'
+      RISK_PCT: '0.10'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy pandas requests tabulate
+      - name: Run annual risk test
+        working-directory: research
+        run: python super_model_risk_backtest.py
+      - name: Upload annual result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: super-risk-annual-${{ matrix.symbol }}-${{ matrix.year }}
+          path: research/research/super_model_output_risk/annual/${{ matrix.symbol }}_${{ matrix.year }}/**
+          if-no-files-found: warn
+
+  continuous:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [ETHUSDT, BTCUSDT]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      BACKTEST_KIND: CONTINUOUS
+      BACKTEST_SYMBOL: ${{ matrix.symbol }}
+      INITIAL_DEPOSIT: '1000'
+      RISK_PCT: '0.10'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy pandas requests tabulate
+      - name: Run continuous 2020-2025 risk test
+        working-directory: research
+        run: python super_model_risk_backtest.py
+      - name: Upload continuous result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: super-risk-continuous-${{ matrix.symbol }}
+          path: research/research/super_model_output_risk/continuous/${{ matrix.symbol }}/**
+          if-no-files-found: warn
