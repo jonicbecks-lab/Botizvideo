@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r paper_super/requirements.txt
       - name: Syntax check
-        run: python -m py_compile paper_super/model.py paper_super/account.py paper_super/controller.py paper_super/app.py
+        run: python -m py_compile paper_super/model.py paper_super/account.py paper_super/controller.py paper_super/chart.py paper_super/app.py
       - name: Risk engine test
         working-directory: paper_super
         run: |
@@ -42,4 +42,21 @@ jobs:
           assert abs(a.position['margin']-100)<1e-6
           assert not a.add_fill('LONG',80,'TEST','ADD')
           print('paper core ok')
+          PY
+      - name: Chart payload shape test
+        working-directory: paper_super
+        run: |
+          python - <<'PY'
+          from account import PaperAccount
+          from chart import chart_payload
+          import chart
+          a=PaperAccount('BTCUSDT')
+          a.last_price=100
+          a.start_campaign('LONG',100,'TEST','START')
+          chart._fetch_bars=lambda *args,**kwargs:[{'ts':1,'o':99,'h':101,'l':98,'c':100,'v':1,'closeTs':2,'closed':True}]
+          p=chart_payload(a,'2h')
+          assert p['symbol']=='BTCUSDT' and p['interval']=='2h'
+          assert p['bars'] and p['position']['avg']==100
+          assert len(p['pending'])==10
+          print('chart payload ok')
           PY
