@@ -3,6 +3,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from chart import chart_payload
 from controller import PaperController
 
 BASE = Path(__file__).resolve().parent
@@ -20,6 +21,20 @@ def root():
 @app.get("/api/state")
 def api_state():
     return jsonify(ctl.public())
+
+
+@app.get("/api/chart/<symbol>")
+def api_chart(symbol):
+    symbol = str(symbol).upper()
+    interval = str(request.args.get("interval", "2h")).lower()
+    if symbol not in ctl.accounts:
+        return jsonify({"error": "bad symbol"}), 400
+    if interval not in ("2h", "5m"):
+        return jsonify({"error": "bad interval"}), 400
+    try:
+        return jsonify(chart_payload(ctl.accounts[symbol], interval))
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
 @app.post("/api/action")
