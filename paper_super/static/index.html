@@ -8,7 +8,8 @@
 :root{--bg:#0a0d12;--card:#121722;--line:#252d3b;--text:#eef2f7;--muted:#8994a7;--green:#34d399;--red:#fb7185;--amber:#fbbf24;--blue:#60a5fa}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button{font:inherit}
 .wrap{max-width:860px;margin:auto;padding:12px 12px 40px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.brand{font-weight:800;letter-spacing:.4px}.paper{font-size:12px;color:var(--amber);border:1px solid #6b5417;padding:5px 8px;border-radius:999px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}.tab{background:#0e131c;border:1px solid var(--line);color:var(--text);padding:11px;border-radius:12px}.tab.active{border-color:var(--blue);background:#111a28}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}.label{font-size:12px;color:var(--muted);margin-bottom:4px}.value{font-size:20px;font-weight:800}.small{font-size:13px}.long{color:var(--green)}.short{color:var(--red)}.neutral{color:var(--amber)}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.btn{border:1px solid var(--line);background:#151c28;color:var(--text);padding:12px 8px;border-radius:12px;font-weight:700}.btn.longb{border-color:#17634e}.btn.shortb{border-color:#7a2737}.btn.warn{border-color:#745d17}.btn.blue{border-color:#275c8a}.section{margin-top:12px}.section h3{font-size:14px;margin:0 0 8px;color:#cbd5e1}.statusline{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}.event{border-top:1px solid var(--line);padding:8px 0;font-size:12px}.event:first-child{border-top:0}.actor{font-weight:800}.manual{color:var(--blue)}.auto{color:var(--green)}.model{color:var(--amber)}.error{color:var(--red);font-size:12px;margin-top:8px;white-space:pre-wrap}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 7px;font-size:11px;color:var(--muted)}
-@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.actions{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.chartcard{padding:10px 8px 8px;overflow:hidden}.charttop{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 3px 8px}.charttitle{display:flex;gap:7px;align-items:center;font-size:13px;font-weight:800}.tf{display:flex;gap:5px}.tfbtn{border:1px solid var(--line);background:#0e131c;color:var(--muted);padding:6px 10px;border-radius:9px;font-size:12px;font-weight:800}.tfbtn.active{border-color:var(--blue);color:var(--text);background:#111a28}.chartwrap{position:relative;width:100%;height:330px;border-radius:10px;overflow:hidden;background:#0c1119}.chartwrap canvas{display:block;width:100%;height:100%;touch-action:pan-y}.chartstatus{position:absolute;left:9px;top:7px;z-index:2;font-size:11px;color:var(--muted);pointer-events:none}.legend{display:flex;gap:10px;flex-wrap:wrap;padding:7px 4px 0;color:var(--muted);font-size:10px}.legend span:before{content:'';display:inline-block;width:11px;height:2px;margin-right:4px;vertical-align:middle;background:currentColor}.lg-price{color:var(--blue)}.lg-avg{color:#e2e8f0}.lg-grid{color:#64748b}.lg-liq{color:var(--red)}.lg-stop{color:var(--green)}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.actions{grid-template-columns:repeat(4,minmax(0,1fr))}.chartwrap{height:390px}}
 </style>
 </head>
 <body>
@@ -18,7 +19,7 @@
   <div id="main"></div>
 </div>
 <script>
-let symbol='BTCUSDT', state={};
+let symbol='BTCUSDT', state={}, chartData=null, chartInterval='2h', chartBusy=false;
 const $=q=>document.querySelector(q); const money=x=>x==null?'—':'$'+Number(x).toFixed(2); const num=(x,d=2)=>x==null?'—':Number(x).toFixed(d);
 const sigClass=s=>s==='LONG'?'long':s==='SHORT'?'short':'neutral';
 function ts(x){if(!x)return'—';return new Date(x).toLocaleString();}
@@ -30,6 +31,11 @@ function render(){const a=state[symbol]; if(!a){$('#main').innerHTML='<div class
   <div class="card"><div class="label">Сигнал модели</div><div class="value ${sigClass(a.signal)}">${esc(a.signal)}</div><div class="small">P↑ ${a.p24==null?'—':(a.p24*100).toFixed(1)+'%'} · persist ${num(a.persist,0)}</div></div>
   <div class="card"><div class="label">Депозит / Equity</div><div class="value">${money(a.equity)}</div><div class="small">balance ${money(a.balance)} · ${num(a.return_pct,1)}%</div></div>
   <div class="card"><div class="label">Режим</div><div class="value" style="font-size:16px">${a.auto_enabled?'AUTO ON':'AUTO OFF'}</div><div class="small">${override?'MANUAL OVERRIDE':'model controls position'}</div></div>
+ </div>
+ <div class="section card chartcard">
+  <div class="charttop"><div class="charttitle">График <span class="${sigClass(a.signal)}">${esc(a.signal)}</span></div><div class="tf"><button class="tfbtn ${chartInterval==='2h'?'active':''}" onclick="setTF('2h')">2H</button><button class="tfbtn ${chartInterval==='5m'?'active':''}" onclick="setTF('5m')">5m</button></div></div>
+  <div class="chartwrap"><div class="chartstatus" id="chartStatus">Загрузка свечей…</div><canvas id="chartCanvas"></canvas></div>
+  <div class="legend"><span class="lg-price">price</span><span class="lg-avg">avg</span><span class="lg-grid">grid</span><span class="lg-liq">liq</span><span class="lg-stop">profit lock</span></div>
  </div>
  <div class="section card">
   <h3>Позиция</h3>
@@ -48,12 +54,44 @@ function render(){const a=state[symbol]; if(!a){$('#main').innerHTML='<div class
  <div class="section card"><h3>Статистика</h3><div class="small">campaigns ${a.stats.campaigns} · profit stops ${a.stats.profitStops} · switches ${a.stats.switches} · liquidations ${a.stats.liquidations}</div></div>
  <div class="section card"><h3>Журнал AUTO + MANUAL</h3>${a.events.slice(0,30).map(e=>`<div class="event"><span class="actor ${String(e.actor).toLowerCase()}">${esc(e.actor)}</span> · ${esc(e.action)} · ${esc(e.detail)}<div class="label">${ts(e.ts)}</div></div>`).join('')||'<div class="small">Пока пусто</div>'}</div>
  <div class="section"><button class="btn warn" style="width:100%" onclick="resetPaper()">RESET PAPER ${symbol==='BTCUSDT'?'BTC':'ETH'} → $1000</button></div>`;
+ requestAnimationFrame(drawChart);
 }
+function setTF(tf){if(chartInterval===tf)return;chartInterval=tf;chartData=null;render();refreshChart();}
+function pxPrice(v){if(v==null)return'—';if(symbol==='BTCUSDT')return Number(v).toFixed(v>=10000?0:1);return Number(v).toFixed(v>=1000?1:2)}
+function eventPrice(e){const m=String(e.detail||'').match(/@\s*([0-9]+(?:\.[0-9]+)?)/);return m?Number(m[1]):Number(e.price)||null;}
+function drawChart(){
+ const cv=document.getElementById('chartCanvas'), st=document.getElementById('chartStatus'); if(!cv)return;
+ if(!chartData||chartData.symbol!==symbol||chartData.interval!==chartInterval){if(st)st.textContent='Загрузка свечей…';return;}
+ if(chartData.error){if(st)st.textContent=chartData.error;return;}
+ const all=chartData.bars||[], maxBars=chartInterval==='2h'?90:120, bars=all.slice(-maxBars); if(!bars.length){if(st)st.textContent='Нет свечей';return;}
+ if(st)st.textContent=`${symbol} · ${chartInterval.toUpperCase()} · ${bars.length} свечей`;
+ const rect=cv.getBoundingClientRect(), dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1)); cv.width=Math.round(rect.width*dpr);cv.height=Math.round(rect.height*dpr);
+ const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);const W=rect.width,H=rect.height;
+ ctx.clearRect(0,0,W,H);const L=7,R=61,T=10,B=23, iw=W-L-R, ih=H-T-B;
+ const levels=[]; if(chartData.price)levels.push(Number(chartData.price)); const p=chartData.position;
+ if(p){levels.push(Number(p.avg));if(p.liq)levels.push(Number(p.liq));if(p.profitStopArmed&&p.profitStopPrice)levels.push(Number(p.profitStopPrice));}
+ for(const g of chartData.pending||[])if(g.price)levels.push(Number(g.price));
+ let lo=Math.min(...bars.map(b=>b.l),...levels), hi=Math.max(...bars.map(b=>b.h),...levels);let pad=(hi-lo)*.045||1;lo-=pad;hi+=pad;
+ const y=v=>T+(hi-v)/(hi-lo)*ih, cw=iw/bars.length, bx=i=>L+i*cw+cw/2;
+ ctx.strokeStyle='#1d2633';ctx.lineWidth=1;ctx.fillStyle='#7e8b9f';ctx.font='10px system-ui';ctx.textAlign='left';
+ for(let k=0;k<=4;k++){const yy=T+ih*k/4;ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();const val=hi-(hi-lo)*k/4;ctx.fillText(pxPrice(val),W-R+5,yy+3);}
+ const timeCount=4;ctx.textAlign='center';ctx.fillStyle='#657286';
+ for(let k=0;k<=timeCount;k++){const i=Math.min(bars.length-1,Math.round((bars.length-1)*k/timeCount)),xx=bx(i),d=new Date(bars[i].ts);const lab=chartInterval==='2h'?`${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`:`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;ctx.fillText(lab,xx,H-6);}
+ for(let i=0;i<bars.length;i++){const b=bars[i],up=b.c>=b.o,xx=bx(i),yo=y(b.o),yc=y(b.c),yh=y(b.h),yl=y(b.l);ctx.strokeStyle=up?'#34d399':'#fb7185';ctx.globalAlpha=b.closed===false?.65:1;ctx.beginPath();ctx.moveTo(xx,yh);ctx.lineTo(xx,yl);ctx.stroke();const bw=Math.max(1.2,cw*.62),top=Math.min(yo,yc),bh=Math.max(1,Math.abs(yc-yo));ctx.fillStyle=up?'#34d399':'#fb7185';ctx.fillRect(xx-bw/2,top,bw,bh);ctx.globalAlpha=1;}
+ function hline(v,color,label,dash=[]){if(v==null||!isFinite(v))return;const yy=y(Number(v));ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1;ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(W-R,yy);ctx.stroke();ctx.setLineDash([]);ctx.font='9px system-ui';ctx.textAlign='right';ctx.fillText(label+' '+pxPrice(v),W-3,Math.max(9,Math.min(H-4,yy-2)));ctx.restore();}
+ for(const g of chartData.pending||[])hline(g.price,'#59677b','G'+g.gridLevel,[2,4]);
+ if(p){hline(p.avg,'#e2e8f0','AVG');hline(p.liq,'#fb7185','LIQ',[5,4]);if(p.profitStopArmed)hline(p.profitStopPrice,'#34d399','LOCK',[6,3]);}
+ hline(chartData.price,'#60a5fa','P',[3,3]);
+ const first=bars[0].ts,last=bars[bars.length-1].closeTs||bars[bars.length-1].ts; const acts=new Set(['FILL','CLOSE','LIQUIDATION']);
+ for(const e of chartData.events||[]){if(!acts.has(e.action)||e.ts<first||e.ts>last)continue;const ep=eventPrice(e);if(!ep)continue;let i=Math.round((e.ts-first)/(last-first)*(bars.length-1));i=Math.max(0,Math.min(bars.length-1,i));const xx=bx(i),yy=y(ep),fill=e.action==='FILL'?'#60a5fa':e.action==='LIQUIDATION'?'#fb7185':'#fbbf24';ctx.fillStyle=fill;ctx.beginPath();if(e.action==='FILL'){ctx.moveTo(xx,yy-7);ctx.lineTo(xx-5,yy+2);ctx.lineTo(xx+5,yy+2);}else{ctx.moveTo(xx,yy+7);ctx.lineTo(xx-5,yy-2);ctx.lineTo(xx+5,yy-2);}ctx.closePath();ctx.fill();}
+}
+async function refreshChart(){if(chartBusy)return;chartBusy=true;try{const r=await fetch(`/api/chart/${symbol}?interval=${chartInterval}`,{cache:'no-store'});const j=await r.json();chartData=j;drawChart()}catch(e){chartData={error:String(e),symbol,interval:chartInterval};drawChart()}finally{chartBusy=false}}
 async function refresh(){try{const r=await fetch('/api/state',{cache:'no-store'});state=await r.json();render()}catch(e){console.log(e)}}
-async function act(action){const r=await fetch('/api/action',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,action})});const j=await r.json();if(j.error)alert(j.error);await refresh()}
-async function resetPaper(){if(!confirm('Точно сбросить PAPER счёт '+symbol+' до $1000?'))return;const r=await fetch('/api/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,confirm:'RESET PAPER'})});const j=await r.json();if(j.error)alert(j.error);await refresh()}
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');symbol=b.dataset.symbol;render()});
-refresh();setInterval(refresh,5000);
+async function act(action){const r=await fetch('/api/action',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,action})});const j=await r.json();if(j.error)alert(j.error);await refresh();await refreshChart()}
+async function resetPaper(){if(!confirm('Точно сбросить PAPER счёт '+symbol+' до $1000?'))return;const r=await fetch('/api/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({symbol,confirm:'RESET PAPER'})});const j=await r.json();if(j.error)alert(j.error);await refresh();await refreshChart()}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');symbol=b.dataset.symbol;chartData=null;render();refreshChart()});
+window.addEventListener('resize',()=>requestAnimationFrame(drawChart));
+refresh();refreshChart();setInterval(refresh,5000);setInterval(refreshChart,15000);
 </script>
 </body>
 </html>
