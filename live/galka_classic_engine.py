@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import math
+import time
 from copy import deepcopy
 from typing import Any
 
-from .engine import RECOVERY_STATUS, LiveEngineError
+from .engine import RECOVERY_STATUS, LiveEngineError, new_cloid, now_iso
 from .hyperliquid_compat import CompatibleGalkaLiveEngine, CompatibleHyperliquidGateway
-from .live_ladder import estimated_target_pnl, estimated_target_pnl_mixed, weighted_average
+from .live_ladder import (
+    estimated_target_pnl,
+    estimated_target_pnl_mixed,
+    round_perp_price,
+    weighted_average,
+)
 
 
 SIZING_POLICY = "max_available_whole_dollars_with_fee_reserve_v1"
@@ -49,6 +55,14 @@ class GalkaClassicEngine(CompatibleGalkaLiveEngine):
         if withdrawable is None:
             return commitment_capacity
         return min(commitment_capacity, max(0.0, withdrawable))
+
+    def _migrate_campaign(self, campaign: dict[str, Any]) -> None:
+        super()._migrate_campaign(campaign)
+        campaign.setdefault("originalGalkaPrice", campaign.get("galkaPrice"))
+        campaign.setdefault("manualExitActive", False)
+        campaign.setdefault("manualExitPrice", None)
+        campaign.setdefault("manualExitOid", None)
+        campaign.setdefault("manualExitCloid", None)
 
     def preview(self, coin: str, galka_price: float) -> dict[str, Any]:
         """Build the 8-level ladder from the maximum safe whole-dollar margin."""
@@ -185,6 +199,11 @@ class GalkaClassicEngine(CompatibleGalkaLiveEngine):
         campaign = super()._new_campaign(campaign_id, coin, galka_price, preview, levels)
         campaign.pop("targetMarginFraction", None)
         campaign["autoSizedFromEquity"] = True
+        campaign["originalGalkaPrice"] = float(galka_price)
+        campaign["manualExitActive"] = False
+        campaign["manualExitPrice"] = None
+        campaign["manualExitOid"] = None
+        campaign["manualExitCloid"] = None
         for key in (
             "sizingPolicy",
             "targetMargin",
@@ -220,6 +239,192 @@ class GalkaClassicEngine(CompatibleGalkaLiveEngine):
             return super()._create_campaign_fast(coin, galka_price, confirmation)
         finally:
             object.__setattr__(self.config, "max_margin_fraction", previous_fraction)
+
+    def _expected_target_price(self, campaign: dict[str, Any], order: dict[str, Any]) -> float:
+        oid = int(order.get("oid") or 0)
+        cloid = str(order.get("cloid") or "")
+        manual_oid = int(campaign.get("manualExitOid") or 0)
+        manual_cloid = str(campaign.get("manualExitCloid") or "")
+        is_manual = bool(campaign.get("manualExitActive")) and (
+            (manual_oid > 0 and oid == manual_oid)
+            or (manual_cloid and cloid == manual_cloid)
+        )
+        source_price = (
+            float(campaign.get("manualExitPrice") or 0)
+            if is_manual
+            else float(campaign.get("originalGalkaPrice") or campaign.get("galkaPrice") or 0)
+        )
+        return round_perp_price(source_price, self.gateway.sz_decimals(campaign["coin"]))
+
+    def _is_galka_target(self, campaign: dict[str, Any], order: dict[str, Any]) -> bool:
+        """Validate against the actual exchange-rounded price, not raw chart decimals.
+
+        Manual near-market exits are intentional owned reduce-only targets and are
+        validated against their own price without ever changing the original GALKA.
+        """
+        if not order.get("reduceOnly") or order.get("side") != "A":
+            return False
+        expected = self._expected_target_price(campaign, order)
+        actual = float(order.get("triggerPrice") or order.get("price") or 0)
+        return abs(actual - expected) <= max(1e-9, abs(expected) * 1e-10)
+
+    def _ensure_target_coverage(
+        self,
+        campaign: dict[str, Any],
+        open_orders: list[dict[str, Any]],
+        actual_size: float,
+    ) -> None:
+        """Repair stale classic targets instead of entering an endless sync-error loop."""
+        try:
+            return super()._ensure_target_coverage(campaign, open_orders, actual_size)
+        except LiveEngineError as exc:
+            if campaign.get("manualExitActive") or "Owned target orders have wrong parameters" not in str(exc):
+                raise
+
+            with self.lock:
+                self._register_delayed_orders(campaign, open_orders)
+                malformed = [
+                    int(row.get("oid") or 0)
+                    for row in open_orders
+                    if self._target_owner(campaign, row) is not None
+                    and not self._is_galka_target(campaign, row)
+                    and int(row.get("oid") or 0) > 0
+                ]
+            if not malformed:
+                raise
+
+            self._cancel_specific_and_verify(campaign["coin"], malformed)
+            with self.lock:
+                if int(campaign.get("fallbackTargetOid") or 0) in malformed:
+                    campaign["fallbackTargetOid"] = None
+                    campaign["fallbackTargetCloid"] = None
+                for level in campaign.get("levels", []):
+                    if int(level.get("tpOid") or 0) in malformed:
+                        level["tpOid"] = None
+                self._event_locked(
+                    "risk",
+                    f"{campaign['coin']}: некорректный owned target снят и будет восстановлен на исходной GALKA",
+                    campaignId=campaign["id"],
+                    oids=malformed,
+                    galkaPrice=campaign.get("originalGalkaPrice") or campaign.get("galkaPrice"),
+                )
+                self._save_locked()
+
+            fresh_orders = self.gateway.fresh_open_orders(campaign["coin"])
+            return super()._ensure_target_coverage(campaign, fresh_orders, actual_size)
+
+    def close_near_market(self, coin: str, confirmation: str) -> dict[str, Any]:
+        """Close with a post-only maker order without rewriting the campaign GALKA."""
+        normalized = self._coin(coin)
+        self._require_live_writes()
+        if confirmation != "CLOSE_NEAR_MARKET":
+            raise LiveEngineError("Не подтверждено закрытие рядом с рынком")
+
+        with self.action_lock:
+            with self.lock:
+                campaign = self._active_campaign_locked(normalized)
+                if not campaign:
+                    raise LiveEngineError(f"Для {normalized} нет активной GALKA")
+                campaign["autoRearmBlocked"] = True
+                campaign["abortAfterClose"] = True
+                campaign["manualExitActive"] = True
+                campaign["status"] = "closing"
+                campaign["updatedAt"] = now_iso()
+                self._save_locked()
+
+            account = self.gateway.fresh_account_state()
+            position_size = self._position_size(account, normalized)
+            tolerance = self._size_tolerance(normalized)
+            if position_size <= tolerance:
+                self._sync_campaign(campaign)
+                with self.lock:
+                    return {
+                        "coin": normalized,
+                        "price": None,
+                        "size": 0.0,
+                        "oid": None,
+                        "status": campaign.get("status"),
+                        "alreadyFlat": True,
+                    }
+
+            open_orders = self.gateway.fresh_open_orders(normalized)
+            self._cancel_owned_orders(campaign, open_orders=open_orders)
+
+            account = self.gateway.fresh_account_state()
+            position_size = self._position_size(account, normalized)
+            if position_size <= tolerance:
+                self._sync_campaign(campaign)
+                with self.lock:
+                    return {
+                        "coin": normalized,
+                        "price": None,
+                        "size": 0.0,
+                        "oid": None,
+                        "status": campaign.get("status"),
+                        "alreadyFlat": True,
+                    }
+
+            cloid = new_cloid()
+            step = self._NEAR_MARKET_STEPS[normalized]
+            placed = None
+            exit_price = 0.0
+            last_error: Exception | None = None
+            for multiplier in (1, 2, 5):
+                mid = float(self.gateway.mids().get(normalized) or 0)
+                if mid <= 0:
+                    raise LiveEngineError(f"Нет свежей рыночной цены {normalized}")
+                exit_price = round_perp_price(
+                    mid + step * multiplier, self.gateway.sz_decimals(normalized)
+                )
+                if exit_price <= mid:
+                    exit_price = round_perp_price(
+                        mid + step * (multiplier + 1), self.gateway.sz_decimals(normalized)
+                    )
+                try:
+                    placed = self.gateway.place_post_only_reduce_sell(
+                        normalized, position_size, exit_price, cloid
+                    )
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    time.sleep(0.15)
+            if placed is None:
+                self._enter_recovery(
+                    campaign,
+                    f"Не удалось выставить maker-выход рядом с рынком: {last_error}",
+                    position_size,
+                    self.gateway.fresh_open_orders(normalized),
+                )
+                raise LiveEngineError("Выход рядом с рынком не выставлен; включён recovery")
+
+            with self.lock:
+                # galkaPrice/originalGalkaPrice are intentionally immutable here.
+                campaign["manualExitPrice"] = exit_price
+                campaign["manualExitOid"] = placed.oid
+                campaign["manualExitCloid"] = cloid
+                campaign["fallbackTargetOid"] = placed.oid
+                campaign["fallbackTargetCloid"] = cloid
+                campaign.setdefault("targetOidMap", {})[str(placed.oid)] = 0
+                campaign.setdefault("targetCloidMap", {})[cloid] = 0
+                campaign["status"] = "closing"
+                campaign["updatedAt"] = now_iso()
+                self._event_locked(
+                    "live",
+                    f"{normalized}: входы и старые TP сняты; весь объём выставлен на продажу по {exit_price:g}; исходная GALKA сохранена",
+                    campaignId=campaign["id"],
+                    price=exit_price,
+                    originalGalkaPrice=campaign.get("originalGalkaPrice") or campaign.get("galkaPrice"),
+                    size=position_size,
+                    oid=placed.oid,
+                )
+                self._save_locked()
+                return {
+                    "coin": normalized,
+                    "price": exit_price,
+                    "size": position_size,
+                    "oid": placed.oid,
+                    "status": "closing",
+                }
 
     def _finish_cycle(self, campaign: dict[str, Any]) -> None:
         coin = campaign["coin"]
@@ -270,17 +475,25 @@ class GalkaClassicEngine(CompatibleGalkaLiveEngine):
             campaign["actualPositionSize"] = 0.0
             campaign["finalClosedPnl"] = net_cycle
             campaign["autoRearmBlocked"] = True
+            if campaign.get("manualExitActive"):
+                message = (
+                    f"{coin}: L{deepest} закрыта ручным maker-выходом "
+                    f"{float(campaign.get('manualExitPrice') or 0):g}; исходная GALKA "
+                    f"{float(campaign.get('originalGalkaPrice') or campaign.get('galkaPrice') or 0):g} сохранена"
+                )
+            else:
+                message = f"{coin}: L{deepest} закрыта на GALKA; кампания завершена без rearm"
             self._event_locked(
                 "live",
-                f"{coin}: L{deepest} закрыта на GALKA; кампания завершена без rearm",
+                message,
                 campaignId=campaign["id"],
                 deepest=deepest,
                 pnl=net_cycle,
+                originalGalkaPrice=campaign.get("originalGalkaPrice") or campaign.get("galkaPrice"),
+                manualExitPrice=campaign.get("manualExitPrice"),
             )
             self._save_locked()
 
     @staticmethod
     def _now_iso_compat() -> str:
-        from .engine import now_iso
-
         return now_iso()
