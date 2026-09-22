@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from live.config import LiveConfig
 from live.galka_classic_engine import GalkaClassicEngine
+from live.hyperliquid_gateway import PlacedOrder
+from live.live_ladder import round_perp_price
 from test_live_engine import FakeGateway
 
 
@@ -43,6 +45,24 @@ class ClassicFakeGateway(FakeGateway):
             )
         ]
 
+    def place_post_only_reduce_sell(self, coin, quantity, price, cloid):
+        oid = self._new_oid()
+        self._store_order(
+            {
+                "coin": coin,
+                "oid": oid,
+                "cloid": cloid,
+                "side": "A",
+                "price": price,
+                "size": quantity,
+                "originalSize": quantity,
+                "reduceOnly": True,
+                "triggerPrice": 0.0,
+                "orderType": "Limit",
+            }
+        )
+        return PlacedOrder(oid, "resting", None, price, quantity, cloid)
+
 
 class GalkaClassicEngineTests(unittest.TestCase):
     def setUp(self):
@@ -65,9 +85,15 @@ class GalkaClassicEngineTests(unittest.TestCase):
         self.gateway = ClassicFakeGateway()
         self.engine = GalkaClassicEngine(self.config, self.gateway)
         self.sleep_engine = patch("live.engine.time.sleep", return_value=None)
+        self.sleep_compat = patch("live.hyperliquid_compat.time.sleep", return_value=None)
+        self.sleep_classic = patch("live.galka_classic_engine.time.sleep", return_value=None)
         self.sleep_engine.start()
+        self.sleep_compat.start()
+        self.sleep_classic.start()
 
     def tearDown(self):
+        self.sleep_classic.stop()
+        self.sleep_compat.stop()
         self.sleep_engine.stop()
         self.tmp.cleanup()
 
@@ -115,6 +141,64 @@ class GalkaClassicEngineTests(unittest.TestCase):
         self.assertEqual(active["l1Cycles"], 0)
         self.assertIsNone(self.active())
         self.assertEqual(self.gateway.open_orders("BTC"), [])
+
+    def test_target_validation_uses_exchange_rounded_original_galka(self):
+        campaign = {
+            "coin": "BTC",
+            "galkaPrice": 60_000.037,
+            "originalGalkaPrice": 60_000.037,
+            "manualExitActive": False,
+        }
+        expected = round_perp_price(60_000.037, self.gateway.sz_decimals("BTC"))
+        order = {
+            "coin": "BTC",
+            "oid": 123,
+            "side": "A",
+            "price": expected,
+            "triggerPrice": 0.0,
+            "reduceOnly": True,
+        }
+        self.assertTrue(self.engine._is_galka_target(campaign, order))
+
+    def test_malformed_owned_target_is_canceled_and_repaired_without_sync_loop(self):
+        self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
+        campaign = self.active()
+        self.gateway.fill_entry(campaign, 1, 1_000)
+        self.engine._sync_campaign(campaign)
+
+        target_oid = int(campaign["levels"][0]["tpOid"])
+        self.gateway.orders[target_oid]["price"] = 59_000.0
+        self.gateway.orders[target_oid]["triggerPrice"] = 59_000.0
+        actual = self.gateway.position_sizes["BTC"]
+
+        self.engine._ensure_target_coverage(
+            campaign,
+            self.gateway.fresh_open_orders("BTC"),
+            actual,
+        )
+
+        self.assertIn(target_oid, self.gateway.cancelled)
+        self.assertNotIn(target_oid, self.gateway.orders)
+
+    def test_near_market_exit_keeps_original_galka_and_survives_monitor_sync(self):
+        self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
+        campaign = self.active()
+        original_galka = float(campaign["galkaPrice"])
+        self.gateway.fill_entry(campaign, 1, 1_000)
+        self.engine._sync_campaign(campaign)
+
+        result = self.engine.close_near_market("BTC", "CLOSE_NEAR_MARKET")
+
+        self.assertEqual(float(campaign["galkaPrice"]), original_galka)
+        self.assertEqual(float(campaign["originalGalkaPrice"]), original_galka)
+        self.assertTrue(campaign["manualExitActive"])
+        self.assertEqual(campaign["manualExitOid"], result["oid"])
+        self.assertEqual(campaign["manualExitPrice"], result["price"])
+        self.assertNotEqual(result["price"], original_galka)
+
+        self.engine._sync_campaign(campaign)
+        self.assertEqual(campaign["status"], "closing")
+        self.assertIsNone(campaign.get("lastError"))
 
 
 if __name__ == "__main__":
