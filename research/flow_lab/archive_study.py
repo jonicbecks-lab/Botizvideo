@@ -75,10 +75,15 @@ def _summarize(events: list[dict], horizons: tuple[int, ...]) -> list[dict]:
             vals = [float(r[f"future_{h}b_in_flow_direction_bps"]) for r in rows
                     if r.get(f"future_{h}b_in_flow_direction_bps") is not None]
             if vals:
+                mean_in_flow = sum(vals) / len(vals)
                 base[f"h{h}_n"] = len(vals)
-                base[f"h{h}_mean_in_flow_bps"] = sum(vals) / len(vals)
+                base[f"h{h}_mean_in_flow_bps"] = mean_in_flow
                 base[f"h{h}_median_in_flow_bps"] = statistics.median(vals)
                 base[f"h{h}_flow_direction_positive_rate"] = sum(v > 0 for v in vals) / len(vals)
+                # For absorption, reversal is the economically relevant sign:
+                # sell-flow reversal = price rises; buy-flow reversal = price falls.
+                base[f"h{h}_mean_reversal_bps"] = -mean_in_flow
+                base[f"h{h}_reversal_positive_rate"] = sum(v < 0 for v in vals) / len(vals)
         out.append(base)
     return out
 
@@ -130,7 +135,7 @@ def main() -> None:
     output = Path(args.output); output.parent.mkdir(parents=True, exist_ok=True)
     rows = [study_one(f"{a.upper()}USDT", day, workdir, args.window_sec, args.extreme_percentile)
             for a in args.assets]
-    payload = {"study": "MULTIVENUE_FLOW_BINANCE_BOOTSTRAP_PILOT", "results": rows}
+    payload = {"study": "FLOW_BINANCE_BOOTSTRAP_PILOT", "results": rows}
     output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(payload, indent=2, sort_keys=True))
 
