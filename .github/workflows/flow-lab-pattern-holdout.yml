@@ -1,0 +1,59 @@
+name: Flow Lab Pattern Holdout
+
+on:
+  push:
+    branches:
+      - research/multivenue-flow-btc-eth-v1
+    paths:
+      - research/flow_lab/**
+      - .github/workflows/flow-lab-pattern-holdout.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flow-lab-pattern-holdout-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r research/flow_lab/requirements.txt
+      - name: Run untouched response-pattern holdout
+        run: |
+          PYTHONPATH=. python -m research.flow_lab.multi_day_study \
+            --start 2026-09-07 \
+            --end 2026-09-09 \
+            --assets BTC ETH \
+            --window-sec 30 \
+            --extreme-percentile 0.99 \
+            --workdir data/flow/pattern-holdout-2026-09-07_09 \
+            --output results/flow_lab/pattern-holdout-2026-09-07_09.json
+      - name: Print compact pattern summary
+        run: |
+          python - <<'PY'
+          import json
+          p = json.load(open("results/flow_lab/pattern-holdout-2026-09-07_09.json"))
+          for r in p["results"]:
+              print(r["symbol"], "independent_events=", r["independent_event_count"])
+              for g in r["pattern_groups_independent"]:
+                  print(g["pattern_family"], {
+                      "n": g["raw_event_count"],
+                      "5m_mean_hyp_bps": g.get("h10_mean_hypothesis_bps"),
+                      "5m_median_hyp_bps": g.get("h10_median_hypothesis_bps"),
+                      "5m_hit_rate": g.get("h10_hypothesis_hit_rate"),
+                      "15m_mean_hyp_bps": g.get("h30_mean_hypothesis_bps"),
+                      "15m_hit_rate": g.get("h30_hypothesis_hit_rate"),
+                  })
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flow-lab-pattern-holdout-2026-09-07_09
+          path: results/flow_lab/pattern-holdout-2026-09-07_09.json

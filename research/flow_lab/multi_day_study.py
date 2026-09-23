@@ -10,6 +10,7 @@ from .archive_study import _count_classes, _summarize, stream_buckets
 from .event_study import EventStudyConfig, build_event_table, independent_events
 from .historical import binance_vision_aggtrades_url, download_file, iter_binance_aggtrades_zip
 from .metrics import combine_venues
+from .pattern_study import build_response_pattern_events, summarize_pattern_events
 
 
 def _days(start: date, end: date):
@@ -55,6 +56,7 @@ def study_range(symbol: str, start: date, end: date, workdir: Path,
     )
     events = build_event_table(composite, refs, cfg)
     independent = independent_events(events)
+    response_patterns = build_response_pattern_events(independent, cfg.horizons_buckets)
 
     return {
         "symbol": symbol,
@@ -79,7 +81,23 @@ def study_range(symbol: str, start: date, end: date, workdir: Path,
         "horizon_seconds": {str(h): h * window_sec for h in cfg.horizons_buckets},
         "groups": _summarize(independent, cfg.horizons_buckets),
         "groups_raw": _summarize(events, cfg.horizons_buckets),
-        "interpretation": "fixed-parameter v2 multi-day diagnostic with causal clustering and past-only volatility normalization; not a trading edge claim",
+        "pattern_groups_independent": summarize_pattern_events(
+            response_patterns, cfg.horizons_buckets
+        ),
+        "pattern_catalog_scope": [
+            "absorption",
+            "continuation",
+            "instant_reversal",
+        ],
+        "pattern_catalog_scope_note": (
+            "Binance-only archive cannot validate cross-venue, spot/perp, OI, "
+            "liquidation, or order-book hypotheses."
+        ),
+        "interpretation": (
+            "fixed-parameter v2 multi-day diagnostic with causal clustering, "
+            "past-only volatility normalization, and a common response-pattern study; "
+            "not a trading edge claim"
+        ),
     }
 
 

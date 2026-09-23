@@ -9,13 +9,31 @@ from .patterns import response_pattern
 DEFAULT_HORIZONS = (1, 2, 4, 10, 30, 60, 120)
 
 
-def build_response_pattern_events(events: Iterable[Mapping]) -> list[dict]:
-    """Map extreme-flow response classes into the common pattern-event schema."""
+def _derive_hypothesis_labels(event: dict, horizons_buckets: Sequence[int]) -> dict:
+    direction = int(event.get("hypothesis_direction", 0) or 0)
+    for h in horizons_buckets:
+        raw_key = f"future_{int(h)}b_raw_bps"
+        hypo_key = f"future_{int(h)}b_hypothesis_bps"
+        raw = event.get(raw_key)
+        event[hypo_key] = float(raw) * direction if raw is not None and direction else None
+    return event
+
+
+def build_response_pattern_events(
+    events: Iterable[Mapping],
+    horizons_buckets: Sequence[int] = DEFAULT_HORIZONS,
+) -> list[dict]:
+    """Map extreme-flow response classes into the common pattern-event schema.
+
+    Existing future raw-return labels from event_study are converted into the
+    pattern's preregistered hypothesis direction. This does not alter trigger-time
+    features and is label-only.
+    """
     out: list[dict] = []
     for event in events:
         mapped = response_pattern(event)
         if mapped is not None:
-            out.append(mapped)
+            out.append(_derive_hypothesis_labels(mapped, horizons_buckets))
     return out
 
 
