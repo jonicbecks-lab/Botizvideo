@@ -15,9 +15,10 @@ from .runtime_health import RuntimeHealthRegistry, trade_stream_id
 from .schema import TradeEvent
 from .storage import AsyncJsonlWriter
 
-# Current public request-subscription endpoints (2026 Binance API catalog).
+# Public request-subscription endpoints. Binance Spot uses its official
+# market-data-only domain to avoid account/trading-region dependencies.
 BINANCE_FUTURES_WS = "wss://fstream.binance.com/public/stream"
-BINANCE_SPOT_WS = "wss://stream.binance.com:9443/stream"
+BINANCE_SPOT_WS = "wss://data-stream.binance.vision:443/stream"
 BYBIT_LINEAR_WS = "wss://stream.bybit.com/v5/public/linear"
 BYBIT_SPOT_WS = "wss://stream.bybit.com/v5/public/spot"
 OKX_PUBLIC_WS = "wss://ws.okx.com:8443/ws/v5/public"
