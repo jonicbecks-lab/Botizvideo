@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from .event_study import EventStudyConfig, build_event_table
+from .event_study import EventStudyConfig, build_event_table, independent_events
 from .historical import binance_vision_aggtrades_url, download_file, iter_binance_aggtrades_zip
 from .metrics import combine_venues
 from .schema import FlowBucket, TradeEvent
@@ -63,6 +63,14 @@ def stream_buckets(events: Iterable[TradeEvent], bucket_ms: int) -> Iterator[Flo
         yield row
 
 
+def _count_classes(events: Iterable[dict], field: str = "response_class") -> dict[str, int]:
+    out: dict[str, int] = {}
+    for e in events:
+        klass = str(e.get(field, "unknown"))
+        out[klass] = out.get(klass, 0) + 1
+    return out
+
+
 def _summarize(events: list[dict], horizons: tuple[int, ...]) -> list[dict]:
     out = []
     groups: dict[tuple[str, str], list[dict]] = {}
@@ -80,8 +88,6 @@ def _summarize(events: list[dict], horizons: tuple[int, ...]) -> list[dict]:
                 base[f"h{h}_mean_in_flow_bps"] = mean_in_flow
                 base[f"h{h}_median_in_flow_bps"] = statistics.median(vals)
                 base[f"h{h}_flow_direction_positive_rate"] = sum(v > 0 for v in vals) / len(vals)
-                # For absorption, reversal is the economically relevant sign:
-                # sell-flow reversal = price rises; buy-flow reversal = price falls.
                 base[f"h{h}_mean_reversal_bps"] = -mean_in_flow
                 base[f"h{h}_reversal_positive_rate"] = sum(v < 0 for v in vals) / len(vals)
         out.append(base)
@@ -100,11 +106,10 @@ def study_one(symbol: str, day: date, workdir: Path, window_sec: int,
         extreme_percentile=extreme_percentile,
         min_history=200,
         horizons_buckets=(1, 2, 4, 10, 30, 60, 120),
+        family_cooldown_buckets=4,
     )
     events = build_event_table(composite, refs, cfg)
-    class_counts: dict[str, int] = {}
-    for e in events:
-        class_counts[e["response_class"]] = class_counts.get(e["response_class"], 0) + 1
+    independent = independent_events(events)
     return {
         "symbol": symbol,
         "date": day.isoformat(),
@@ -112,12 +117,19 @@ def study_one(symbol: str, day: date, workdir: Path, window_sec: int,
         "window_sec": window_sec,
         "extreme_percentile_past_only": extreme_percentile,
         "min_history_buckets": cfg.min_history,
+        "family_cooldown_buckets": cfg.family_cooldown_buckets,
+        "vol_absorption_units": cfg.vol_absorption_units,
+        "vol_continuation_units": cfg.vol_continuation_units,
         "bucket_count": len(buckets),
-        "event_count": len(events),
-        "response_class_counts": class_counts,
+        "raw_event_count": len(events),
+        "independent_event_count": len(independent),
+        "response_class_counts_raw_v2": _count_classes(events),
+        "response_class_counts_independent_v2": _count_classes(independent),
+        "response_class_counts_raw_legacy": _count_classes(events, "response_class_legacy"),
         "horizon_seconds": {str(h): h * window_sec for h in cfg.horizons_buckets},
-        "groups": _summarize(events, cfg.horizons_buckets),
-        "interpretation": "pilot/descriptive only; no parameter selection or edge claim from this day",
+        "groups": _summarize(independent, cfg.horizons_buckets),
+        "groups_raw": _summarize(events, cfg.horizons_buckets),
+        "interpretation": "v2 diagnostic: past-only volatility normalization plus causal first-event family clustering; no edge claim",
     }
 
 
@@ -135,7 +147,7 @@ def main() -> None:
     output = Path(args.output); output.parent.mkdir(parents=True, exist_ok=True)
     rows = [study_one(f"{a.upper()}USDT", day, workdir, args.window_sec, args.extreme_percentile)
             for a in args.assets]
-    payload = {"study": "FLOW_BINANCE_BOOTSTRAP_PILOT", "results": rows}
+    payload = {"study": "FLOW_BINANCE_V2_PILOT", "results": rows}
     output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(payload, indent=2, sort_keys=True))
 
