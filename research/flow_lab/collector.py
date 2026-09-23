@@ -8,9 +8,11 @@ from typing import Awaitable, Callable
 
 import websockets
 
+from .dedupe import TradeDeduper
 from .okx_metadata import fetch_linear_swap_base_values
 from .parsers import parse_binance_aggtrade, parse_bybit_public_trade, parse_hyperliquid_trade, parse_okx_trade
 from .schema import TradeEvent
+from .storage import AsyncJsonlWriter
 
 BINANCE_FUTURES_WS = "wss://fstream.binance.com/market/stream"
 BINANCE_SPOT_WS = "wss://data-stream.binance.vision/stream"
@@ -26,27 +28,42 @@ SYMBOLS = {
 
 
 class JsonlSink:
-    def __init__(self, path: str | Path):
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock = asyncio.Lock()
+    """Buffered trade sink with bounded reconnect-overlap deduplication."""
 
-    async def write(self, event: TradeEvent) -> None:
-        line = json.dumps(event.to_dict(), separators=(",", ":"), sort_keys=True)
-        async with self._lock:
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
+    def __init__(self, path: str | Path, *, dedupe_max_keys: int = 200_000):
+        self.writer = AsyncJsonlWriter(path)
+        self.deduper = TradeDeduper(dedupe_max_keys)
+
+    async def start(self) -> None:
+        await self.writer.start()
+
+    async def write(self, event: TradeEvent) -> bool:
+        if not self.deduper.accept(event):
+            return False
+        await self.writer.write(event.to_dict())
+        return True
+
+    async def close(self) -> None:
+        await self.writer.close()
+
+    def stats(self) -> dict:
+        return {"storage": self.writer.stats(), "dedupe": self.deduper.stats()}
 
 
-async def _forever(name: str, worker: Callable[[], Awaitable[None]]) -> None:
+async def _forever(name: str, worker: Callable[[], Awaitable[None]],
+                   on_reconnect: Callable[[str], None] | None = None) -> None:
     delay = 1.0
+    attempts = 0
     while True:
         try:
+            if attempts and on_reconnect is not None:
+                on_reconnect(name)
             await worker()
             delay = 1.0
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            attempts += 1
             print(f"[{name}] disconnected/error: {exc}; retry in {delay:.1f}s")
             await asyncio.sleep(delay)
             delay = min(delay * 2.0, 30.0)
@@ -105,14 +122,19 @@ async def collect(path: str | Path, assets: list[str]) -> None:
     if bad:
         raise ValueError(f"unsupported assets: {sorted(bad)}")
     sink = JsonlSink(path)
+    await sink.start()
     okx_perps = [SYMBOLS[a]["okx_perp"] for a in assets]
     contract_values = await asyncio.to_thread(fetch_linear_swap_base_values, okx_perps)
-    await asyncio.gather(
-        _forever("binance-perp", lambda: _binance(BINANCE_FUTURES_WS, "perp", assets, sink)),
-        _forever("binance-spot", lambda: _binance(BINANCE_SPOT_WS, "spot", assets, sink)),
-        _forever("bybit-perp", lambda: _bybit(BYBIT_LINEAR_WS, "perp", assets, sink)),
-        _forever("bybit-spot", lambda: _bybit(BYBIT_SPOT_WS, "spot", assets, sink)),
-        _forever("okx-perp", lambda: _okx("perp", assets, sink, contract_values)),
-        _forever("okx-spot", lambda: _okx("spot", assets, sink, contract_values)),
-        _forever("hyperliquid-perp", lambda: _hyperliquid(assets, sink)),
-    )
+    try:
+        await asyncio.gather(
+            _forever("binance-perp", lambda: _binance(BINANCE_FUTURES_WS, "perp", assets, sink)),
+            _forever("binance-spot", lambda: _binance(BINANCE_SPOT_WS, "spot", assets, sink)),
+            _forever("bybit-perp", lambda: _bybit(BYBIT_LINEAR_WS, "perp", assets, sink)),
+            _forever("bybit-spot", lambda: _bybit(BYBIT_SPOT_WS, "spot", assets, sink)),
+            _forever("okx-perp", lambda: _okx("perp", assets, sink, contract_values)),
+            _forever("okx-spot", lambda: _okx("spot", assets, sink, contract_values)),
+            _forever("hyperliquid-perp", lambda: _hyperliquid(assets, sink)),
+        )
+    finally:
+        await sink.close()
+        print("[flow-lab] collector final stats:", json.dumps(sink.stats(), sort_keys=True))
