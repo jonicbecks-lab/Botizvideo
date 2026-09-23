@@ -25,6 +25,7 @@ class OIWindow:
     delta_oi_usd: float
     price_return_bps: float
     delta_flow_usd: float
+    start_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,7 @@ class LiquidationWindow:
     short_liq_usd: float
     price_return_bps: float
     delta_flow_usd: float
+    start_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +47,7 @@ class ExhaustionWindow:
     delta_usd: float
     abs_delta_percentile_past_only: float | None
     signed_impact_units_past_only: float | None
+    start_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +59,7 @@ class BookEvidenceWindow:
     return_bps: float
     impact_scale_bps: float | None
     depth_change: Mapping[str, float | bool]
+    start_ms: int | None = None
 
 
 @dataclass(slots=True)
@@ -105,9 +109,11 @@ class PatternEngine:
         spot_buckets: Sequence[FlowBucket] = (),
         perp_buckets: Sequence[FlowBucket] = (),
         response_event: Mapping | None = None,
+        response_events: Sequence[Mapping] = (),
         oi_windows: Sequence[OIWindow] = (),
         liquidation_window: LiquidationWindow | None = None,
         exhaustion_window: ExhaustionWindow | None = None,
+        exhaustion_windows: Sequence[ExhaustionWindow] = (),
         book_windows: Sequence[BookEvidenceWindow] = (),
         max_stale_ms: int = 5000,
         max_event_lag_ms: int = 5000,
@@ -120,9 +126,8 @@ class PatternEngine:
             max_event_lag_ms=max_event_lag_ms,
         )
 
-        # Normalizers are updated even when the quality gate fails only for rows that
-        # callers chose to pass in. To keep invalid data out of reference history, do
-        # not consume market buckets until the gate passes.
+        # Keep invalid data out of every stateful baseline. Callers may still record
+        # the rejected window externally for data-quality analysis.
         if not gate["quality_pass"]:
             return {
                 "evaluated_at_ms": int(now_ms),
@@ -139,6 +144,8 @@ class PatternEngine:
             "perp_composite": perp,
             "book_evidence": [],
             "oi_context": [],
+            "response_patterns": [],
+            "exhaustion": [],
         }
 
         for row in (spot, perp):
@@ -154,9 +161,12 @@ class PatternEngine:
             if sp["pattern_label"] not in {"insufficient_history", "spot_perp_mixed"}:
                 events.append(sp)
 
-        if response_event is not None:
-            rp = response_pattern(response_event)
-            diagnostics["response_pattern"] = rp
+        response_inputs = list(response_events)
+        if response_event is not None:  # backward-compatible singular input
+            response_inputs.append(response_event)
+        for raw in response_inputs:
+            rp = response_pattern(raw)
+            diagnostics["response_patterns"].append(rp)
             if rp is not None:
                 events.append(rp)
 
@@ -167,16 +177,19 @@ class PatternEngine:
                 oi.delta_flow_usd,
             )
             ctx.update({"exchange": oi.exchange, "asset": oi.asset})
+            if oi.start_ms is not None:
+                ctx["start_ms"] = int(oi.start_ms)
             diagnostics["oi_context"].append(ctx)
             if ctx["pattern_label"] not in {"flat_oi_or_noise", "mixed_positioning"}:
                 events.append(ctx)
 
         if liquidation_window is not None:
             lw = liquidation_window
+            start_ms = int(lw.start_ms if lw.start_ms is not None else now_ms)
             liq = self.liquidation_detector.observe(
                 asset=lw.asset,
                 market=lw.market,
-                start_ms=int(response_event.get("start_ms", now_ms)) if response_event else int(now_ms),
+                start_ms=start_ms,
                 long_liq_usd=lw.long_liq_usd,
                 short_liq_usd=lw.short_liq_usd,
                 price_return_bps=lw.price_return_bps,
@@ -186,8 +199,10 @@ class PatternEngine:
             if liq is not None:
                 events.append(liq)
 
-        if exhaustion_window is not None:
-            ew = exhaustion_window
+        exhaustion_inputs = list(exhaustion_windows)
+        if exhaustion_window is not None:  # backward-compatible singular input
+            exhaustion_inputs.append(exhaustion_window)
+        for ew in exhaustion_inputs:
             exhaustion = self.exhaustion_detector.observe(
                 ew.asset,
                 ew.market,
@@ -196,7 +211,9 @@ class PatternEngine:
                 ew.abs_delta_percentile_past_only,
                 ew.signed_impact_units_past_only,
             )
-            diagnostics["exhaustion"] = exhaustion
+            if exhaustion is not None and ew.start_ms is not None:
+                exhaustion["start_ms"] = int(ew.start_ms)
+            diagnostics["exhaustion"].append(exhaustion)
             if exhaustion is not None:
                 events.append(exhaustion)
 
@@ -212,6 +229,8 @@ class PatternEngine:
                 "market": bw.market,
                 "asset": bw.asset,
             })
+            if bw.start_ms is not None:
+                evidence["start_ms"] = int(bw.start_ms)
             diagnostics["book_evidence"].append(evidence)
 
         return {
