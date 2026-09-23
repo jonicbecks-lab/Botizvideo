@@ -5,6 +5,8 @@ on:
     branches:
       - research/multivenue-flow-btc-eth-v1
     paths:
+      - 'research/flow_lab/collector.py'
+      - 'research/flow_lab/micro_collector.py'
       - 'research/flow_lab/pattern_smoke.py'
       - 'research/flow_lab/window_replay.py'
       - 'research/flow_lab/catalog_study.py'
