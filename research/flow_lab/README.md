@@ -37,14 +37,27 @@ python -m research.flow_lab.cli summarize --input data/flow/live-trades.jsonl --
 5. Do not assign discretionary venue weights in v1. Learn venue lead/lag and marginal predictive value out of sample.
 6. Future returns are labels only. They must never enter decision-time features.
 7. No strategy promotion from descriptive correlation. Require chronological walk-forward and untouched holdout validation after costs.
+8. Preserve raw event counts and independent event-family counts; do not inflate evidence with adjacent windows from one episode.
 
-## Candidate hypotheses to test
+## Pattern catalog
 
-- **Absorption:** extreme signed flow but unusually weak price response in that direction.
-- **Continuation:** extreme signed flow and strong price response in the same direction.
-- **Exhaustion:** flow intensity decays after an extreme while price stops progressing.
-- **Cross-venue consensus:** the same flow direction appears on multiple independent venues.
-- **Lead/lag:** one venue's signed flow systematically precedes other venues' price/flow response.
-- **Spot/perp divergence:** spot and derivatives aggressive flow disagree.
+Flow Lab is not an absorption-only model. The current research catalog contains independent pattern families:
 
-Order-book replenishment and open-interest context are the next research layers. They should be joined by exchange timestamp and tested as incremental features rather than assumed filters.
+- **Absorption:** extreme signed flow with unusually weak volatility-normalized price response.
+- **Continuation:** extreme flow with strong same-direction price response.
+- **Instant reversal:** price is already moving materially against the extreme aggressive flow; kept separate from absorption.
+- **Exhaustion:** flow intensity decays after an observed extreme while price stops progressing; trigger is causal and occurs only after decay is visible.
+- **Cross-venue consensus/divergence:** equal-weight, past-normalized venue scores confirm one another or materially oppose one another.
+- **Spot/perp divergence and lead:** standardized spot and derivatives flow disagree, confirm, or one side moves while the other remains muted.
+- **OI positioning context:** price + OI + aggressive-flow combinations are descriptive labels such as new-long build, new-short build, or unwind. They are not treated as causal truth.
+- **Liquidation regimes:** liquidation notional must itself be extreme versus prior history; a liquidation-driven candidate additionally requires price and aggressive flow to align with the forced side.
+- **Order-book absorption evidence:** replenishment/depletion and weak price impact are retained as microstructure evidence, not proof of hidden intent.
+
+`patterns.py` contains the common pattern classifiers. `pattern_study.py` attaches the same forward-return labels to all triggered pattern families so they can be compared with one methodology instead of cherry-picking different metrics for each pattern.
+
+## Validation policy
+
+- Thresholds are frozen before inspecting a new holdout.
+- Historical Binance-only studies can validate response families such as absorption/continuation/reversal, but **cannot** validate cross-venue, spot/perp, OI or liquidation hypotheses by themselves.
+- Multi-venue/OI/liquidation patterns require time-aligned live or archived data from the relevant venues.
+- Pattern discovery and evaluation remain research-only until a walk-forward study shows stable out-of-sample behavior after realistic costs.

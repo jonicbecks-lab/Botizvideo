@@ -40,6 +40,8 @@ def classify_oi_positioning(price_return_bps: float, delta_oi_usd: float,
         alignment = 1 if p_sign == flow_sign else -1
 
     return {
+        "pattern_family": "oi_positioning",
+        "pattern_label": label,
         "positioning_label": label,
         "price_sign": p_sign,
         "oi_sign": oi_sign,
@@ -48,4 +50,8 @@ def classify_oi_positioning(price_return_bps: float, delta_oi_usd: float,
         "delta_oi_usd": oi,
         "delta_flow_usd": flow,
         "price_return_bps": p,
+        # Positioning labels are descriptive context. Do not assume a predictive
+        # direction until the event study establishes one out of sample.
+        "hypothesis_direction": 0,
+        "causal_trigger": True,
     }

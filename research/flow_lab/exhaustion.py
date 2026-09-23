@@ -76,6 +76,8 @@ class CausalExhaustionDetector:
             self._episodes.pop(key, None)
             return {
                 "event_type": "exhaustion_candidate",
+                "pattern_family": "exhaustion",
+                "pattern_label": "exhaustion_candidate",
                 "asset": asset,
                 "market": market,
                 "trigger_bucket_index": int(bucket_index),
@@ -86,6 +88,9 @@ class CausalExhaustionDetector:
                 "trigger_abs_flow_usd": abs_flow,
                 "flow_ratio_to_peak": flow_ratio_to_peak,
                 "trigger_signed_impact_units_past_only": float(impact),
+                # Exhaustion is evaluated as a reversal hypothesis, but this is only
+                # a label for forward testing, not an assumed trading edge.
+                "hypothesis_direction": -episode.side,
                 "causal_trigger": True,
             }
         return None
