@@ -54,6 +54,7 @@ def response_pattern(event: Mapping) -> dict | None:
 
     out = dict(event)
     out["pattern_family"] = pattern
+    out["pattern_label"] = pattern
     out["flow_side"] = "buy" if flow_side > 0 else "sell" if flow_side < 0 else "flat"
     out["hypothesis_direction"] = hypothesis_direction
     return out
@@ -63,7 +64,9 @@ def classify_cross_venue(row: Mapping, thresholds: PatternThresholds | None = No
     """Classify causal same-window cross-venue confirmation/divergence.
 
     Input is expected to be an EqualVenueComposite row. Only past-normalized venue
-    z-scores are used. No exchange receives a discretionary weight.
+    z-scores are used. No exchange receives a discretionary weight. Consensus is
+    preregistered as a continuation hypothesis; divergence carries no assumed future
+    direction until out-of-sample evidence establishes one.
     """
     cfg = thresholds or PatternThresholds()
     details = [
@@ -78,6 +81,7 @@ def classify_cross_venue(row: Mapping, thresholds: PatternThresholds | None = No
     dispersion = float(dispersion) if dispersion is not None else None
     sign_consensus = float(row.get("sign_consensus", 0.0))
 
+    direction = 0
     if len(zscores) < cfg.min_cross_venue_count:
         label = "insufficient_venues"
     else:
@@ -98,6 +102,7 @@ def classify_cross_venue(row: Mapping, thresholds: PatternThresholds | None = No
             and sign_consensus >= cfg.cross_consensus_ratio
         ):
             label = "cross_venue_consensus_buy" if avg_z > 0 else "cross_venue_consensus_sell"
+            direction = 1 if avg_z > 0 else -1
         else:
             label = "cross_venue_mixed"
 
@@ -113,6 +118,7 @@ def classify_cross_venue(row: Mapping, thresholds: PatternThresholds | None = No
         "equal_venue_zscore": avg_z,
         "venue_zscore_dispersion": dispersion,
         "sign_consensus": sign_consensus,
+        "hypothesis_direction": direction,
         "causal_trigger": True,
     }
 
@@ -157,6 +163,8 @@ def classify_spot_perp(
         "pattern_family": "spot_perp",
         "pattern_label": label,
         "asset": spot_row.get("asset") or perp_row.get("asset"),
+        # Perpetual price is the preregistered outcome reference for spot/perp patterns.
+        "market": "perp",
         "start_ms": spot_row.get("start_ms") or perp_row.get("start_ms"),
         "spot_zscore_past_only": spot_z,
         "perp_zscore_past_only": perp_z,

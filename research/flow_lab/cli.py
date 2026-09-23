@@ -5,6 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 
+from .catalog_study import run_catalog_study
 from .collector import collect
 from .metrics import aggregate_events, combine_venues
 from .schema import TradeEvent
@@ -46,6 +47,17 @@ def cmd_build_patterns(args: argparse.Namespace) -> None:
     print(json.dumps(summary, indent=2, sort_keys=True))
 
 
+def cmd_study_patterns(args: argparse.Namespace) -> None:
+    payload = run_catalog_study(
+        events_path=Path(args.events),
+        windows_path=Path(args.windows),
+        output_dir=Path(args.output_dir),
+        bootstrap_draws=args.bootstrap_draws,
+        signflip_draws=args.signflip_draws,
+    )
+    print(json.dumps(payload, indent=2, sort_keys=True))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="BTC/ETH multi-venue signed flow research")
     sub = p.add_subparsers(required=True)
@@ -72,6 +84,16 @@ def main() -> None:
     b.add_argument("--max-event-lag-ms", type=int, default=5000)
     b.add_argument("--max-book-stale-ms", type=int, default=5000)
     b.set_defaults(func=cmd_build_patterns)
+    st = sub.add_parser(
+        "study-patterns",
+        help="forward-label synchronized pattern events and run catalog statistics",
+    )
+    st.add_argument("--events", default="results/flow_lab/synchronized-patterns/pattern_events.jsonl")
+    st.add_argument("--windows", default="results/flow_lab/synchronized-patterns/pattern_windows.jsonl")
+    st.add_argument("--output-dir", default="results/flow_lab/catalog-study")
+    st.add_argument("--bootstrap-draws", type=int, default=2000)
+    st.add_argument("--signflip-draws", type=int, default=5000)
+    st.set_defaults(func=cmd_study_patterns)
     args = p.parse_args()
     args.func(args)
 

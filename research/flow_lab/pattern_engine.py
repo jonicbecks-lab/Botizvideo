@@ -26,6 +26,7 @@ class OIWindow:
     price_return_bps: float
     delta_flow_usd: float
     start_ms: int | None = None
+    market: str = "perp"
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,7 +72,7 @@ class PatternEngine:
     pattern events and diagnostics for the same completed window.
 
     Inputs must already be aligned to the same completed time bucket. Forward returns
-    are intentionally absent here and belong only in `pattern_study.py`.
+    are intentionally absent here and belong only in the event-study layer.
     """
 
     thresholds: PatternThresholds = field(default_factory=PatternThresholds)
@@ -126,8 +127,6 @@ class PatternEngine:
             max_event_lag_ms=max_event_lag_ms,
         )
 
-        # Keep invalid data out of every stateful baseline. Callers may still record
-        # the rejected window externally for data-quality analysis.
         if not gate["quality_pass"]:
             return {
                 "evaluated_at_ms": int(now_ms),
@@ -162,7 +161,7 @@ class PatternEngine:
                 events.append(sp)
 
         response_inputs = list(response_events)
-        if response_event is not None:  # backward-compatible singular input
+        if response_event is not None:
             response_inputs.append(response_event)
         for raw in response_inputs:
             rp = response_pattern(raw)
@@ -176,7 +175,7 @@ class PatternEngine:
                 oi.delta_oi_usd,
                 oi.delta_flow_usd,
             )
-            ctx.update({"exchange": oi.exchange, "asset": oi.asset})
+            ctx.update({"exchange": oi.exchange, "asset": oi.asset, "market": oi.market})
             if oi.start_ms is not None:
                 ctx["start_ms"] = int(oi.start_ms)
             diagnostics["oi_context"].append(ctx)
@@ -200,7 +199,7 @@ class PatternEngine:
                 events.append(liq)
 
         exhaustion_inputs = list(exhaustion_windows)
-        if exhaustion_window is not None:  # backward-compatible singular input
+        if exhaustion_window is not None:
             exhaustion_inputs.append(exhaustion_window)
         for ew in exhaustion_inputs:
             exhaustion = self.exhaustion_detector.observe(
