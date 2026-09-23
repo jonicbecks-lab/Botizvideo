@@ -1,12 +1,8 @@
 name: Flow Lab Pattern Holdout
 
+# Frozen one-shot holdout. Do not auto-rerun after its result has been inspected.
+# A future holdout must use a newly preregistered date range/workflow.
 on:
-  push:
-    branches:
-      - research/multivenue-flow-btc-eth-v1
-    paths:
-      - research/flow_lab/**
-      - .github/workflows/flow-lab-pattern-holdout.yml
   workflow_dispatch:
 
 permissions:
@@ -26,7 +22,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r research/flow_lab/requirements.txt
-      - name: Run untouched response-pattern holdout
+      - name: Run frozen response-pattern holdout
         run: |
           PYTHONPATH=. python -m research.flow_lab.multi_day_study \
             --start 2026-09-07 \
