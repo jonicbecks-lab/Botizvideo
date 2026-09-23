@@ -5,6 +5,7 @@ on:
     branches:
       - research/multivenue-flow-btc-eth-v1
     paths:
+      - 'research/flow_lab/event_study.py'
       - 'research/flow_lab/archive_study.py'
       - 'research/flow_lab/multi_day_study.py'
       - 'research/flow_lab/historical.py'
@@ -28,15 +29,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r research/flow_lab/requirements.txt
-      - name: Run fixed one-day pilot
-        run: >-
-          python -m research.flow_lab.archive_study
-          --date 2026-09-20
-          --assets BTC ETH
-          --window-sec 30
-          --extreme-percentile 0.99
-          --output results/flow_lab/pilot.json
-      - name: Run fixed three-day independent diagnostic
+      - name: Replay methodology-development period with frozen v2
         run: >-
           python -m research.flow_lab.multi_day_study
           --start 2026-09-17
@@ -44,19 +37,36 @@ jobs:
           --assets BTC ETH
           --window-sec 30
           --extreme-percentile 0.99
-          --output results/flow_lab/multiday.json
-      - name: Print compact results
+          --output results/flow_lab/v2-methodology-replay.json
+      - name: Run fresh preregistered OOS v2 period
+        run: >-
+          python -m research.flow_lab.multi_day_study
+          --start 2026-09-10
+          --end 2026-09-12
+          --assets BTC ETH
+          --window-sec 30
+          --extreme-percentile 0.99
+          --output results/flow_lab/v2-oos-2026-09-10_12.json
+      - name: Print compact v2 results
         run: |
           python - <<'PY'
           import json
-          for path in ('results/flow_lab/pilot.json', 'results/flow_lab/multiday.json'):
+          paths = (
+              'results/flow_lab/v2-methodology-replay.json',
+              'results/flow_lab/v2-oos-2026-09-10_12.json',
+          )
+          for path in paths:
               d=json.load(open(path))
               print('\n###', path)
               for r in d['results']:
-                  print(r['symbol'], 'events=', r['event_count'], 'classes=', r['response_class_counts'])
+                  print(r['symbol'],
+                        'raw=', r['raw_event_count'],
+                        'independent=', r['independent_event_count'],
+                        'v2=', r['response_class_counts_independent_v2'],
+                        'legacy_raw=', r['response_class_counts_raw_legacy'])
                   for g in r['groups']:
-                      if g['response_class']=='absorption_candidate':
-                          print(' absorption', g['flow_side'], 'n=', g['n'],
+                      if g['response_class'] in ('absorption_candidate', 'instant_reversal'):
+                          print(' ', g['response_class'], g['flow_side'], 'n=', g['n'],
                                 '5m reversal=', g.get('h10_mean_reversal_bps'),
                                 'rate=', g.get('h10_reversal_positive_rate'),
                                 '15m reversal=', g.get('h30_mean_reversal_bps'),
@@ -64,8 +74,8 @@ jobs:
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: flow-lab-pilot
+          name: flow-lab-v2-study
           path: |
-            results/flow_lab/pilot.json
-            results/flow_lab/multiday.json
+            results/flow_lab/v2-methodology-replay.json
+            results/flow_lab/v2-oos-2026-09-10_12.json
           if-no-files-found: error
