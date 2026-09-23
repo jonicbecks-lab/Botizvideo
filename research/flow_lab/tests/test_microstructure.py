@@ -9,7 +9,10 @@ from research.flow_lab.context import (
     parse_bybit_liquidations, parse_bybit_ticker, parse_hyperliquid_asset_ctx,
     parse_okx_funding,
 )
-from research.flow_lab.event_study import EventStudyConfig, build_event_table, classify_response
+from research.flow_lab.event_study import (
+    EventStudyConfig, assign_event_families, build_event_table, classify_response,
+    classify_response_legacy, classify_response_vol_normalized, independent_events,
+)
 
 
 class BookTests(unittest.TestCase):
@@ -78,20 +81,51 @@ class EventStudyTests(unittest.TestCase):
         self.assertEqual(classify_response(-100, -1), "absorption_candidate")
         self.assertEqual(classify_response(-100, -10), "continuation_candidate")
         self.assertEqual(classify_response(100, 4), "intermediate")
+        self.assertEqual(classify_response(100, -10), "instant_reversal")
+        self.assertEqual(classify_response_legacy(100, -10), "absorption_candidate")
+
+    def test_vol_normalized_classification(self):
+        klass, units = classify_response_vol_normalized(100, 1.0, 4.0)
+        self.assertEqual(klass, "absorption_candidate")
+        self.assertAlmostEqual(units, 0.25)
+        klass, units = classify_response_vol_normalized(-100, 8.0, 4.0)
+        self.assertEqual(klass, "instant_reversal")
+        self.assertAlmostEqual(units, -2.0)
+        klass, units = classify_response_vol_normalized(-100, -8.0, 4.0)
+        self.assertEqual(klass, "continuation_candidate")
+        self.assertAlmostEqual(units, 2.0)
+
+    def test_event_family_is_causal_first_event(self):
+        rows = assign_event_families([
+            {"_bucket_index": 10, "asset":"BTC", "market":"perp", "delta_usd":100},
+            {"_bucket_index": 12, "asset":"BTC", "market":"perp", "delta_usd":200},
+            {"_bucket_index": 17, "asset":"BTC", "market":"perp", "delta_usd":300},
+            {"_bucket_index": 18, "asset":"BTC", "market":"perp", "delta_usd":-300},
+        ], cooldown_buckets=4)
+        self.assertTrue(rows[0]["is_independent_event"])
+        self.assertFalse(rows[1]["is_independent_event"])
+        self.assertTrue(rows[2]["is_independent_event"])
+        self.assertTrue(rows[3]["is_independent_event"])
+        self.assertEqual(len(independent_events(rows)), 3)
 
     def test_past_only_extreme_and_future_labels(self):
         composite = []
         ref = []
-        for i, d in enumerate([1, 2, 3, 100, 2, 2]):
+        deltas = [1, 2, 3, 100, 2, 2]
+        returns = [1.0, 2.0, 1.0, -1.0, 1.0, 1.0]
+        for i, d in enumerate(deltas):
             composite.append({"start_ms":i*1000,"end_ms":i*1000+1000,"delta_usd":d,
                               "gross_usd":abs(d)+1,"flow_ratio":0.5,"market":"perp","asset":"BTC"})
-            ref.append({"start_ms":i*1000,"close_price":100+i,"return_bps":1.0})
+            ref.append({"start_ms":i*1000,"close_price":100+i,"return_bps":returns[i]})
         cfg = EventStudyConfig(extreme_percentile=0.99, min_history=3, horizons_buckets=(1,))
         rows = build_event_table(composite, ref, cfg)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["start_ms"], 3000)
         self.assertIsNotNone(rows[0]["future_1b_raw_bps"])
         self.assertGreater(rows[0]["abs_delta_zscore_past_only"], 10)
+        self.assertIsNotNone(rows[0]["impact_scale_bps_past_only"])
+        self.assertIn("response_class_legacy", rows[0])
+        self.assertTrue(rows[0]["is_independent_event"])
 
 
 if __name__ == "__main__":
