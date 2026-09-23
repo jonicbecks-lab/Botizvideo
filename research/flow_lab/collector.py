@@ -14,8 +14,9 @@ from .parsers import parse_binance_aggtrade, parse_bybit_public_trade, parse_hyp
 from .schema import TradeEvent
 from .storage import AsyncJsonlWriter
 
-BINANCE_FUTURES_WS = "wss://fstream.binance.com/market/stream"
-BINANCE_SPOT_WS = "wss://data-stream.binance.vision/stream"
+# Current public request-subscription endpoints (2026 Binance API catalog).
+BINANCE_FUTURES_WS = "wss://fstream.binance.com/public/stream"
+BINANCE_SPOT_WS = "wss://stream.binance.com:9443/stream"
 BYBIT_LINEAR_WS = "wss://stream.bybit.com/v5/public/linear"
 BYBIT_SPOT_WS = "wss://stream.bybit.com/v5/public/spot"
 OKX_PUBLIC_WS = "wss://ws.okx.com:8443/ws/v5/public"
