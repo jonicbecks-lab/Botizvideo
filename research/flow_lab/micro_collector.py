@@ -22,20 +22,23 @@ from .context import (
     parse_bybit_ticker, parse_hyperliquid_asset_ctx, parse_okx_funding,
 )
 from .okx_metadata import fetch_linear_swap_base_values
+from .storage import AsyncJsonlDirectory
 
 
 class JsonlSink:
+    """Buffered multi-file sink for book/context/health streams."""
+
     def __init__(self, root: str | Path):
-        self.root = Path(root)
-        self.root.mkdir(parents=True, exist_ok=True)
-        self._locks: dict[str, asyncio.Lock] = {}
+        self.directory = AsyncJsonlDirectory(root)
 
     async def write(self, name: str, row: dict) -> None:
-        lock = self._locks.setdefault(name, asyncio.Lock())
-        line = json.dumps(row, separators=(",", ":"), sort_keys=True)
-        async with lock:
-            with (self.root / f"{name}.jsonl").open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
+        await self.directory.write(name, row)
+
+    async def close(self) -> None:
+        await self.directory.close()
+
+    def stats(self) -> dict:
+        return self.directory.stats()
 
 
 class LatestBooks:
@@ -181,17 +184,21 @@ async def run(root: str | Path, assets: list[str], emit_ms: int = 1000) -> None:
     sink, state = JsonlSink(root), LatestBooks()
     okx_perps = [SYMBOLS[a]["okx_perp"] for a in assets]
     contract_values = await asyncio.to_thread(fetch_linear_swap_base_values, okx_perps)
-    await asyncio.gather(
-        _forever("micro-binance-perp", lambda: _binance_books(BINANCE_FUTURES_WS, "perp", assets, state)),
-        _forever("micro-binance-spot", lambda: _binance_books(BINANCE_SPOT_WS, "spot", assets, state)),
-        _forever("micro-bybit-perp", lambda: _bybit_micro(BYBIT_LINEAR_WS, "perp", assets, state, sink)),
-        _forever("micro-bybit-spot", lambda: _bybit_micro(BYBIT_SPOT_WS, "spot", assets, state, sink)),
-        _forever("micro-okx-perp", lambda: _okx_micro("perp", assets, state, sink, contract_values)),
-        _forever("micro-okx-spot", lambda: _okx_micro("spot", assets, state, sink, contract_values)),
-        _forever("micro-hyperliquid", lambda: _hyperliquid_micro(assets, state, sink)),
-        _emit_book_features(state, sink, emit_ms),
-        _poll_open_interest(assets, sink),
-    )
+    try:
+        await asyncio.gather(
+            _forever("micro-binance-perp", lambda: _binance_books(BINANCE_FUTURES_WS, "perp", assets, state)),
+            _forever("micro-binance-spot", lambda: _binance_books(BINANCE_SPOT_WS, "spot", assets, state)),
+            _forever("micro-bybit-perp", lambda: _bybit_micro(BYBIT_LINEAR_WS, "perp", assets, state, sink)),
+            _forever("micro-bybit-spot", lambda: _bybit_micro(BYBIT_SPOT_WS, "spot", assets, state, sink)),
+            _forever("micro-okx-perp", lambda: _okx_micro("perp", assets, state, sink, contract_values)),
+            _forever("micro-okx-spot", lambda: _okx_micro("spot", assets, state, sink, contract_values)),
+            _forever("micro-hyperliquid", lambda: _hyperliquid_micro(assets, state, sink)),
+            _emit_book_features(state, sink, emit_ms),
+            _poll_open_interest(assets, sink),
+        )
+    finally:
+        await sink.close()
+        print("[flow-lab] micro collector final stats:", json.dumps(sink.stats(), sort_keys=True))
 
 
 def main() -> None:
