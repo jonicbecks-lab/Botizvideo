@@ -40,7 +40,7 @@ class TriggerChildFillReconciliationTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_unknown_normal_tpsl_child_at_galka_is_accounted_as_target(self):
-        campaign = self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
+        self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
         active = self.engine._active_campaign_locked("BTC")
 
         self.gateway.fill_entry(active, 1, 1_000)
@@ -66,7 +66,7 @@ class TriggerChildFillReconciliationTests(unittest.TestCase):
                 "direction": "Close Long",
                 "closedPnl": 1.50,
                 "fee": 0.09,
-                "time": 2_000,
+                "time": int(active["createdMs"]) + 1_000,
                 "hash": "trigger-child-fill",
             }
         )
@@ -80,7 +80,7 @@ class TriggerChildFillReconciliationTests(unittest.TestCase):
         self.assertNotEqual(active.get("status"), "recovery")
 
     def test_unknown_close_below_galka_is_not_adopted(self):
-        campaign = self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
+        self.engine.create_campaign("BTC", 60_000.0, "PLACE_REAL_ORDERS")
         active = self.engine._active_campaign_locked("BTC")
         self.gateway.fill_entry(active, 1, 1_000)
         self.engine._sync_campaign(active)
@@ -99,7 +99,7 @@ class TriggerChildFillReconciliationTests(unittest.TestCase):
                     "direction": "Close Long",
                     "closedPnl": -0.50,
                     "fee": 0.09,
-                    "time": 2_000,
+                    "time": int(active["createdMs"]) + 1_000,
                     "hash": "foreign-loss-close",
                 }
             ],
