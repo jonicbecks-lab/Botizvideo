@@ -12,9 +12,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from . import hyperliquid_gateway
+from .account_abstraction_compat import AccountModeCompatibleGalkaClassicGateway
 from .config import ConfigError, load_config
 from .engine import LiveEngineError
-from .galka_classic_engine import GalkaClassicEngine, GalkaClassicGateway
+from .galka_classic_engine import GalkaClassicEngine
 from .hyperliquid_gateway import GatewayError
 from .server import GalkaRequestHandler, LiveProcessLock
 from .tpsl_batch_compat import install as install_tpsl_batch_compat
@@ -144,7 +145,7 @@ def main() -> int:
         config = load_config()
         lock = LiveProcessLock(config.data_dir)
         lock.acquire()
-        gateway = GalkaClassicGateway(config)
+        gateway = AccountModeCompatibleGalkaClassicGateway(config)
         engine = GalkaClassicEngine(config, gateway)
 
         token = load_or_create_v2_session_token(config.data_dir)
