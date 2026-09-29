@@ -9,7 +9,10 @@ if galka_live_process_alive && galka_live_health; then
   echo "Galka LIVE: RUNNING"
   echo "PID: $pid"
   echo "Адрес: $GALKA_LIVE_URL"
-  sed -n '/^Сеть:/p;/^Режим:/p;/^Плечо:/p' "$GALKA_LIVE_LOG_FILE" 2>/dev/null || true
+  sed -n '/^Сеть:/p;/^Режим:/p;/^Плечо:/p' "$GALKA_LIVE_LOG_FILE" 2>/dev/null \
+    | sed -E 's/ · номинал одной GALKA: \$[0-9.]+$//' || true
+  echo "Маржа новой GALKA: максимум безопасно доступного свободного баланса"
+  echo "Лестница: 8 уровней · 42/22/12/8/6/4/3/3%"
   exit 0
 fi
 
