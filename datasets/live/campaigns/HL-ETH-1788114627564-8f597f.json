@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-30T18:30:41Z",
+  "reason": "cancelled_fast",
+  "campaignId": "HL-ETH-1788114627564-8f597f",
+  "coin": "ETH",
+  "status": "canceled",
+  "createdAt": "2026-08-30T18:30:27Z",
+  "createdMs": 1788114627564,
+  "completedAt": "2026-08-30T18:30:41Z",
+  "galkaPrice": 2460.3,
+  "researchSetup": null,
+  "setupMidPrice": 2513.95,
+  "setupDistancePct": 2.1806283786530045,
+  "leverage": 10,
+  "isolated": true,
+  "requestedNotional": 3150.0,
+  "actualNotional": 3149.52161,
+  "weightedAverage": null,
+  "estimatedPnlAtGalka": null,
+  "makerFeeRate": null,
+  "takerFeeRate": null,
+  "hadPosition": false,
+  "cycleDeepest": 0,
+  "l1Cycles": 0,
+  "l1RealizedPnl": 0.0,
+  "cycleClosedPnl": 0.0,
+  "fees": 0.0,
+  "grossPnl": 0.0,
+  "netPnlApprox": 0.0,
+  "actualPositionSize": 0.0,
+  "managedNetSize": 0.0,
+  "recoveryReason": null,
+  "lastError": null,
+  "levels": [
+    {
+      "index": 1,
+      "depthPct": 0.15,
+      "price": 2456.6,
+      "requestedSize": 0.3205,
+      "notional": 787.3403,
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 2,
+      "depthPct": 0.3,
+      "price": 2452.9,
+      "requestedSize": 0.4109,
+      "notional": 1007.89661,
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 3,
+      "depthPct": 0.45,
+      "price": 2449.2,
+      "requestedSize": 0.3215,
+      "notional": 787.4178,
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 4,
+      "depthPct": 0.6,
+      "price": 2445.5,
+      "requestedSize": 0.2318,
+      "notional": 566.8669,
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    }
+  ],
+  "postExitResearch": {
+    "status": "pending",
+    "purpose": "Measure how far price continued above GALKA after exit for alternative exit/trailing-stop research.",
+    "horizonsMinutes": [
+      1,
+      5,
+      15,
+      30,
+      60,
+      240,
+      1440
+    ]
+  }
+}

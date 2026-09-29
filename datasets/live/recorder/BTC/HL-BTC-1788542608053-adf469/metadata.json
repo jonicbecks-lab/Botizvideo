@@ -1,0 +1,1101 @@
+{
+  "schemaVersion": 1,
+  "module": "Galka Research Recorder",
+  "campaignId": "HL-BTC-1788542608053-adf469",
+  "symbol": "BTC",
+  "galkaLevel": 78583.3132260489,
+  "campaignActivatedAt": "2026-09-04T17:23:28Z",
+  "campaignActivatedAtMs": 1788542608054,
+  "status": "completed",
+  "recordingStartedAt": "2026-09-04T17:23:28Z",
+  "recordingStoppedAt": "2026-09-06T02:52:39.314Z",
+  "crossedBelowGalka": null,
+  "returnToGalka": null,
+  "campaignCompletedAt": "2026-09-06T02:52:39Z",
+  "campaignCompletedAtMs": 1788663159000,
+  "maxDeviationBelowGalkaPct": 0.0,
+  "minimumObservedPrice": 79340.0,
+  "maximumObservedPrice": 80192.0,
+  "levels": [
+    {
+      "index": 1,
+      "depthPct": 0.15,
+      "price": 78465.0,
+      "size": 0.00888,
+      "notional": 696.7692,
+      "entryOid": 536293850098,
+      "targetOid": 536293850099,
+      "entryCloid": "0x90c1346b1c4448c8a8354847e9e895a7",
+      "targetCloid": "0xe1740532b1df43ebbbd917677fa284dc",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 2,
+      "depthPct": 0.3,
+      "price": 78348.0,
+      "size": 0.01139,
+      "notional": 892.38372,
+      "entryOid": 536293860272,
+      "targetOid": 536293860273,
+      "entryCloid": "0x7c224935c17c425f8e9f7bfd9d11adf6",
+      "targetCloid": "0x2271871b990f49a5bbcea837b577759b",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 3,
+      "depthPct": 0.45,
+      "price": 78230.0,
+      "size": 0.00891,
+      "notional": 697.0293,
+      "entryOid": 536293873536,
+      "targetOid": 536293873537,
+      "entryCloid": "0x3cc8302c46934533a691a1acec4696a2",
+      "targetCloid": "0xaaec7b4bcdbb4917a23e2e216ed06d2a",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    },
+    {
+      "index": 4,
+      "depthPct": 0.6,
+      "price": 78112.0,
+      "size": 0.00642,
+      "notional": 501.47904,
+      "entryOid": 536293887662,
+      "targetOid": 536293887663,
+      "entryCloid": "0xdb110426b4a04da2be87777ae768ee5f",
+      "targetCloid": "0xd524f90e067b496baf263c595f0e13a3",
+      "filledSize": 0.0,
+      "averageFillPrice": 0.0,
+      "status": "resting"
+    }
+  ],
+  "executions": [
+    {
+      "event": "galka_execution",
+      "exchangeTimestampMs": 1788525018592,
+      "localReceiveTimestampNs": 1788611756206818632,
+      "ownerKind": null,
+      "ownerLevel": null,
+      "oid": 535842185283,
+      "cloid": "0xab20736df3c942ae832c6da88f7c8c7f",
+      "side": "A",
+      "price": 80525.0,
+      "size": 0.00864,
+      "fee": 0.313081,
+      "closedPnl": 1.33056,
+      "hash": "0xb98c5e4a5034aa5bbb060443aa917c020667002feb37c92d5d55099d0f388446"
+    }
+  ],
+  "actualRealizedPnl": 0.0,
+  "fees": 0.0,
+  "researchOnly": true,
+  "tradingLogicChanged": false,
+  "rawFormat": "append-only JSONL; materialize Parquet later if desired",
+  "postReturnHorizonsMs": [
+    1000,
+    3000,
+    5000,
+    10000,
+    30000,
+    60000,
+    120000,
+    300000
+  ],
+  "postReturnOutcome": {
+    "complete": false,
+    "horizons": {}
+  },
+  "stream": {
+    "reconnects": 44,
+    "gaps": [
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788542850640,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-04T17:27:30.640Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788542850640,
+        "endedAtMs": 1788542851812,
+        "recordedAt": "2026-09-04T17:27:31.812Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788553122068,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-04T20:18:42.069Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788553122068,
+        "endedAtMs": 1788553123766,
+        "recordedAt": "2026-09-04T20:18:43.766Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788563243210,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-04T23:07:23.211Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788563243210,
+        "endedAtMs": 1788563244878,
+        "recordedAt": "2026-09-04T23:07:24.879Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788573506346,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T01:58:26.348Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788573506346,
+        "endedAtMs": 1788573508015,
+        "recordedAt": "2026-09-05T01:58:28.016Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1788573958651,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T02:05:58.652Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788573958651,
+        "endedAtMs": 1788573960061,
+        "recordedAt": "2026-09-05T02:06:00.061Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788582640118,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T04:30:40.118Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788582640118,
+        "endedAtMs": 1788582646559,
+        "recordedAt": "2026-09-05T04:30:46.560Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788593461700,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T07:31:01.701Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788593461700,
+        "endedAtMs": 1788593462887,
+        "recordedAt": "2026-09-05T07:31:02.887Z"
+      },
+      {
+        "message": "WebSocketConnectionClosedException: Connection to remote host was lost.",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:28:59.383Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:00 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 1ad6d29ff66cbe7838d3a30dae2f9382.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '-B5FSuc3puiZ7PvZZLuwGHzjty6nd-5G2Q1kzJ1k3r9DR6EqhIB0Wg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:00.943Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:02 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 8c3a87d110aff35fe17513b9a9ad30cc.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'cjsz0tlD4x0qnUslh66xbdT-Ocwzh_cDjbfPgmw9YEm44_bx5k_4Rw=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:02.610Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:04 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 d229ccc15dd984a81023d1b57fa0adbc.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'HQyNM6746vv7eiSheh6AczxVDG73sUdRsODJpZKhEdgEEdwE2Ux6Qg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:04.933Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:08 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 2f3a70deb5812eb0e48215ada7b72404.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'Hu-hM5eGh58LP5rcwcF9PWgCDWo7Ljv_NLDRfEUNFt7G4cY5R5PReA=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:08.554Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.30.3', 'date': 'Sat, 05 Sep 2026 09:29:14 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 d85ed2d2deba50aaf4938eae2cbcf3ac.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'm_la0Pn_FSd3Zgh6renq3_hwjYqPW_ePwupVj1urz0AdLEMQ0AptfA=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.30.3</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:14.309Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:24 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 1ad6d29ff66cbe7838d3a30dae2f9382.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'lQaXYBnAbMEfBeVTR08IKs5_QPfvdgwa5-1y7DT4e5aFZDJ35T0Bqg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:24.615Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:35 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 253070fb98af6415d4d55959d04ff55a.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'Csfft60fVITJ9MCaHDCvVp_XXV4qTJqcmBpfD9z_VVFNu0qf-IswUg=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:35.511Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:46 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 efa1f20185894fba06fb038a3e989f24.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': 'RPmjX4rOpxzr-XbJRKr9vvkRCGelfLdlvSnbZZBoj0qVhEddMnhreQ=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:46.401Z"
+      },
+      {
+        "message": "WebSocketBadStatusException: Handshake status 502 Bad Gateway -+-+- {'content-type': 'text/html', 'content-length': '157', 'connection': 'close', 'server': 'nginx/1.22.1', 'date': 'Sat, 05 Sep 2026 09:29:57 GMT', 'x-cache': 'Error from cloudfront', 'via': '1.1 67fb37d4b7930077be54eaea3254b4ec.cloudfront.net (CloudFront)', 'x-amz-cf-pop': 'OSL50-P3', 'x-amz-cf-id': '4QSvx-b9xi77G-d4rMRHQQvC6G4tF1Wk0lDpteXQCarw4UWapSWWlw=='} -+-+- b'<html>\\r\\n<head><title>502 Bad Gateway</title></head>\\r\\n<body>\\r\\n<center><h1>502 Bad Gateway</h1></center>\\r\\n<hr><center>nginx/1.22.1</center>\\r\\n</body>\\r\\n</html>\\r\\n'",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T09:29:57.177Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788600539381,
+        "endedAtMs": 1788600608021,
+        "recordedAt": "2026-09-05T09:30:08.022Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788611067329,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T12:24:27.330Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788611067329,
+        "endedAtMs": 1788611068893,
+        "recordedAt": "2026-09-05T12:24:28.893Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788617679616,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T14:14:39.618Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788617679616,
+        "endedAtMs": 1788617680772,
+        "recordedAt": "2026-09-05T14:14:40.772Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788627942283,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T17:05:42.283Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788627942283,
+        "endedAtMs": 1788627943647,
+        "recordedAt": "2026-09-05T17:05:43.647Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788630047400,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T17:40:47.401Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788641470268,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T20:51:10.271Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788641470268,
+        "endedAtMs": 1788641471681,
+        "recordedAt": "2026-09-05T20:51:11.681Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788641568879,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T20:52:48.879Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788641568879,
+        "endedAtMs": 1788641570375,
+        "recordedAt": "2026-09-05T20:52:50.375Z"
+      },
+      {
+        "message": "ConnectionAbortedError: [Errno 103] Software caused connection abort",
+        "startedAtMs": 1788646982724,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-05T22:23:02.725Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788646982724,
+        "endedAtMs": 1788646984013,
+        "recordedAt": "2026-09-05T22:23:04.013Z"
+      },
+      {
+        "message": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
+        "startedAtMs": 1788657597474,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-06T01:19:57.475Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788657597474,
+        "endedAtMs": 1788657598808,
+        "recordedAt": "2026-09-06T01:19:58.808Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1788661182247,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-06T02:19:42.248Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788661182247,
+        "endedAtMs": 1788661183437,
+        "recordedAt": "2026-09-06T02:19:43.437Z"
+      },
+      {
+        "message": "ConnectionResetError: [Errno 104] Connection reset by peer",
+        "startedAtMs": 1788662260397,
+        "endedAtMs": null,
+        "recordedAt": "2026-09-06T02:37:40.397Z"
+      },
+      {
+        "message": "websocket reconnected",
+        "startedAtMs": 1788662260397,
+        "endedAtMs": 1788662261561,
+        "recordedAt": "2026-09-06T02:37:41.561Z"
+      }
+    ],
+    "droppedQueueMessages": 0,
+    "writerError": null
+  },
+  "settings": {
+    "l2Depth": 20,
+    "windowsMs": [
+      100,
+      250,
+      500,
+      1000,
+      5000,
+      10000
+    ],
+    "featureIntervalMs": 100,
+    "bookBandsBps": [
+      1.0,
+      2.5,
+      5.0,
+      10.0,
+      25.0
+    ],
+    "imbalanceRatioThreshold": 3.0,
+    "stackedLevelsThreshold": 3,
+    "largeTradeQuantile": 0.95,
+    "baselineSeconds": 60,
+    "footprintPriceStep": 0.0
+  },
+  "updatedAt": "2026-09-06T02:54:04.278Z",
+  "galkaStructure": {
+    "schemaVersion": 2,
+    "selectionMethod": "manual_crosshair_structure_v3",
+    "symbol": "BTC",
+    "timeframe": "5m",
+    "galkaLevel": 78583.3132260489,
+    "anchorTimeMs": 1788533400000,
+    "anchorPrice": 78583.3132260489,
+    "leftBoundaryTimeMs": 1788532330887,
+    "leftBoundaryPrice": 79464.13834837297,
+    "rightBoundaryTimeMs": 1788536137348,
+    "rightBoundaryPrice": 79506.82969915913,
+    "structureStartTimeMs": 1788532330887,
+    "structureEndTimeMs": 1788536137348,
+    "selectedAtMs": 1788542606162,
+    "draftStartedAtMs": 1788542589921,
+    "serverReceivedAtMs": 1788542606185,
+    "fullStructureBarCount": 14,
+    "structureBarsTruncated": false,
+    "anchorCandle": {
+      "timeMs": 1788533400000,
+      "open": 78654.0,
+      "high": 78897.0,
+      "low": 78600.0,
+      "close": 78784.0,
+      "volume": 680.24342
+    },
+    "leftBoundaryCandle": {
+      "timeMs": 1788532200000,
+      "open": 79360.0,
+      "high": 79400.0,
+      "low": 79302.0,
+      "close": 79393.0,
+      "volume": 113.37836
+    },
+    "rightBoundaryCandle": {
+      "timeMs": 1788536100000,
+      "open": 79324.0,
+      "high": 79499.0,
+      "low": 79324.0,
+      "close": 79499.0,
+      "volume": 156.15039
+    },
+    "structureEndCandle": {
+      "timeMs": 1788536100000,
+      "open": 79324.0,
+      "high": 79499.0,
+      "low": 79324.0,
+      "close": 79499.0,
+      "volume": 156.15039
+    },
+    "preContextBars": [
+      {
+        "timeMs": 1788520200000,
+        "open": 81143.0,
+        "high": 81192.0,
+        "low": 81099.0,
+        "close": 81150.0,
+        "volume": 22.41577
+      },
+      {
+        "timeMs": 1788520500000,
+        "open": 81150.0,
+        "high": 81191.0,
+        "low": 81091.0,
+        "close": 81147.0,
+        "volume": 49.62805
+      },
+      {
+        "timeMs": 1788520800000,
+        "open": 81147.0,
+        "high": 81250.0,
+        "low": 81146.0,
+        "close": 81244.0,
+        "volume": 52.61167
+      },
+      {
+        "timeMs": 1788521100000,
+        "open": 81245.0,
+        "high": 81374.0,
+        "low": 81234.0,
+        "close": 81299.0,
+        "volume": 304.71759
+      },
+      {
+        "timeMs": 1788521400000,
+        "open": 81300.0,
+        "high": 81300.0,
+        "low": 81209.0,
+        "close": 81214.0,
+        "volume": 86.89783
+      },
+      {
+        "timeMs": 1788521700000,
+        "open": 81214.0,
+        "high": 81298.0,
+        "low": 81213.0,
+        "close": 81254.0,
+        "volume": 9.32208
+      },
+      {
+        "timeMs": 1788522000000,
+        "open": 81254.0,
+        "high": 81254.0,
+        "low": 81166.0,
+        "close": 81220.0,
+        "volume": 26.11731
+      },
+      {
+        "timeMs": 1788522300000,
+        "open": 81220.0,
+        "high": 81251.0,
+        "low": 81177.0,
+        "close": 81225.0,
+        "volume": 27.05304
+      },
+      {
+        "timeMs": 1788522600000,
+        "open": 81226.0,
+        "high": 81304.0,
+        "low": 81218.0,
+        "close": 81232.0,
+        "volume": 41.43046
+      },
+      {
+        "timeMs": 1788522900000,
+        "open": 81232.0,
+        "high": 81291.0,
+        "low": 81172.0,
+        "close": 81181.0,
+        "volume": 117.71306
+      },
+      {
+        "timeMs": 1788523200000,
+        "open": 81181.0,
+        "high": 81217.0,
+        "low": 81113.0,
+        "close": 81139.0,
+        "volume": 89.89118
+      },
+      {
+        "timeMs": 1788523500000,
+        "open": 81140.0,
+        "high": 81229.0,
+        "low": 81100.0,
+        "close": 81177.0,
+        "volume": 69.40722
+      },
+      {
+        "timeMs": 1788523800000,
+        "open": 81177.0,
+        "high": 81220.0,
+        "low": 81103.0,
+        "close": 81211.0,
+        "volume": 34.24857
+      },
+      {
+        "timeMs": 1788524100000,
+        "open": 81211.0,
+        "high": 81217.0,
+        "low": 81095.0,
+        "close": 81137.0,
+        "volume": 45.331
+      },
+      {
+        "timeMs": 1788524400000,
+        "open": 81137.0,
+        "high": 81183.0,
+        "low": 81092.0,
+        "close": 81178.0,
+        "volume": 41.6708
+      },
+      {
+        "timeMs": 1788524700000,
+        "open": 81179.0,
+        "high": 81318.0,
+        "low": 81167.0,
+        "close": 81310.0,
+        "volume": 53.00333
+      },
+      {
+        "timeMs": 1788525000000,
+        "open": 81310.0,
+        "high": 81310.0,
+        "low": 79604.0,
+        "close": 79813.0,
+        "volume": 3415.4255
+      },
+      {
+        "timeMs": 1788525300000,
+        "open": 79813.0,
+        "high": 79970.0,
+        "low": 79363.0,
+        "close": 79933.0,
+        "volume": 1248.8951
+      },
+      {
+        "timeMs": 1788525600000,
+        "open": 79933.0,
+        "high": 80099.0,
+        "low": 79652.0,
+        "close": 79652.0,
+        "volume": 518.31098
+      },
+      {
+        "timeMs": 1788525900000,
+        "open": 79684.0,
+        "high": 79684.0,
+        "low": 79156.0,
+        "close": 79426.0,
+        "volume": 1321.71276
+      },
+      {
+        "timeMs": 1788526200000,
+        "open": 79427.0,
+        "high": 79638.0,
+        "low": 79313.0,
+        "close": 79605.0,
+        "volume": 457.01712
+      },
+      {
+        "timeMs": 1788526500000,
+        "open": 79604.0,
+        "high": 79604.0,
+        "low": 79301.0,
+        "close": 79434.0,
+        "volume": 351.44217
+      },
+      {
+        "timeMs": 1788526800000,
+        "open": 79434.0,
+        "high": 79566.0,
+        "low": 79345.0,
+        "close": 79399.0,
+        "volume": 282.29479
+      },
+      {
+        "timeMs": 1788527100000,
+        "open": 79400.0,
+        "high": 79449.0,
+        "low": 79167.0,
+        "close": 79263.0,
+        "volume": 350.94832
+      },
+      {
+        "timeMs": 1788527400000,
+        "open": 79263.0,
+        "high": 79334.0,
+        "low": 79173.0,
+        "close": 79209.0,
+        "volume": 445.67418
+      },
+      {
+        "timeMs": 1788527700000,
+        "open": 79210.0,
+        "high": 79379.0,
+        "low": 79170.0,
+        "close": 79333.0,
+        "volume": 251.74061
+      },
+      {
+        "timeMs": 1788528000000,
+        "open": 79325.0,
+        "high": 79438.0,
+        "low": 79307.0,
+        "close": 79399.0,
+        "volume": 137.27923
+      },
+      {
+        "timeMs": 1788528300000,
+        "open": 79399.0,
+        "high": 79484.0,
+        "low": 79259.0,
+        "close": 79295.0,
+        "volume": 211.82703
+      },
+      {
+        "timeMs": 1788528600000,
+        "open": 79295.0,
+        "high": 79525.0,
+        "low": 79177.0,
+        "close": 79223.0,
+        "volume": 576.09895
+      },
+      {
+        "timeMs": 1788528900000,
+        "open": 79228.0,
+        "high": 79422.0,
+        "low": 78953.0,
+        "close": 79331.0,
+        "volume": 1049.87822
+      },
+      {
+        "timeMs": 1788529200000,
+        "open": 79331.0,
+        "high": 79424.0,
+        "low": 79256.0,
+        "close": 79387.0,
+        "volume": 478.51898
+      },
+      {
+        "timeMs": 1788529500000,
+        "open": 79388.0,
+        "high": 79690.0,
+        "low": 79309.0,
+        "close": 79655.0,
+        "volume": 827.98407
+      },
+      {
+        "timeMs": 1788529800000,
+        "open": 79655.0,
+        "high": 79655.0,
+        "low": 79221.0,
+        "close": 79285.0,
+        "volume": 440.32068
+      },
+      {
+        "timeMs": 1788530100000,
+        "open": 79285.0,
+        "high": 79500.0,
+        "low": 79279.0,
+        "close": 79366.0,
+        "volume": 124.16463
+      },
+      {
+        "timeMs": 1788530400000,
+        "open": 79366.0,
+        "high": 79568.0,
+        "low": 79341.0,
+        "close": 79473.0,
+        "volume": 172.10283
+      },
+      {
+        "timeMs": 1788530700000,
+        "open": 79474.0,
+        "high": 79534.0,
+        "low": 79237.0,
+        "close": 79282.0,
+        "volume": 240.5057
+      },
+      {
+        "timeMs": 1788531000000,
+        "open": 79282.0,
+        "high": 79480.0,
+        "low": 79262.0,
+        "close": 79411.0,
+        "volume": 327.05859
+      },
+      {
+        "timeMs": 1788531300000,
+        "open": 79413.0,
+        "high": 79500.0,
+        "low": 79160.0,
+        "close": 79186.0,
+        "volume": 653.294
+      },
+      {
+        "timeMs": 1788531600000,
+        "open": 79187.0,
+        "high": 79338.0,
+        "low": 79068.0,
+        "close": 79315.0,
+        "volume": 215.19467
+      },
+      {
+        "timeMs": 1788531900000,
+        "open": 79321.0,
+        "high": 79400.0,
+        "low": 79291.0,
+        "close": 79366.0,
+        "volume": 490.15111
+      }
+    ],
+    "structureBars": [
+      {
+        "timeMs": 1788532200000,
+        "open": 79360.0,
+        "high": 79400.0,
+        "low": 79302.0,
+        "close": 79393.0,
+        "volume": 113.37836
+      },
+      {
+        "timeMs": 1788532500000,
+        "open": 79393.0,
+        "high": 79463.0,
+        "low": 79241.0,
+        "close": 79304.0,
+        "volume": 124.72201
+      },
+      {
+        "timeMs": 1788532800000,
+        "open": 79303.0,
+        "high": 79304.0,
+        "low": 78878.0,
+        "close": 79018.0,
+        "volume": 446.94053
+      },
+      {
+        "timeMs": 1788533100000,
+        "open": 79018.0,
+        "high": 79135.0,
+        "low": 78648.0,
+        "close": 78653.0,
+        "volume": 1557.73241
+      },
+      {
+        "timeMs": 1788533400000,
+        "open": 78654.0,
+        "high": 78897.0,
+        "low": 78600.0,
+        "close": 78784.0,
+        "volume": 680.24342
+      },
+      {
+        "timeMs": 1788533700000,
+        "open": 78783.0,
+        "high": 78965.0,
+        "low": 78783.0,
+        "close": 78881.0,
+        "volume": 279.48703
+      },
+      {
+        "timeMs": 1788534000000,
+        "open": 78880.0,
+        "high": 78986.0,
+        "low": 78763.0,
+        "close": 78967.0,
+        "volume": 383.68933
+      },
+      {
+        "timeMs": 1788534300000,
+        "open": 78967.0,
+        "high": 79165.0,
+        "low": 78919.0,
+        "close": 79164.0,
+        "volume": 502.6525
+      },
+      {
+        "timeMs": 1788534600000,
+        "open": 79164.0,
+        "high": 79165.0,
+        "low": 79039.0,
+        "close": 79165.0,
+        "volume": 338.35112
+      },
+      {
+        "timeMs": 1788534900000,
+        "open": 79165.0,
+        "high": 79248.0,
+        "low": 79135.0,
+        "close": 79211.0,
+        "volume": 340.56602
+      },
+      {
+        "timeMs": 1788535200000,
+        "open": 79211.0,
+        "high": 79263.0,
+        "low": 79176.0,
+        "close": 79263.0,
+        "volume": 150.56429
+      },
+      {
+        "timeMs": 1788535500000,
+        "open": 79263.0,
+        "high": 79388.0,
+        "low": 79262.0,
+        "close": 79371.0,
+        "volume": 240.6295
+      },
+      {
+        "timeMs": 1788535800000,
+        "open": 79371.0,
+        "high": 79420.0,
+        "low": 79314.0,
+        "close": 79324.0,
+        "volume": 261.79661
+      },
+      {
+        "timeMs": 1788536100000,
+        "open": 79324.0,
+        "high": 79499.0,
+        "low": 79324.0,
+        "close": 79499.0,
+        "volume": 156.15039
+      }
+    ],
+    "postContextBarsAtPlacement": [
+      {
+        "timeMs": 1788536400000,
+        "open": 79499.0,
+        "high": 79500.0,
+        "low": 79448.0,
+        "close": 79483.0,
+        "volume": 90.85473
+      },
+      {
+        "timeMs": 1788536700000,
+        "open": 79482.0,
+        "high": 79511.0,
+        "low": 79347.0,
+        "close": 79348.0,
+        "volume": 250.87083
+      },
+      {
+        "timeMs": 1788537000000,
+        "open": 79347.0,
+        "high": 79458.0,
+        "low": 79347.0,
+        "close": 79395.0,
+        "volume": 59.67148
+      },
+      {
+        "timeMs": 1788537300000,
+        "open": 79395.0,
+        "high": 79444.0,
+        "low": 79363.0,
+        "close": 79378.0,
+        "volume": 88.5407
+      },
+      {
+        "timeMs": 1788537600000,
+        "open": 79377.0,
+        "high": 79434.0,
+        "low": 79341.0,
+        "close": 79378.0,
+        "volume": 103.28068
+      },
+      {
+        "timeMs": 1788537900000,
+        "open": 79379.0,
+        "high": 79484.0,
+        "low": 79369.0,
+        "close": 79422.0,
+        "volume": 61.19453
+      },
+      {
+        "timeMs": 1788538200000,
+        "open": 79420.0,
+        "high": 79478.0,
+        "low": 79405.0,
+        "close": 79412.0,
+        "volume": 36.14629
+      },
+      {
+        "timeMs": 1788538500000,
+        "open": 79412.0,
+        "high": 79473.0,
+        "low": 79398.0,
+        "close": 79441.0,
+        "volume": 68.47566
+      },
+      {
+        "timeMs": 1788538800000,
+        "open": 79433.0,
+        "high": 79479.0,
+        "low": 79420.0,
+        "close": 79478.0,
+        "volume": 56.02915
+      },
+      {
+        "timeMs": 1788539100000,
+        "open": 79478.0,
+        "high": 79530.0,
+        "low": 79445.0,
+        "close": 79512.0,
+        "volume": 84.80638
+      },
+      {
+        "timeMs": 1788539400000,
+        "open": 79511.0,
+        "high": 79758.0,
+        "low": 79504.0,
+        "close": 79728.0,
+        "volume": 750.02405
+      },
+      {
+        "timeMs": 1788539700000,
+        "open": 79728.0,
+        "high": 79800.0,
+        "low": 79661.0,
+        "close": 79672.0,
+        "volume": 641.00401
+      },
+      {
+        "timeMs": 1788540000000,
+        "open": 79675.0,
+        "high": 79853.0,
+        "low": 79675.0,
+        "close": 79823.0,
+        "volume": 378.39881
+      },
+      {
+        "timeMs": 1788540300000,
+        "open": 79824.0,
+        "high": 79825.0,
+        "low": 79718.0,
+        "close": 79767.0,
+        "volume": 174.47451
+      },
+      {
+        "timeMs": 1788540600000,
+        "open": 79767.0,
+        "high": 79862.0,
+        "low": 79701.0,
+        "close": 79717.0,
+        "volume": 288.43782
+      },
+      {
+        "timeMs": 1788540900000,
+        "open": 79716.0,
+        "high": 79783.0,
+        "low": 79716.0,
+        "close": 79723.0,
+        "volume": 43.91081
+      },
+      {
+        "timeMs": 1788541200000,
+        "open": 79718.0,
+        "high": 79729.0,
+        "low": 79620.0,
+        "close": 79650.0,
+        "volume": 105.98413
+      },
+      {
+        "timeMs": 1788541500000,
+        "open": 79649.0,
+        "high": 79700.0,
+        "low": 79649.0,
+        "close": 79666.0,
+        "volume": 97.50399
+      },
+      {
+        "timeMs": 1788541800000,
+        "open": 79667.0,
+        "high": 79695.0,
+        "low": 79595.0,
+        "close": 79595.0,
+        "volume": 121.7498
+      },
+      {
+        "timeMs": 1788542100000,
+        "open": 79595.0,
+        "high": 79607.0,
+        "low": 79481.0,
+        "close": 79573.0,
+        "volume": 65.39565
+      },
+      {
+        "timeMs": 1788542400000,
+        "open": 79573.0,
+        "high": 79627.0,
+        "low": 79557.0,
+        "close": 79558.0,
+        "volume": 28.85254
+      }
+    ],
+    "lockedForCampaign": true,
+    "researchOnly": true,
+    "candleSource": "hyperliquid_candles_snapshot",
+    "derived": {
+      "barCount": 14,
+      "capturedBarCount": 14,
+      "durationMs": 3806461,
+      "anchorOffsetMsFromLeft": 1069113,
+      "anchorOffsetPctOfSpan": 28.086797684253167,
+      "leftBoundaryVsGalkaPct": 1.120880612134978,
+      "rightBoundaryVsGalkaPct": 1.1752068412459238,
+      "leftToAnchorMovePct": -1.1084561421436656,
+      "anchorToRightMovePct": 1.1752068412459238,
+      "upBars": 10,
+      "downBars": 4,
+      "highestHigh": 79499.0,
+      "lowestLow": 78600.0,
+      "totalCandleVolume": 5576.90352,
+      "netMovePct": 0.1751512096774155,
+      "galkaVsAnchorLowPct": -0.021229992304205858,
+      "galkaVsAnchorClosePct": -0.25473036904841706
+    },
+    "anchorPlacementMethod": "manual_horizontal_snap_to_candle",
+    "boundaryPlacementMethod": "manual_free_xy",
+    "anchorSelectedAtMs": 1788542593748,
+    "leftSelectedAtMs": 1788542603224,
+    "rightSelectedAtMs": 1788542606161,
+    "interactionModel": "persistent_relative_boundary_adjustment",
+    "candleContextEnrichedAtMs": 1788542617221
+  },
+  "captureFromPlacement": true,
+  "recordingStartBasis": "manual_galka_structure_locked",
+  "campaignStatus": "canceled",
+  "lastCampaignUpdateReason": "campaign_completed",
+  "finalizedAt": "2026-09-06T02:53:50.865Z"
+}
