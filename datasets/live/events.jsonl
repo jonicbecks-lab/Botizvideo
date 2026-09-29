@@ -1503,3 +1503,5 @@
 {"schemaVersion": 1, "recordedAt": "2026-09-29T13:06:24Z", "type": "risk", "message": "Глобальная сверка обнаружила риск: BTC: 8 orphan orders", "campaignId": null, "coin": null, "meta": {}}
 {"schemaVersion": 1, "recordedAt": "2026-09-29T14:00:49Z", "type": "risk", "message": "Стартовая сверка обнаружила риск: BTC: 8 orphan orders", "campaignId": null, "coin": null, "meta": {}}
 {"schemaVersion": 1, "recordedAt": "2026-09-29T14:00:49Z", "type": "research", "message": "Read-only Agent API запущен на отдельном порту 3002", "campaignId": null, "coin": null, "meta": {"port": 3002, "readOnly": true}}
+{"schemaVersion": 1, "recordedAt": "2026-09-29T14:52:36Z", "type": "risk", "message": "Сверка обнаружила риск: BTC: 8 orphan orders", "campaignId": null, "coin": null, "meta": {}}
+{"schemaVersion": 1, "recordedAt": "2026-09-29T14:52:48Z", "type": "risk", "message": "Сверка обнаружила риск: BTC: 8 orphan orders", "campaignId": null, "coin": null, "meta": {}}
