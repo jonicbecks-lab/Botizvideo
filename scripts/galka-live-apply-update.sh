@@ -13,6 +13,7 @@ WAS_RUNNING=0
 VENV_BACKUP=""
 CODE_UPDATED=0
 
+# shellcheck disable=SC2317
 cleanup() {
   set +e
   if [[ -d "$WORKTREE" ]]; then
@@ -60,7 +61,6 @@ if ! git merge-base --is-ancestor "$OLD_HEAD" "$REMOTE_HEAD" >/dev/null 2>&1; th
   exit 5
 fi
 
-old_requirements_hash="$(git show "$OLD_HEAD:live/requirements-termux.txt" | sha256sum | awk '{print $1}')"
 new_requirements_hash="$(git show "$REMOTE_HEAD:live/requirements-termux.txt" | sha256sum | awk '{print $1}')"
 
 echo "[2/6] Preflight-testing the new commit while current GALKA keeps running..."
