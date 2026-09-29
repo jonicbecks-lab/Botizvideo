@@ -21,6 +21,8 @@ PRIVATE_FILE_RE = re.compile(
     re.IGNORECASE,
 )
 ENV_FILE_RE = re.compile(r"(^|/)(?:\.env|[^/]+\.env)$", re.IGNORECASE)
+RESEARCH_DATASET_RE = re.compile(r"^datasets/live/(?:fills\.jsonl|recorder/)", re.IGNORECASE)
+PUBLIC_HASH_CONTEXT_RE = re.compile(r'(?i)"(?:hash|txHash|transactionHash)"\s*:\s*"?\s*$')
 
 
 def git(*args: str, input_bytes: bytes | None = None, check: bool = True) -> bytes:
@@ -76,6 +78,23 @@ def entropy_bits_per_character(value: str) -> float:
     return -sum((count / len(value)) * math.log2(count / len(value)) for count in counts.values())
 
 
+def _display_path(path: str) -> str:
+    return path.split("@", 1)[0].removeprefix("history:").replace("\\", "/")
+
+
+def _is_public_research_hash(path: str, text: str, match_start: int) -> bool:
+    """Allow only explicitly named public chain hashes in research telemetry.
+
+    A random 32-byte value elsewhere in the same dataset is still treated as a
+    potential private key. This keeps the exception narrow enough for the
+    Hyperliquid transaction hashes stored by the journal/recorder.
+    """
+    if not RESEARCH_DATASET_RE.search(_display_path(path)):
+        return False
+    context = text[max(0, match_start - 80):match_start]
+    return PUBLIC_HASH_CONTEXT_RE.search(context) is not None
+
+
 def scan_blob(path: str, blob: bytes) -> list[str]:
     if len(blob) > MAX_BLOB_BYTES or b"\0" in blob:
         return []
@@ -86,6 +105,8 @@ def scan_blob(path: str, blob: bytes) -> list[str]:
             findings.append(name)
     for match in HEX_SECRET_RE.finditer(text):
         value = match.group(0)
+        if _is_public_research_hash(path, text, match.start()):
+            continue
         if not looks_like_fixture(value) and entropy_bits_per_character(value[2:].lower()) > 2.5:
             findings.append("64-hex-private-key")
             break
@@ -149,7 +170,7 @@ def main() -> int:
     if args.history:
         blobs.extend(history_blobs())
     for path, blob in blobs:
-        display_path = path.split("@", 1)[0].removeprefix("history:")
+        display_path = _display_path(path)
         if not safe_path(display_path):
             findings.append((path, "private-filename"))
         findings.extend((path, rule) for rule in scan_blob(path, blob))

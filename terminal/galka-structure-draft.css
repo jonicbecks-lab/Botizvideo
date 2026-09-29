@@ -1,0 +1,141 @@
+.galka-structure-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 16;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.galka-structure-guide {
+  stroke: rgba(255, 152, 0, 0.34);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+
+.galka-structure-line {
+  stroke: rgba(255, 152, 0, 0.38);
+  stroke-width: 1.5;
+}
+
+.galka-structure-shape {
+  fill: none;
+  stroke: #ff9800;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(255, 152, 0, 0.28));
+}
+
+.galka-structure-anchor-ring {
+  fill: #111827;
+  stroke: #ffb74d;
+  stroke-width: 1.4;
+}
+
+.galka-structure-anchor-mark {
+  fill: none;
+  stroke: #ffb74d;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.galka-structure-boundary {
+  fill: #111827;
+  stroke-width: 1.5;
+}
+
+.galka-structure-boundary-left {
+  stroke: #8bd3ff;
+}
+
+.galka-structure-boundary-right {
+  stroke: #ffb74d;
+}
+
+.galka-structure-toolbar {
+  position: absolute;
+  z-index: 22;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(92vw, 520px);
+  min-height: 48px;
+  padding: 6px;
+  border: 1px solid #394457;
+  border-radius: 16px;
+  background: rgba(8, 12, 18, 0.96);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.galka-structure-toolbar.hidden,
+.galka-structure-overlay.hidden {
+  display: none;
+}
+
+.galka-structure-info {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-left: 7px;
+  color: #d6dce7;
+  font-size: 12px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.galka-structure-info b {
+  color: #ffb74d;
+  font-size: 13px;
+}
+
+.galka-structure-toolbar button {
+  flex: 0 0 auto;
+  min-width: 42px;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid #465166;
+  border-radius: 11px;
+  background: #222936;
+  color: #f1f5f9;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.galka-structure-toolbar button.galka-structure-confirm {
+  min-width: 118px;
+  border-color: #b96a00;
+  background: #9b3b00;
+  color: #ffffff;
+}
+
+.galka-structure-toolbar button:disabled {
+  opacity: 0.52;
+}
+
+@media (max-width: 440px) {
+  .galka-structure-toolbar {
+    width: calc(100vw - 24px);
+  }
+
+  .galka-structure-info {
+    font-size: 11px;
+  }
+
+  .galka-structure-toolbar button.galka-structure-confirm {
+    min-width: 104px;
+    padding: 0 9px;
+  }
+}

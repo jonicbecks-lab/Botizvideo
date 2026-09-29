@@ -1,7 +1,12 @@
 name: CI
 
 on:
+  # Feature branches are validated by pull_request only. Running both push and
+  # pull_request for the same commit doubled Actions minutes without adding a
+  # second safety signal. Main still gets an independent post-merge run.
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
