@@ -181,6 +181,11 @@ def _new_campaign(
 ) -> dict[str, Any]:
     campaign = _ORIGINAL_NEW_CAMPAIGN(self, campaign_id, coin, galka_price, preview, levels)
     campaign.pop("targetMarginFraction", None)
+    # The base campaign constructor stores the legacy fixed config notional.
+    # Production sizing is dynamic, so the persisted campaign must use the exact
+    # preview budget that produced the exchange orders.
+    campaign["requestedNotional"] = float(preview["requestedNotional"])
+    campaign["actualNotional"] = float(preview["actualNotional"])
     for key in (
         "sizingPolicy",
         "targetMargin",
